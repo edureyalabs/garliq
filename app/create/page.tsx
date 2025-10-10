@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Eye, EyeOff, Terminal, Loader2, Check, Maximize2, Save } from 'lucide-react';
 
-export default function CreatePage() {
+// Separate component for the search params logic
+function CreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('project');
@@ -24,11 +25,11 @@ export default function CreatePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
-    useEffect(() => {
+  useEffect(() => {
     checkUser();
     if (projectId) loadProject();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [projectId]);
+  }, [projectId]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -101,10 +102,10 @@ export default function CreatePage() {
         if (error) throw error;
       } else {
         // Create new project
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('projects')
           .insert({
-            user_id: user.id,
+            user_id: user?.id,
             title: projectTitle,
             prompt,
             html_code: htmlCode
@@ -139,7 +140,7 @@ export default function CreatePage() {
       const { data: postData, error } = await supabase
         .from('posts')
         .insert({
-          user_id: user.id,
+          user_id: user?.id,
           caption,
           prompt,
           prompt_visible: promptVisible,
@@ -481,5 +482,18 @@ export default function CreatePage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// Main component with Suspense wrapper
+export default function CreatePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-6xl animate-bounce">🧄</div>
+      </div>
+    }>
+      <CreatePageContent />
+    </Suspense>
   );
 }
