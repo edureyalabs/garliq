@@ -143,7 +143,7 @@ const handleLike = async (postId: string, isLiked: boolean) => {
 const handleComment = async (postId: string) => {
   if (!commentText.trim() || !user) return;
 
-  const { data } = await supabase.from('comments').insert({
+  const { data, error } = await supabase.from('comments').insert({
     post_id: postId,
     user_id: user.id,
     content: commentText
