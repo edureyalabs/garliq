@@ -29,15 +29,16 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ posts: 0, likes: 0 });
 
-  useEffect(() => {
+    useEffect(() => {
     checkUser();
     fetchProfile();
     fetchUserPosts();
-  }, [userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -45,7 +46,7 @@ export default function ProfilePage() {
   };
 
   const fetchProfile = async () => {
-    const { data, error } = await supabase
+    const { data} = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -56,7 +57,7 @@ export default function ProfilePage() {
   };
 
   const fetchUserPosts = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('posts')
       .select('*')
       .eq('user_id', userId)

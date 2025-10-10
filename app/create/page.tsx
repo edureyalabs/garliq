@@ -10,7 +10,7 @@ export default function CreatePage() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('project');
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [prompt, setPrompt] = useState('');
   const [htmlCode, setHtmlCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,10 +24,11 @@ export default function CreatePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
-  useEffect(() => {
+    useEffect(() => {
     checkUser();
     if (projectId) loadProject();
-  }, [projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -39,7 +40,7 @@ export default function CreatePage() {
   };
 
   const loadProject = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('projects')
       .select('*')
       .eq('id', projectId)
@@ -100,7 +101,7 @@ export default function CreatePage() {
         if (error) throw error;
       } else {
         // Create new project
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('projects')
           .insert({
             user_id: user.id,

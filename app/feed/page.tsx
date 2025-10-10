@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Heart, Share2, LogOut, Code, ExternalLink, Download, Eye, Copy, Check, FolderOpen, User, MessageCircle, Send, Trash2 } from 'lucide-react';
+import { Plus, Heart, Share2, LogOut, Code, ExternalLink, Download, Copy, Check, FolderOpen, User, MessageCircle, Send, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface Post {
@@ -35,7 +35,7 @@ export default function FeedPage() {
   const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [copied, setCopied] = useState(false);
   const [commentingPost, setCommentingPost] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export default function FeedPage() {
   const fetchPosts = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('posts')
       .select('*')
       .order('created_at', { ascending: false });
@@ -143,7 +143,7 @@ const handleLike = async (postId: string, isLiked: boolean) => {
 const handleComment = async (postId: string) => {
   if (!commentText.trim() || !user) return;
 
-  const { data, error } = await supabase.from('comments').insert({
+  const { data } = await supabase.from('comments').insert({
     post_id: postId,
     user_id: user.id,
     content: commentText
@@ -212,7 +212,7 @@ const handleShare = async (post: Post) => {
         text: `Check out this AI-generated website on Garlic!`,
         url: shareUrl
       });
-    } catch (err) {
+    } catch {
       console.log('Share cancelled');
     }
   } else {

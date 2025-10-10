@@ -1,12 +1,12 @@
 'use client';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { Sparkles, Zap, Users, Code2, Rocket, Brain, ChevronRight, Shield, Layers, Globe } from 'lucide-react';
+import { motion} from 'framer-motion';
+import { Zap, Brain, ChevronRight, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 export default function Landing() {
   const [mounted, setMounted] = useState(false);
-  const { scrollY } = useScroll();
+  
 
   useEffect(() => setMounted(true), []);
 

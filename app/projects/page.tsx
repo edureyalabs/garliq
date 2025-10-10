@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Plus, FolderOpen, Trash2, Edit, Share2, Eye, Calendar } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, Edit, Eye, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 interface Project {
@@ -22,10 +22,11 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-  useEffect(() => {
+    useEffect(() => {
     checkAuth();
     fetchProjects();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
