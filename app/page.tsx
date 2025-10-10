@@ -49,7 +49,7 @@ export default function Landing() {
           >
             <h1 className="text-7xl md:text-9xl font-black mb-6 leading-none">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 animate-gradient">
-                GARLIC
+                Garliq
               </span>
             </h1>
             
@@ -236,7 +236,7 @@ export default function Landing() {
       {/* Footer */}
       <div className="relative border-t border-gray-900 py-8 px-6">
         <div className="max-w-7xl mx-auto text-center text-gray-600 text-sm">
-          <p>© 2025 Garlic. Built with 🧄 for the vibe coders.</p>
+          <p>© 2025 Garliq. Built with 🧄 for the vibe coders.</p>
         </div>
       </div>
 

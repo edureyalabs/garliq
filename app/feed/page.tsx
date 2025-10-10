@@ -208,8 +208,8 @@ const handleShare = async (post: Post) => {
   if (navigator.share) {
     try {
       await navigator.share({
-        title: `${post.caption} | Garlic`,
-        text: `Check out this AI-generated website on Garlic!`,
+        title: `${post.caption} | Garliq`,
+        text: `Check out this AI-generated website on Garliq!`,
         url: shareUrl
       });
     } catch {
@@ -233,7 +233,7 @@ const handleShare = async (post: Post) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `garlic-${post.id.slice(0, 8)}.html`;
+    a.download = `garliq-${post.id.slice(0, 8)}.html`;
     a.click();
   };
 
@@ -270,7 +270,7 @@ const handleShare = async (post: Post) => {
               🧄
             </motion.span>
             <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-              GARLIC
+              Garliq
             </h1>
           </Link>
 
@@ -405,7 +405,7 @@ const handleShare = async (post: Post) => {
         </motion.div>
         <div className="flex flex-col items-start">
           <span className="font-bold text-gray-300">{post.likes_count}</span>
-          <span className="text-xs text-gray-600">Garlics</span>
+          <span className="text-xs text-gray-600">Garliqs</span>
         </div>
       </button>
 

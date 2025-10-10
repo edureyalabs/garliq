@@ -228,7 +228,7 @@ function CreatePageContent() {
                 <div className="p-6">
                   <div className="mb-4 flex items-center gap-2 text-purple-400 font-mono text-sm">
                     <Terminal size={16} />
-                    <span>garlic@vibe:~$</span>
+                    <span>garliq@vibe:~$</span>
                     <span className="text-gray-500">describe_your_vision</span>
                   </div>
 
