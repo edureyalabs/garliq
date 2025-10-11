@@ -62,15 +62,16 @@ export default function Landing() {
             </div>
 
             <h2 className="text-3xl md:text-5xl font-bold mb-8 text-gray-300 max-w-4xl mx-auto leading-tight">
-              The World's First AI-Native Social Platform for{' '}
+              Where Software Creation Becomes{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                Generative Web Creation
+                A Social Experience
               </span>
             </h2>
 
             <p className="text-lg md:text-xl text-gray-500 mb-12 max-w-3xl mx-auto">
-              Where thoughts become code, code becomes creation, and creation becomes culture. 
-              No syntax. No frameworks. Just pure creative intent powered by next-gen AI.
+              Every scroll reveals a new interactive universe. AI agents craft full-stack applications 
+              while you watch. Share living websites, not static code. Discover, interact, remix. 
+              The camera revolutionized visual content—we're doing it for software.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
@@ -91,9 +92,9 @@ export default function Landing() {
 
             <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto pt-8 border-t border-gray-800">
               {[
-                { value: '10K+', label: 'Sites Generated' },
-                { value: '2.5s', label: 'Avg Generation' },
-                { value: '99.9%', label: 'Uptime' }
+                { value: '100K+', label: 'Apps Generated' },
+                { value: '<2s', label: 'Deploy Time' },
+                { value: 'Live', label: 'Multi-Page Apps' }
               ].map((stat, i) => (
                 <motion.div
                   key={i}
@@ -123,30 +124,30 @@ export default function Landing() {
           >
             <h3 className="text-5xl md:text-6xl font-black mb-4">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                Next-Gen Creation
+                Built Different
               </span>
             </h3>
-            <p className="text-xl text-gray-500">Powered by cutting-edge AI infrastructure</p>
+            <p className="text-xl text-gray-500">The only platform where posts are actual running applications</p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 icon: Brain,
-                title: 'Neural Vibe Engine',
-                desc: 'Advanced AI models translate your creative intent into production-ready code instantly',
+                title: 'AI Agent Orchestration',
+                desc: 'CrewAI-powered agents build multi-page applications with navigation, state management, and database integration - not just single HTML files',
                 gradient: 'from-purple-500 to-pink-500'
               },
               {
                 icon: Zap,
-                title: 'Real-Time Generation',
-                desc: 'Watch your ideas materialize in milliseconds with our optimized inference pipeline',
+                title: 'Git-Style Version Control',
+                desc: 'Commit changes, push updates live, roll back versions. Every iteration is tracked. One-click deployment updates all shared instances instantly',
                 gradient: 'from-pink-500 to-orange-500'
               },
               {
                 icon: Globe,
-                title: 'Social Web3 Layer',
-                desc: 'Share, iterate, and collaborate on generative web projects with a global creator community',
+                title: 'Social Software Marketplace',
+                desc: 'Share live apps to feed. Users interact with actual websites, not previews. Like, comment, fork, purchase. Software discovery meets social engagement',
                 gradient: 'from-orange-500 to-purple-500'
               }
             ].map((feature, i) => (
@@ -171,6 +172,55 @@ export default function Landing() {
         </div>
       </div>
 
+      {/* How It Works Section - NEW */}
+      <div className="relative py-32 px-6 bg-gradient-to-b from-black via-purple-950/10 to-black">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
+          >
+            <h3 className="text-5xl md:text-6xl font-black mb-4">
+              From Thought to{' '}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                Live Application
+              </span>
+            </h3>
+            <p className="text-xl text-gray-500">In seconds, not hours</p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-4 gap-6 relative">
+            {/* Connection line */}
+            <div className="hidden md:block absolute top-12 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 opacity-20" />
+            
+            {[
+              { step: '01', title: 'Describe Your Vision', desc: 'Natural language prompts. No code required. Tell us what you want to build.' },
+              { step: '02', title: 'AI Agents Build', desc: 'Multi-agent orchestration creates pages, navigation, styling, and logic in real-time.' },
+              { step: '03', title: 'Version & Iterate', desc: 'Commit changes. Make updates. AI maintains context. Full history tracked like Git.' },
+              { step: '04', title: 'Share & Monetize', desc: 'Publish to feed. Users interact live. Fork for remixes. Set price for premium features.' }
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.15 }}
+                className="relative"
+              >
+                <div className="relative z-10 bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl p-6 h-full">
+                  <div className="text-6xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400 opacity-20">
+                    {item.step}
+                  </div>
+                  <h4 className="text-xl font-bold mb-3">{item.title}</h4>
+                  <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Tech Stack Section */}
       <div className="relative py-32 px-6 bg-gradient-to-b from-black to-purple-950/20">
         <div className="max-w-7xl mx-auto">
@@ -188,10 +238,14 @@ export default function Landing() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
+              { name: 'Llama 3.3 70B', desc: 'Meta AI Model' },
+              { name: 'Groq LPU™', desc: 'AI Inference Chip' },
+              { name: 'CrewAI', desc: 'Agent Orchestration' },
               { name: 'Next.js 15', desc: 'React Framework' },
-              { name: 'Groq AI', desc: 'LLM Inference' },
-              { name: 'Supabase', desc: 'Backend & Auth' },
-              { name: 'Tailwind', desc: 'Styling Engine' }
+              { name: 'Supabase', desc: 'Realtime Backend' },
+              { name: 'PostgreSQL', desc: 'Database Engine' },
+              { name: 'Vercel Edge', desc: 'Global CDN' },
+              { name: 'Tailwind CSS', desc: 'Styling System' }
             ].map((tech, i) => (
               <motion.div
                 key={i}
@@ -218,17 +272,21 @@ export default function Landing() {
             viewport={{ once: true }}
             className="p-12 rounded-3xl bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 backdrop-blur-xl"
           >
-            <h3 className="text-5xl font-black mb-6">Ready to Vibe?</h3>
-            <p className="text-xl text-gray-400 mb-8">Join the next generation of web creators</p>
+            <h3 className="text-5xl font-black mb-6">The Future Doesn't Wait</h3>
+            <p className="text-xl text-gray-400 mb-8">
+              Join thousands creating the next generation of web experiences. 
+              Where every idea becomes an instant reality.
+            </p>
             <Link href="/auth">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-12 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full font-bold text-lg"
               >
-                Start Creating Now
+                Start Creating Free
               </motion.button>
             </Link>
+            <p className="text-sm text-gray-600 mt-4">No credit card required • Deploy in seconds</p>
           </motion.div>
         </div>
       </div>
