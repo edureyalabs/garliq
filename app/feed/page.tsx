@@ -282,7 +282,7 @@ export default function FeedPage() {
                 </motion.button>
               </Link>
 
-              <Link href={`/profile/${user?.id}`}>
+              <Link href={`/profiles/${user?.id}`}>
                 <button className="p-2 hover:bg-gray-800 rounded-full transition-colors">
                   <User size={20} className="text-gray-400" />
                 </button>
@@ -378,13 +378,21 @@ export default function FeedPage() {
                               width: 100vw; 
                               height: 100vh; 
                               overflow: hidden;
+                              pointer-events: none;
                             }
-                            /* Block all audio/video */
-                            audio, video { display: none !important; }
+                            /* Block all audio/video elements */
+                            audio, video, iframe { display: none !important; }
+                            /* Disable animations for performance */
+                            * { animation-play-state: paused !important; }
                           </style>
                         </head>
                         <body>
-                          ${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '<!-- script removed -->')}
+                          ${post.html_code
+                            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                            .replace(/<audio\b[^<]*(?:(?!<\/audio>)<[^<]*)*<\/audio>/gi, '')
+                            .replace(/<video\b[^<]*(?:(?!<\/video>)<[^<]*)*<\/video>/gi, '')
+                            .replace(/autoplay/gi, '')
+                          }
                         </body>
                       </html>
                     `}
@@ -417,7 +425,7 @@ export default function FeedPage() {
                 <div className="p-4 space-y-3">
                   {/* User & Caption */}
                   <div>
-                    <Link href={`/profile/${post.user_id}`}>
+                    <Link href={`/profiles/${post.user_id}`}>
                       <div className="flex items-center gap-2.5 mb-2 group/user cursor-pointer">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-semibold text-xs">
                           {user?.email?.[0].toUpperCase()}
@@ -590,8 +598,8 @@ export default function FeedPage() {
               <div className="h-full flex flex-col">
                 <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
                   <div>
-                    <h3 className="font-bold">{selectedPost.caption}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Click and interact with the live website</p>
+                    <h3 className="font-bold text-lg">{selectedPost.caption}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">🎵 Full interactive experience • Click anywhere to interact</p>
                   </div>
                   <button 
                     onClick={() => setSelectedPost(null)} 
@@ -603,9 +611,9 @@ export default function FeedPage() {
                 <iframe
                   srcDoc={selectedPost.html_code}
                   className="flex-1 w-full bg-white"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                   title={`post-fullscreen-${selectedPost.id}`}
-                  allow="autoplay; fullscreen"
+                  allow="autoplay; fullscreen; picture-in-picture; accelerometer; gyroscope"
                 />
               </div>
             </motion.div>
