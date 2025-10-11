@@ -46,12 +46,15 @@ export default function CreatePage() {
         throw new Error(sessionData.error || 'Failed to create session');
       }
 
+      const sessionId = sessionData.session.id;
+      console.log('Session created:', sessionId);
+
       // 2. Generate initial code
       const generateResponse = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          sessionId: sessionData.session.id,
+          sessionId: sessionId,
           message: prompt,
           userId: user.id
         })
@@ -63,8 +66,13 @@ export default function CreatePage() {
         throw new Error(generateData.error || 'Failed to generate code');
       }
 
-      // 3. Redirect to studio
-      router.push(`/studio/${sessionData.session.id}`);
+      console.log('Code generated successfully');
+
+      // 3. Wait a bit for database to settle
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 4. Redirect to studio
+      router.push(`/studio/${sessionId}`);
       
     } catch (error: any) {
       console.error('Creation failed:', error);

@@ -3,43 +3,60 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 // GET - Get session with chat history and commits
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
 
-    // Get session details
+    console.log('Fetching session:', sessionId);
+
+    // Get session details with better error handling
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select('*')
       .eq('id', sessionId)
-      .single();
+      .maybeSingle();
 
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      console.error('Session query error:', sessionError);
+      throw sessionError;
+    }
+
+    if (!session) {
+      console.log('Session not found:', sessionId);
+      return NextResponse.json({ 
+        error: 'Session not found',
+        session: null,
+        messages: [],
+        commits: []
+      }, { status: 404 });
+    }
 
     // Get chat messages
-    const { data: messages, error: messagesError } = await supabase
+    const { data: messages } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
-    if (messagesError) throw messagesError;
-
     // Get commits
-    const { data: commits, error: commitsError } = await supabase
+    const { data: commits } = await supabase
       .from('commits')
       .select('*')
       .eq('session_id', sessionId)
       .order('commit_number', { ascending: true });
 
-    if (commitsError) throw commitsError;
+    console.log('Session loaded:', {
+      sessionId,
+      messagesCount: messages?.length || 0,
+      commitsCount: commits?.length || 0
+    });
 
     return NextResponse.json({
       session,
@@ -48,18 +65,23 @@ export async function GET(
     });
   } catch (error) {
     console.error('Session fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch session' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch session',
+      session: null,
+      messages: [],
+      commits: []
+    }, { status: 500 });
   }
 }
 
 // PATCH - Update session title
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { title } = await request.json();
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
 
     const { data, error } = await supabase
       .from('sessions')
@@ -80,10 +102,10 @@ export async function PATCH(
 // DELETE - Delete session
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
 
     const { error } = await supabase
       .from('sessions')

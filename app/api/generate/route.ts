@@ -14,6 +14,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    console.log('Generating code for session:', sessionId);
+
     // Get chat history
     const { data: chatHistory } = await supabase
       .from('chat_messages')
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
       .eq('session_id', sessionId)
       .order('commit_number', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     // Build context for LLM
     let systemPrompt = 'You are an expert web developer. Generate complete, self-contained HTML pages with embedded CSS and JavaScript. Always return ONLY the HTML code starting with <!DOCTYPE html>, no markdown, no explanations, no code blocks. Make it visually appealing and modern with inline styles.';
@@ -61,7 +63,7 @@ Generate ONLY the complete updated HTML. Return the full page, not just changes.
           { role: 'user', content: message }
         ],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 4000
       })
     });
 
@@ -80,6 +82,8 @@ Generate ONLY the complete updated HTML. Return the full page, not just changes.
     let html = data.choices[0].message.content;
     html = html.replace(/```html\n?/g, '').replace(/```\n?/g, '').trim();
 
+    console.log('HTML generated, length:', html.length);
+
     // Save user message
     await supabase.from('chat_messages').insert({
       session_id: sessionId,
@@ -94,37 +98,60 @@ Generate ONLY the complete updated HTML. Return the full page, not just changes.
       content: 'Generated updated code'
     });
 
-    // Auto-create first commit
-    if (!currentCommit) {
-      const { data: commits } = await supabase
-        .from('commits')
-        .select('commit_number')
-        .eq('session_id', sessionId)
-        .order('commit_number', { ascending: false })
-        .limit(1);
+    // Always create a commit after generation
+    const { data: existingCommits } = await supabase
+      .from('commits')
+      .select('commit_number, id')
+      .eq('session_id', sessionId)
+      .order('commit_number', { ascending: false })
+      .limit(1);
 
-      const nextNumber = commits && commits.length > 0 ? commits[0].commit_number + 1 : 1;
-      
-      const { data: newCommit } = await supabase
-        .from('commits')
-        .insert({
-          session_id: sessionId,
-          commit_number: nextNumber,
-          commit_message: 'Initial generation',
-          html_code: html
-        })
-        .select()
-        .single();
+    const nextNumber = existingCommits && existingCommits.length > 0 
+      ? existingCommits[0].commit_number + 1 
+      : 1;
+    
+    const commitMessage = currentCommit 
+      ? `Update #${nextNumber}` 
+      : 'Initial generation';
 
-      if (newCommit) {
-        await supabase
-          .from('sessions')
-          .update({ current_commit_id: newCommit.id })
-          .eq('id', sessionId);
-      }
+    console.log('Creating commit:', { sessionId, nextNumber, commitMessage });
+
+    const { data: newCommit, error: commitError } = await supabase
+      .from('commits')
+      .insert({
+        session_id: sessionId,
+        commit_number: nextNumber,
+        commit_message: commitMessage,
+        html_code: html,
+        parent_commit_id: existingCommits?.[0]?.id || null
+      })
+      .select()
+      .single();
+
+    if (commitError) {
+      console.error('Commit creation error:', commitError);
+      throw commitError;
     }
 
-    return NextResponse.json({ html, success: true });
+    console.log('Commit created:', newCommit.id);
+
+    // Update session's current_commit_id
+    const { error: updateError } = await supabase
+      .from('sessions')
+      .update({ current_commit_id: newCommit.id })
+      .eq('id', sessionId);
+
+    if (updateError) {
+      console.error('Session update error:', updateError);
+    }
+
+    console.log('Generation complete');
+
+    return NextResponse.json({ 
+      html, 
+      success: true,
+      commit: newCommit
+    });
   } catch (error: any) {
     console.error('Generate error:', error);
     return NextResponse.json({ 

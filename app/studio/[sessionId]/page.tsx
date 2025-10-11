@@ -32,6 +32,7 @@ export default function StudioPage() {
   const [currentHtml, setCurrentHtml] = useState('');
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [sessionTitle, setSessionTitle] = useState('Untitled Session');
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishCaption, setPublishCaption] = useState('');
@@ -40,6 +41,7 @@ export default function StudioPage() {
   const [publishing, setPublishing] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     checkUser();
@@ -65,10 +67,12 @@ export default function StudioPage() {
 
   const loadSession = async () => {
     try {
+      console.log('Loading session:', sessionId);
       const response = await fetch(`/api/sessions/${sessionId}`);
       const data = await response.json();
 
       if (data.session) {
+        console.log('Session data received:', data);
         setSessionTitle(data.session.title);
         setMessages(data.messages || []);
         setCommits(data.commits || []);
@@ -78,9 +82,33 @@ export default function StudioPage() {
           const latestCommit = data.commits[data.commits.length - 1];
           setCurrentHtml(latestCommit.html_code);
         }
+        
+        setInitialLoading(false);
+        retryCountRef.current = 0;
+      } else {
+        console.warn('No session data received, retrying...');
+        // Retry with exponential backoff
+        if (retryCountRef.current < 5) {
+          retryCountRef.current += 1;
+          const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 5000);
+          setTimeout(() => loadSession(), delay);
+        } else {
+          console.error('Max retries reached');
+          setInitialLoading(false);
+          alert('Failed to load session. Please refresh the page.');
+        }
       }
     } catch (error) {
       console.error('Failed to load session:', error);
+      // Retry on error
+      if (retryCountRef.current < 5) {
+        retryCountRef.current += 1;
+        const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 5000);
+        setTimeout(() => loadSession(), delay);
+      } else {
+        setInitialLoading(false);
+        alert('Failed to load session. Please refresh the page.');
+      }
     }
   };
 
@@ -110,7 +138,11 @@ export default function StudioPage() {
         })
       });
 
-      const { html } = await response.json();
+      const { html, success, error } = await response.json();
+
+      if (!success || error) {
+        throw new Error(error || 'Failed to generate');
+      }
 
       if (html) {
         setCurrentHtml(html);
@@ -123,12 +155,12 @@ export default function StudioPage() {
           created_at: new Date().toISOString()
         }]);
 
-        // Reload commits
-        loadSession();
+        // Reload session to get new commit
+        await loadSession();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Generation failed:', error);
-      alert('Failed to generate. Please try again.');
+      alert(error.message || 'Failed to generate. Please try again.');
     }
 
     setLoading(false);
@@ -150,15 +182,17 @@ export default function StudioPage() {
         })
       });
 
-      const { success } = await response.json();
+      const { success, error } = await response.json();
 
-      if (success) {
-        loadSession();
-        alert('Commit saved successfully!');
+      if (!success || error) {
+        throw new Error(error || 'Failed to save commit');
       }
-    } catch (error) {
+
+      await loadSession();
+      alert('Commit saved successfully!');
+    } catch (error: any) {
       console.error('Commit failed:', error);
-      alert('Failed to save commit');
+      alert(error.message || 'Failed to save commit');
     }
   };
 
@@ -171,6 +205,10 @@ export default function StudioPage() {
       // Get latest commit
       const latestCommit = commits[commits.length - 1];
 
+      if (!latestCommit) {
+        throw new Error('No commits to publish');
+      }
+
       const response = await fetch(`/api/commits/${latestCommit.id}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,22 +219,24 @@ export default function StudioPage() {
         })
       });
 
-      const { success } = await response.json();
+      const { success, error } = await response.json();
 
-      if (success) {
-        setShowPublishModal(false);
-        setPublishCaption('');
-        router.push('/feed');
+      if (!success || error) {
+        throw new Error(error || 'Failed to publish');
       }
-    } catch (error) {
+
+      setShowPublishModal(false);
+      setPublishCaption('');
+      router.push('/feed');
+    } catch (error: any) {
       console.error('Publish failed:', error);
-      alert('Failed to publish');
+      alert(error.message || 'Failed to publish');
     }
 
     setPublishing(false);
   };
 
-  const handleCheckoutCommit = async (commitId: string) => {
+  const handleCheckoutCommit = async (commitId: string, commitHtml: string) => {
     try {
       const response = await fetch(`/api/commits/${commitId}/checkout`, {
         method: 'POST',
@@ -207,12 +247,30 @@ export default function StudioPage() {
       const { success } = await response.json();
 
       if (success) {
-        loadSession();
+        setCurrentHtml(commitHtml);
+        await loadSession();
       }
     } catch (error) {
       console.error('Checkout failed:', error);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            className="text-6xl mb-4"
+          >
+            🧄
+          </motion.div>
+          <p className="text-gray-400">Loading studio...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -363,10 +421,10 @@ export default function StudioPage() {
         <div className="border-t border-gray-800 bg-gray-900/50 p-4">
           <div className="flex items-center gap-3 overflow-x-auto">
             <span className="text-sm font-semibold text-gray-400 flex-shrink-0">History:</span>
-            {commits.map((commit, idx) => (
+            {commits.map((commit) => (
               <button
                 key={commit.id}
-                onClick={() => handleCheckoutCommit(commit.id)}
+                onClick={() => handleCheckoutCommit(commit.id, commit.html_code)}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0 group"
               >
                 <GitCommit size={14} className="text-purple-400" />

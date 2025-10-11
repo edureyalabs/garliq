@@ -43,6 +43,7 @@ export default function FeedPage() {
   }, []);
 
   useEffect(() => {
+    // Reset everything when filter changes
     setPosts([]);
     setPage(0);
     setHasMore(true);
@@ -130,15 +131,25 @@ export default function FeedPage() {
         );
 
         if (pageNum === 0) {
+          // First page - replace all posts
           setPosts(postsWithInteractions);
         } else {
-          setPosts(prev => [...prev, ...postsWithInteractions]);
+          // Subsequent pages - merge and deduplicate
+          setPosts(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newPosts];
+          });
         }
       } else {
         if (pageNum === 0) {
           setPosts(data);
         } else {
-          setPosts(prev => [...prev, ...data]);
+          setPosts(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newPosts = data.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newPosts];
+          });
         }
       }
 
@@ -161,14 +172,7 @@ export default function FeedPage() {
   const handleLike = async (postId: string, isLiked: boolean) => {
     if (!user) return;
 
-    if (isLiked) {
-      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', user.id);
-      await supabase.rpc('decrement_likes', { post_id: postId });
-    } else {
-      await supabase.from('likes').insert({ post_id: postId, user_id: user.id });
-      await supabase.rpc('increment_likes', { post_id: postId });
-    }
-
+    // Optimistic update
     setPosts(prevPosts => prevPosts.map(post => 
       post.id === postId ? {
         ...post,
@@ -176,6 +180,27 @@ export default function FeedPage() {
         likes_count: isLiked ? post.likes_count - 1 : post.likes_count + 1
       } : post
     ));
+
+    // Actual update
+    try {
+      if (isLiked) {
+        await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', user.id);
+        await supabase.rpc('decrement_likes', { post_id: postId });
+      } else {
+        await supabase.from('likes').insert({ post_id: postId, user_id: user.id });
+        await supabase.rpc('increment_likes', { post_id: postId });
+      }
+    } catch (error) {
+      console.error('Like error:', error);
+      // Revert on error
+      setPosts(prevPosts => prevPosts.map(post => 
+        post.id === postId ? {
+          ...post,
+          is_liked: isLiked,
+          likes_count: isLiked ? post.likes_count + 1 : post.likes_count - 1
+        } : post
+      ));
+    }
   };
 
   const handleShare = async (post: Post) => {
@@ -320,10 +345,10 @@ export default function FeedPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
               {posts.map((post, index) => (
                 <motion.div
-                  key={post.id}
+                  key={`${post.id}-${index}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index, 11) * 0.03 }}
+                  transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
                   className="group relative bg-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/30 transition-all"
                 >
                   <div 
