@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, GitFork, Settings, Share2, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, GitFork, Share2, ExternalLink, Trash2, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 interface Profile {
@@ -31,6 +31,13 @@ interface Project {
   title: string;
   html_code: string;
   created_at: string;
+  session_id: string | null;
+  is_draft: boolean;
+  is_shared: boolean;
+  post_id: string | null;
+  last_commit_id: string | null;
+  prompt: string;
+  updated_at: string;
 }
 
 type TabType = 'posts' | 'projects' | 'saved';
@@ -48,6 +55,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('posts');
   const [selectedItem, setSelectedItem] = useState<Post | Project | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareProject, setShareProject] = useState<Project | null>(null);
+  const [shareCaption, setShareCaption] = useState('');
+  const [promptVisible, setPromptVisible] = useState(true);
+  const [sharing, setSharing] = useState(false);
   const [stats, setStats] = useState({ 
     posts: 0, 
     totalLikes: 0,
@@ -61,10 +73,13 @@ export default function ProfilePage() {
     fetchProfile();
     fetchUserPosts();
     fetchUserProjects();
+  }, [userId]);
+
+  useEffect(() => {
     if (currentUser?.id === userId) {
       fetchSavedPosts();
     }
-  }, [userId, currentUser?.id]);
+  }, [currentUser, userId]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -91,7 +106,7 @@ export default function ProfilePage() {
 
     if (data) {
       setPosts(data);
-      const totalLikes = data.reduce((sum, post) => sum + post.likes_count, 0);
+      const totalLikes = data.reduce((sum, post) => sum + (post.likes_count || 0), 0);
       setStats(prev => ({ 
         ...prev, 
         posts: data.length, 
@@ -105,7 +120,7 @@ export default function ProfilePage() {
       .from('projects')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false });
 
     if (data) {
       setProjects(data);
@@ -137,7 +152,7 @@ export default function ProfilePage() {
   };
 
   const handleShare = () => {
-    const profileUrl = `${window.location.origin}/profile/${userId}`;
+    const profileUrl = `${window.location.origin}/profiles/${userId}`;
     if (navigator.share) {
       navigator.share({
         title: `${profile?.display_name}'s Garliq Profile`,
@@ -147,6 +162,80 @@ export default function ProfilePage() {
       navigator.clipboard.writeText(profileUrl);
       alert('Profile link copied!');
     }
+  };
+
+  const handleShareProject = async () => {
+    if (!shareCaption.trim() || !shareProject || !currentUser || sharing) return;
+
+    setSharing(true);
+
+    try {
+      if (!shareProject.last_commit_id) {
+        alert('No commits found. Please edit and save the project first.');
+        setSharing(false);
+        return;
+      }
+
+      const response = await fetch(`/api/commits/${shareProject.last_commit_id}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caption: shareCaption,
+          promptVisible,
+          userId: currentUser.id
+        })
+      });
+
+      const { success, error, post } = await response.json();
+
+      if (!success || error) {
+        throw new Error(error || 'Failed to publish');
+      }
+
+      await supabase
+        .from('projects')
+        .update({ 
+          is_draft: false, 
+          is_shared: true,
+          post_id: post.id 
+        })
+        .eq('id', shareProject.id);
+
+      setShowShareModal(false);
+      setShareCaption('');
+      setShareProject(null);
+      
+      await fetchUserProjects();
+      
+      alert('✅ Project published to feed!');
+    } catch (error: any) {
+      console.error('Share failed:', error);
+      alert('❌ ' + (error.message || 'Failed to share project'));
+    }
+
+    setSharing(false);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Delete this project? This cannot be undone.')) return;
+    
+    const { error } = await supabase.from('projects').delete().eq('id', projectId);
+    if (error) {
+      alert('Failed to delete project');
+      return;
+    }
+    
+    await fetchUserProjects();
+  };
+
+  const handleShareClick = (project: Project) => {
+    if (!project.last_commit_id) {
+      alert('No commits found. Please edit and save the project first.');
+      return;
+    }
+    setShareProject(project);
+    setShareCaption(project.title);
+    setShowShareModal(true);
   };
 
   if (loading) {
@@ -216,12 +305,10 @@ export default function ProfilePage() {
       {/* Profile Header */}
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex flex-col md:flex-row gap-8 items-start mb-8">
-          {/* Avatar */}
           <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-6xl font-black flex-shrink-0">
             {profile.display_name[0].toUpperCase()}
           </div>
 
-          {/* Info */}
           <div className="flex-1">
             <h1 className="text-4xl font-black mb-2">{profile.display_name}</h1>
             <p className="text-gray-500 mb-4">@{profile.username}</p>
@@ -237,7 +324,6 @@ export default function ProfilePage() {
               </span>
             </div>
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {[
                 { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
@@ -296,58 +382,137 @@ export default function ProfilePage() {
           </div>
         ) : (
           <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {displayItems.map((item, i) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                onClick={() => setSelectedItem(item)}
-                className="group relative aspect-square bg-white rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
-              >
-                <iframe
-                  srcDoc={`
-                    <!DOCTYPE html>
-                    <html>
-                      <head>
-                        <style>
-                          * { margin: 0; padding: 0; }
-                          body { overflow: hidden; }
-                          audio, video { display: none !important; }
-                        </style>
-                      </head>
-                      <body>
-                        ${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}
-                      </body>
-                    </html>
-                  `}
-                  className="w-full h-full pointer-events-none scale-100"
-                  sandbox=""
-                  loading="lazy"
-                />
+            {displayItems.map((item, i) => {
+              const isProject = 'session_id' in item;
+              
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                >
+                  {/* Preview */}
+                  <div 
+                    className="aspect-square bg-white cursor-pointer relative overflow-hidden"
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <iframe
+                      srcDoc={`
+                        <!DOCTYPE html>
+                        <html>
+                          <head>
+                            <style>
+                              * { margin: 0; padding: 0; }
+                              body { overflow: hidden; transform: scale(0.5); transform-origin: top left; width: 200%; height: 200%; }
+                              audio, video { display: none !important; }
+                            </style>
+                          </head>
+                          <body>
+                            ${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}
+                          </body>
+                        </html>
+                      `}
+                      className="w-full h-full pointer-events-none"
+                      sandbox=""
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Eye className="text-white drop-shadow-lg" size={32} />
+                    </div>
+                  </div>
 
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                  <p className="text-sm font-semibold line-clamp-2 mb-2">
-                    {'caption' in item ? item.caption : 'title' in item ? item.title : 'Untitled'}
-                  </p>
-                  {'likes_count' in item && (
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="flex items-center gap-1">
-                        <Heart size={14} />
-                        {item.likes_count}
+                  {/* Info Overlay for Projects */}
+                  {isProject && isOwnProfile && (
+                    <div className="absolute top-2 right-2 z-10 flex gap-1">
+                      <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                        item.is_draft 
+                          ? 'bg-yellow-500/90 text-black' 
+                          : 'bg-green-500/90 text-black'
+                      }`}>
+                        {item.is_draft ? 'Draft' : 'Live'}
                       </span>
-                      {'comments_count' in item && (
-                        <span className="flex items-center gap-1">
-                          <Code2 size={14} />
-                          {item.comments_count}
-                        </span>
+                    </div>
+                  )}
+
+                  {/* Hover Actions for Projects */}
+                  {isProject && isOwnProfile && (
+                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity space-y-2">
+                      <p className="text-sm font-bold line-clamp-1 mb-2">
+                        {'title' in item ? item.title : 'Untitled'}
+                      </p>
+                      
+                      <div className="flex gap-2">
+                        {item.session_id && (
+                          <Link href={`/studio/${item.session_id}`} className="flex-1">
+                            <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold">
+                              <Edit size={14} />
+                              Edit
+                            </button>
+                          </Link>
+                        )}
+                        
+                        {item.is_draft && item.session_id && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShareClick(item);
+                            }}
+                            className="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg"
+                            title="Share"
+                          >
+                            <Share2 size={14} />
+                          </button>
+                        )}
+                        
+                        {!item.is_draft && item.post_id && (
+                          <Link href={`/post/${item.post_id}`} onClick={(e) => e.stopPropagation()}>
+                            <button className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg" title="View Post">
+                              <ExternalLink size={14} />
+                            </button>
+                          </Link>
+                        )}
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProject(item.id);
+                          }}
+                          className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
+                          title="Delete"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Post Stats */}
+                  {!isProject && (
+                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-sm font-semibold line-clamp-2 mb-2">
+                        {'caption' in item ? item.caption : 'Untitled'}
+                      </p>
+                      {'likes_count' in item && (
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="flex items-center gap-1">
+                            <Heart size={14} />
+                            {item.likes_count || 0}
+                          </span>
+                          {'comments_count' in item && (
+                            <span className="flex items-center gap-1">
+                              <Code2 size={14} />
+                              {item.comments_count || 0}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -377,6 +542,14 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {'session_id' in selectedItem && selectedItem.session_id && isOwnProfile && (
+                    <Link href={`/studio/${selectedItem.session_id}`}>
+                      <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center gap-2 text-sm">
+                        <Edit size={16} />
+                        Edit
+                      </button>
+                    </Link>
+                  )}
                   {'caption' in selectedItem && (
                     <Link href={`/post/${selectedItem.id}`}>
                       <button className="p-2 hover:bg-gray-800 rounded-full transition-colors">
@@ -402,6 +575,79 @@ export default function ProfilePage() {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Share Project Modal */}
+      <AnimatePresence>
+        {showShareModal && shareProject && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6"
+            onClick={() => !sharing && setShowShareModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold">📢 Share to Feed</h3>
+                <button onClick={() => !sharing && setShowShareModal(false)} disabled={sharing}>
+                  <span className="text-2xl text-gray-400 hover:text-white">✕</span>
+                </button>
+              </div>
+
+              <input
+                type="text"
+                value={shareCaption}
+                onChange={(e) => setShareCaption(e.target.value)}
+                placeholder="Add a caption..."
+                className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4"
+                disabled={sharing}
+              />
+
+              <label className="flex items-center gap-3 mb-6 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={promptVisible}
+                  onChange={(e) => setPromptVisible(e.target.checked)}
+                  className="w-5 h-5"
+                  disabled={sharing}
+                />
+                <span className="text-sm text-gray-400">Share prompt publicly</span>
+              </label>
+
+              <motion.button
+                onClick={handleShareProject}
+                disabled={!shareCaption.trim() || sharing}
+                whileHover={!sharing ? { scale: 1.02 } : {}}
+                whileTap={!sharing ? { scale: 0.98 } : {}}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {sharing ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    >
+                      🧄
+                    </motion.div>
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Share2 size={18} />
+                    Publish to Feed
+                  </>
+                )}
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

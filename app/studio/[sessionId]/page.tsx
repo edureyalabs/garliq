@@ -214,18 +214,28 @@ export default function StudioPage() {
     }
   };
 
-  const handleSaveProject = async () => {
+const handleSaveProject = async () => {
     if (!user || !sessionId || saving) return;
 
     setSaving(true);
 
     try {
+      // Get the latest commit ID
+      const latestCommit = commits.length > 0 ? commits[commits.length - 1] : null;
+
+      if (!latestCommit) {
+        alert('Please generate code first before saving');
+        setSaving(false);
+        return;
+      }
+
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          userId: user.id
+          userId: user.id,
+          lastCommitId: latestCommit.id
         })
       });
 
@@ -235,8 +245,12 @@ export default function StudioPage() {
         throw new Error(error || 'Failed to save project');
       }
 
+      // Set both states
       setSaving(false);
       setProjectSaved(true);
+
+      // ✅ FIX: Don't auto-hide, keep it saved permanently
+      // User can see "Saved" status until they make new changes
 
     } catch (error: any) {
       console.error('Save project error:', error);
