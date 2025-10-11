@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Check, Eye } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Check, Eye, Save } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -39,6 +39,8 @@ export default function StudioPage() {
   const [promptVisible, setPromptVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [projectSaved, setProjectSaved] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const retryCountRef = useRef(0);
@@ -46,6 +48,7 @@ export default function StudioPage() {
   useEffect(() => {
     checkUser();
     loadSession();
+    checkIfProjectSaved();
   }, [sessionId]);
 
   useEffect(() => {
@@ -65,6 +68,25 @@ export default function StudioPage() {
     }
   };
 
+  const checkIfProjectSaved = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !sessionId) return;
+
+    try {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('session_id', sessionId)
+        .maybeSingle();
+
+      if (project) {
+        setProjectSaved(true);
+      }
+    } catch (error) {
+      console.error('Error checking project:', error);
+    }
+  };
+
   const loadSession = async () => {
     try {
       console.log('Loading session:', sessionId);
@@ -77,7 +99,6 @@ export default function StudioPage() {
         setMessages(data.messages || []);
         setCommits(data.commits || []);
 
-        // Load current commit HTML
         if (data.commits && data.commits.length > 0) {
           const latestCommit = data.commits[data.commits.length - 1];
           setCurrentHtml(latestCommit.html_code);
@@ -87,7 +108,6 @@ export default function StudioPage() {
         retryCountRef.current = 0;
       } else {
         console.warn('No session data received, retrying...');
-        // Retry with exponential backoff
         if (retryCountRef.current < 5) {
           retryCountRef.current += 1;
           const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 5000);
@@ -100,7 +120,6 @@ export default function StudioPage() {
       }
     } catch (error) {
       console.error('Failed to load session:', error);
-      // Retry on error
       if (retryCountRef.current < 5) {
         retryCountRef.current += 1;
         const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 5000);
@@ -115,11 +134,12 @@ export default function StudioPage() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading || !user) return;
 
+    setProjectSaved(false); // Reset saved state when making changes
+
     const userMessage = inputMessage;
     setInputMessage('');
     setLoading(true);
 
-    // Optimistically add user message
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: 'user',
@@ -147,7 +167,6 @@ export default function StudioPage() {
       if (html) {
         setCurrentHtml(html);
         
-        // Add assistant message
         setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -155,7 +174,6 @@ export default function StudioPage() {
           created_at: new Date().toISOString()
         }]);
 
-        // Reload session to get new commit
         await loadSession();
       }
     } catch (error: any) {
@@ -196,13 +214,43 @@ export default function StudioPage() {
     }
   };
 
+  const handleSaveProject = async () => {
+    if (!user || !sessionId || saving) return;
+
+    setSaving(true);
+
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          userId: user.id
+        })
+      });
+
+      const { success, error } = await response.json();
+
+      if (!success || error) {
+        throw new Error(error || 'Failed to save project');
+      }
+
+      setSaving(false);
+      setProjectSaved(true);
+
+    } catch (error: any) {
+      console.error('Save project error:', error);
+      setSaving(false);
+      alert(error.message || 'Failed to save project');
+    }
+  };
+
   const handlePublish = async () => {
     if (!publishCaption.trim() || publishing || !user) return;
 
     setPublishing(true);
 
     try {
-      // Get latest commit
       const latestCommit = commits[commits.length - 1];
 
       if (!latestCommit) {
@@ -219,10 +267,22 @@ export default function StudioPage() {
         })
       });
 
-      const { success, error } = await response.json();
+      const { success, error, post } = await response.json();
 
       if (!success || error) {
         throw new Error(error || 'Failed to publish');
+      }
+
+      // Update project to mark as published
+      if (post && post.id) {
+        await supabase
+          .from('projects')
+          .update({ 
+            is_draft: false, 
+            is_shared: true,
+            post_id: post.id 
+          })
+          .eq('session_id', sessionId);
       }
 
       setShowPublishModal(false);
@@ -295,6 +355,31 @@ export default function StudioPage() {
           </button>
 
           <div className="flex items-center gap-3">
+            <motion.button
+              onClick={handleSaveProject}
+              disabled={!currentHtml || loading || saving || projectSaved}
+              whileHover={!saving && !projectSaved ? { scale: 1.05 } : {}}
+              whileTap={!saving && !projectSaved ? { scale: 0.95 } : {}}
+              className="px-5 py-2 bg-gray-700 hover:bg-gray-600 rounded-full font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {projectSaved ? (
+                <>
+                  <Check size={18} className="text-green-400" />
+                  <span className="text-green-400">Saved</span>
+                </>
+              ) : saving ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={18} />
+                  Save Project
+                </>
+              )}
+            </motion.button>
+
             <motion.button
               onClick={handleCommit}
               disabled={!currentHtml || loading}

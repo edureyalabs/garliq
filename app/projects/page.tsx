@@ -12,6 +12,9 @@ interface Project {
   prompt: string;
   html_code: string;
   is_shared: boolean;
+  is_draft: boolean;
+  session_id: string | null;
+  post_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -22,11 +25,10 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-    useEffect(() => {
+  useEffect(() => {
     checkAuth();
     fetchProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+  }, []);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -34,9 +36,13 @@ export default function ProjectsPage() {
   };
 
   const fetchProjects = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     const { data, error } = await supabase
       .from('projects')
       .select('*')
+      .eq('user_id', session.user.id)
       .order('updated_at', { ascending: false });
 
     if (data) setProjects(data);
@@ -48,10 +54,6 @@ export default function ProjectsPage() {
     
     await supabase.from('projects').delete().eq('id', id);
     fetchProjects();
-  };
-
-  const handleEdit = (project: Project) => {
-    router.push(`/create?project=${project.id}`);
   };
 
   if (loading) {
@@ -138,7 +140,16 @@ export default function ProjectsPage() {
 
                 {/* Info */}
                 <div className="p-6">
-                  <h3 className="font-bold text-lg mb-2 truncate">{project.title}</h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-bold text-lg truncate flex-1">{project.title}</h3>
+                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                      project.is_draft 
+                        ? 'bg-yellow-500/20 text-yellow-400' 
+                        : 'bg-green-500/20 text-green-400'
+                    }`}>
+                      {project.is_draft ? 'Draft' : 'Published'}
+                    </span>
+                  </div>
                   <p className="text-sm text-gray-500 mb-4 line-clamp-2">{project.prompt}</p>
 
                   <div className="flex items-center gap-2 text-xs text-gray-600 mb-4">
@@ -148,13 +159,22 @@ export default function ProjectsPage() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleEdit(project)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-                    >
-                      <Edit size={16} />
-                      <span className="text-sm font-medium">Edit</span>
-                    </button>
+                    {project.session_id ? (
+                      <Link href={`/studio/${project.session_id}`} className="flex-1">
+                        <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors">
+                          <Edit size={16} />
+                          <span className="text-sm font-medium">Edit</span>
+                        </button>
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedProject(project)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                      >
+                        <Eye size={16} />
+                        <span className="text-sm font-medium">View</span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => handleDelete(project.id)}
@@ -185,16 +205,38 @@ export default function ProjectsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-full flex flex-col">
-              <div className="p-4 border-b border-gray-800 flex justify-between items-center">
-                <h3 className="font-bold">{selectedProject.title}</h3>
-                <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-white">
-                  ✕
-                </button>
+              <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
+                <div>
+                  <h3 className="font-bold text-lg">{selectedProject.title}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {selectedProject.is_draft ? 'Draft' : 'Published'} • Last updated {new Date(selectedProject.updated_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedProject.session_id && (
+                    <Link href={`/studio/${selectedProject.session_id}`}>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center gap-2 text-sm"
+                      >
+                        <Edit size={16} />
+                        Edit Project
+                      </motion.button>
+                    </Link>
+                  )}
+                  <button 
+                    onClick={() => setSelectedProject(null)} 
+                    className="text-gray-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center hover:bg-gray-800 rounded-full transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
               <iframe
                 srcDoc={selectedProject.html_code}
                 className="flex-1 w-full bg-white"
-                sandbox="allow-scripts"
+                sandbox="allow-scripts allow-same-origin allow-forms"
               />
             </div>
           </motion.div>
