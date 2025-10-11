@@ -18,6 +18,11 @@ interface Post {
   user_id: string;
   is_liked?: boolean;
   is_saved?: boolean;
+  profiles?: {
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
 }
 
 type FeedFilter = 'trending' | 'new' | 'following';
@@ -82,83 +87,96 @@ export default function FeedPage() {
     }
   };
 
-  const fetchPosts = async (pageNum: number, filter: FeedFilter) => {
-    if (!user && pageNum === 0) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      setUser(session.user);
-    }
+const fetchPosts = async (pageNum: number, filter: FeedFilter) => {
+  if (!user && pageNum === 0) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    setUser(session.user);
+  }
 
-    const from = pageNum * POSTS_PER_PAGE;
-    const to = from + POSTS_PER_PAGE - 1;
+  const from = pageNum * POSTS_PER_PAGE;
+  const to = from + POSTS_PER_PAGE - 1;
 
-    let query = supabase
-      .from('posts')
-      .select('*', { count: 'exact' });
+  let query = supabase
+    .from('posts')
+    .select('*', { count: 'exact' });
 
-    if (filter === 'new') {
-      query = query.order('created_at', { ascending: false });
-    } else if (filter === 'trending') {
-      query = query.order('likes_count', { ascending: false });
-    }
+  if (filter === 'new') {
+    query = query.order('created_at', { ascending: false });
+  } else if (filter === 'trending') {
+    query = query.order('likes_count', { ascending: false });
+  }
 
-    const { data, error, count } = await query.range(from, to);
+  const { data, error, count } = await query.range(from, to);
 
-    if (error) {
-      console.error('Fetch posts error:', error);
-      setLoading(false);
-      setLoadingMore(false);
-      return;
-    }
-
-    if (data) {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        const postsWithInteractions = await Promise.all(
-          data.map(async (post) => {
-            const [likeData, saveData] = await Promise.all([
-              supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
-              supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
-            ]);
-
-            return { 
-              ...post, 
-              is_liked: !!likeData.data,
-              is_saved: !!saveData.data 
-            };
-          })
-        );
-
-        if (pageNum === 0) {
-          // First page - replace all posts
-          setPosts(postsWithInteractions);
-        } else {
-          // Subsequent pages - merge and deduplicate
-          setPosts(prev => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
-            return [...prev, ...newPosts];
-          });
-        }
-      } else {
-        if (pageNum === 0) {
-          setPosts(data);
-        } else {
-          setPosts(prev => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const newPosts = data.filter(p => !existingIds.has(p.id));
-            return [...prev, ...newPosts];
-          });
-        }
-      }
-
-      setHasMore(data.length === POSTS_PER_PAGE && (count || 0) > to + 1);
-    }
-    
+  if (error) {
+    console.error('Fetch posts error:', error);
     setLoading(false);
     setLoadingMore(false);
-  };
+    return;
+  }
+
+  if (data) {
+    // Fetch profiles separately
+    const userIds = [...new Set(data.map(p => p.user_id))];
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', userIds);
+
+    const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+
+    // Attach profiles to posts
+    const postsWithProfiles = data.map(post => ({
+      ...post,
+      profiles: profilesMap.get(post.user_id)
+    }));
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      const postsWithInteractions = await Promise.all(
+        postsWithProfiles.map(async (post) => {
+          const [likeData, saveData] = await Promise.all([
+            supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
+            supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+          ]);
+
+          return { 
+            ...post, 
+            is_liked: !!likeData.data,
+            is_saved: !!saveData.data 
+          };
+        })
+      );
+
+      if (pageNum === 0) {
+        setPosts(postsWithInteractions);
+      } else {
+        setPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPosts];
+        });
+      }
+    } else {
+      if (pageNum === 0) {
+        setPosts(postsWithProfiles);
+      } else {
+        setPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPosts = postsWithProfiles.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPosts];
+        });
+      }
+    }
+
+    setHasMore(data.length === POSTS_PER_PAGE && (count || 0) > to + 1);
+  }
+  
+  setLoading(false);
+  setLoadingMore(false);
+};
 
   const loadMore = () => {
     if (!loadingMore && hasMore && !loading) {
@@ -351,6 +369,20 @@ export default function FeedPage() {
                   transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
                   className="group relative bg-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/30 transition-all"
                 >
+                  {/* User Info Header */}
+                  <div className="p-3 border-b border-gray-800/50">
+                    <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold">
+                        {post.profiles?.display_name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
+                        <p className="text-xs text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
+                      </div>
+                    </Link>
+                  </div>
+
+                  {/* Preview */}
                   <div 
                     className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer"
                     onClick={() => setSelectedPost(post)}
@@ -371,6 +403,7 @@ export default function FeedPage() {
                     </div>
                   </div>
 
+                  {/* Post Info */}
                   <div className="p-4 space-y-3">
                     <p className="text-sm text-gray-300 line-clamp-2">{post.caption}</p>
 
