@@ -6,111 +6,68 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// DELETE - Delete post only (keep project)
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// POST - Create new post from project
+export async function POST(request: Request) {
   try {
-    const { id: postId } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const { projectId, caption, promptVisible, userId } = await request.json();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+    if (!projectId || !caption || !userId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    console.log('🗑️ Deleting post:', postId);
+    console.log('📤 Creating post from project:', projectId);
 
-    // Verify ownership by checking the post itself
-    const { data: post, error: postFetchError } = await supabase
-      .from('posts')
-      .select('user_id, session_id')
-      .eq('id', postId)
+    // Get project data
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('html_code, prompt, session_id')
+      .eq('id', projectId)
+      .eq('user_id', userId)
       .single();
 
-    if (postFetchError || !post) {
-      console.error('Post not found:', postFetchError);
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    if (projectError || !project) {
+      console.error('Project not found:', projectError);
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    if (post.user_id !== userId) {
-      console.error('Unauthorized delete attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    // Update project to unlink post
-    const { error: projectUpdateError } = await supabase
-      .from('projects')
-      .update({ 
-        post_id: null, 
-        is_shared: false,
-        is_draft: true
+    // Create post
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .insert({
+        user_id: userId,
+        caption,
+        prompt: project.prompt,
+        prompt_visible: promptVisible,
+        html_code: project.html_code,
+        likes_count: 0,
+        comments_count: 0,
+        session_id: project.session_id
       })
-      .eq('session_id', post.session_id);
-
-    if (projectUpdateError) {
-      console.error('Error updating project:', projectUpdateError);
-    }
-
-    // Delete post (likes/comments cascade automatically if FK set)
-    const { error: deleteError } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', postId);
-
-    if (deleteError) {
-      console.error('Error deleting post:', deleteError);
-      throw deleteError;
-    }
-
-    console.log('✅ Post deleted successfully');
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('Delete post error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Failed to delete post',
-      success: false 
-    }, { status: 500 });
-  }
-}
-
-// PATCH - Update post with new code
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { htmlCode, commitId, caption, promptVisible } = await request.json();
-    const { id: postId } = await params;
-
-    console.log('🔄 Updating post:', postId);
-
-    const updateData: any = {};
-
-    if (htmlCode) updateData.html_code = htmlCode;
-    if (commitId) updateData.current_commit_id = commitId;
-    if (caption !== undefined) updateData.caption = caption;
-    if (promptVisible !== undefined) updateData.prompt_visible = promptVisible;
-
-    const { data: post, error } = await supabase
-      .from('posts')
-      .update(updateData)
-      .eq('id', postId)
       .select()
       .single();
 
-    if (error) {
-      console.error('❌ Update post error:', error);
-      throw error;
+    if (postError) {
+      console.error('Post creation error:', postError);
+      return NextResponse.json({ error: postError.message }, { status: 500 });
     }
 
-    console.log('✅ Post updated successfully');
+    // Update project with post_id
+    await supabase
+      .from('projects')
+      .update({
+        post_id: post.id,
+        is_shared: true,
+        is_draft: false
+      })
+      .eq('id', projectId);
+
+    console.log('✅ Post created successfully:', post.id);
+
     return NextResponse.json({ post, success: true });
   } catch (error: any) {
-    console.error('Update post error:', error);
+    console.error('❌ Create post error:', error);
     return NextResponse.json({ 
-      error: error.message || 'Failed to update post',
+      error: error.message || 'Failed to create post',
       success: false 
     }, { status: 500 });
   }
