@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Check, Eye, Save, Crown, Zap } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Eye, Crown, Zap } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -41,8 +41,6 @@ export default function StudioPage() {
   const [promptVisible, setPromptVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [projectSaved, setProjectSaved] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('llama-3.3-70b');
   const [tokenBalance, setTokenBalance] = useState<number>(0);
   const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
@@ -55,7 +53,6 @@ export default function StudioPage() {
   useEffect(() => {
     checkUser();
     loadSession();
-    checkIfProjectSaved();
   }, [sessionId]);
 
   useEffect(() => {
@@ -68,11 +65,23 @@ export default function StudioPage() {
     scrollToBottom();
   }, [messages]);
 
+  // CHANGE 1: Fixed useEffect with commits.length check
   useEffect(() => {
-    if (isFirstGen && initialPrompt && !generatingFirst && !loading && user) {
+    // Only trigger ONCE when all conditions are met
+    if (isFirstGen && initialPrompt && !generatingFirst && !loading && user && commits.length === 0) {
       handleFirstGeneration();
     }
-  }, [isFirstGen, initialPrompt, user]);
+  }, [isFirstGen, initialPrompt, user, commits.length]);
+
+  // CHANGE 4: Reset firstGen flag after it's used
+  useEffect(() => {
+    if (isFirstGen && generatingFirst) {
+      // Clear the query param after triggering generation
+      const url = new URL(window.location.href);
+      url.searchParams.delete('firstGen');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [isFirstGen, generatingFirst]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -97,25 +106,6 @@ export default function StudioPage() {
       .single();
 
     setTokenBalance(data?.token_balance || 0);
-  };
-
-  const checkIfProjectSaved = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !sessionId) return;
-
-    try {
-      const { data: project } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('session_id', sessionId)
-        .maybeSingle();
-
-      if (project) {
-        setProjectSaved(true);
-      }
-    } catch (error) {
-      console.error('Error checking project:', error);
-    }
   };
 
   const loadSession = async () => {
@@ -249,7 +239,10 @@ export default function StudioPage() {
         }
       }
 
+      // CHANGE 3: Add commit to state instead of reloading
       if (commitResult) {
+        // Project already created in /create page
+        // Just update it with the first commit
         await fetch('/api/projects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -259,10 +252,12 @@ export default function StudioPage() {
             lastCommitId: commitResult.id
           })
         });
-        setProjectSaved(true);
+        
+        // Add commit to state
+        setCommits([commitResult]);
       }
 
-      await loadSession();
+      // ✅ ONLY refresh token balance
       await fetchTokenBalance();
 
     } catch (error: any) {
@@ -283,8 +278,6 @@ export default function StudioPage() {
       return;
     }
 
-    setProjectSaved(false);
-
     const userMessage = inputMessage;
     setInputMessage('');
     setLoading(true);
@@ -296,6 +289,7 @@ export default function StudioPage() {
       created_at: new Date().toISOString()
     }]);
 
+    // CHANGE 2: Removed loadSession() and only keep HTML in state
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -343,6 +337,7 @@ export default function StudioPage() {
                   }];
                 });
               } else if (data.type === 'complete') {
+                // ✅ KEEP HTML IN STATE (don't reload from DB)
                 setCurrentHtml(data.html);
                 setMessages(prev => {
                   const filtered = prev.filter(m => m.id !== 'status-msg');
@@ -363,7 +358,7 @@ export default function StudioPage() {
         }
       }
 
-      await loadSession();
+      // ✅ ONLY refresh token balance, NOT the whole session
       await fetchTokenBalance();
 
     } catch (error: any) {
@@ -380,7 +375,7 @@ export default function StudioPage() {
     const commitMessage = prompt('Enter commit message:') || `Update #${commits.length + 1}`;
 
     try {
-      const response = await fetch('/api/commits', {
+      const response = await fetch('/api/commits/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -401,46 +396,6 @@ export default function StudioPage() {
     } catch (error: any) {
       console.error('Commit failed:', error);
       alert(error.message || 'Failed to save commit');
-    }
-  };
-
-  const handleSaveProject = async () => {
-    if (!user || !sessionId || saving || projectSaved) return;
-
-    setSaving(true);
-
-    try {
-      const latestCommit = commits.length > 0 ? commits[commits.length - 1] : null;
-
-      if (!latestCommit) {
-        alert('Please generate code first before saving');
-        setSaving(false);
-        return;
-      }
-
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          userId: user.id,
-          lastCommitId: latestCommit.id
-        })
-      });
-
-      const { success, error } = await response.json();
-
-      if (!success || error) {
-        throw new Error(error || 'Failed to save project');
-      }
-
-      setSaving(false);
-      setProjectSaved(true);
-
-    } catch (error: any) {
-      console.error('Save project error:', error);
-      setSaving(false);
-      alert(error.message || 'Failed to save project');
     }
   };
 
@@ -573,31 +528,6 @@ export default function StudioPage() {
                 <span className="text-sm font-bold">{tokenBalance.toLocaleString()}</span>
               </div>
             )}
-
-            <motion.button
-              onClick={handleSaveProject}
-              disabled={!currentHtml || loading || saving || projectSaved}
-              whileHover={!saving && !projectSaved ? { scale: 1.05 } : {}}
-              whileTap={!saving && !projectSaved ? { scale: 0.95 } : {}}
-              className="px-5 py-2 bg-gray-700 hover:bg-gray-600 rounded-full font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {projectSaved ? (
-                <>
-                  <Check size={18} className="text-green-400" />
-                  <span className="text-green-400">Saved</span>
-                </>
-              ) : saving ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save size={18} />
-                  Save Project
-                </>
-              )}
-            </motion.button>
 
             <motion.button
               onClick={handleCommit}
@@ -750,7 +680,7 @@ export default function StudioPage() {
                 <GitCommit size={14} className="text-purple-400" />
                 <span className="text-sm font-mono">#{commit.commit_number}</span>
                 {commit.is_published && (
-                  <Check size={14} className="text-green-400" />
+                  <span className="text-green-400">✓</span>
                 )}
               </button>
             ))}

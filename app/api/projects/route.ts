@@ -154,3 +154,101 @@ export async function GET(request: Request) {
     }, { status: 500 });
   }
 }
+
+// DELETE - Delete project with cascade
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('projectId');
+    const userId = searchParams.get('userId');
+
+    if (!projectId || !userId) {
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+    }
+
+    console.log('🗑️ Deleting project:', projectId);
+
+    // Get project details
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('session_id, post_id')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .single();
+
+    if (projectError || !project) {
+      console.error('Project not found:', projectError);
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    // Delete associated post if exists
+    if (project.post_id) {
+      const { error: postError } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', project.post_id);
+      
+      if (postError) {
+        console.error('Error deleting post:', postError);
+      } else {
+        console.log('✅ Deleted associated post:', project.post_id);
+      }
+    }
+
+    // Delete commits (this will cascade to chat_messages if FK is set)
+    const { error: commitsError } = await supabase
+      .from('commits')
+      .delete()
+      .eq('session_id', project.session_id);
+    
+    if (commitsError) {
+      console.error('Error deleting commits:', commitsError);
+    } else {
+      console.log('✅ Deleted commits');
+    }
+
+    // Delete chat messages
+    const { error: messagesError } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('session_id', project.session_id);
+    
+    if (messagesError) {
+      console.error('Error deleting messages:', messagesError);
+    } else {
+      console.log('✅ Deleted chat messages');
+    }
+
+    // Delete session
+    const { error: sessionError } = await supabase
+      .from('sessions')
+      .delete()
+      .eq('id', project.session_id);
+    
+    if (sessionError) {
+      console.error('Error deleting session:', sessionError);
+    } else {
+      console.log('✅ Deleted session');
+    }
+
+    // Finally, delete project
+    const { error: deleteError } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    console.log('✅ Project fully deleted:', projectId);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('❌ Delete project error:', error);
+    return NextResponse.json({ 
+      error: error.message || 'Failed to delete project',
+      success: false 
+    }, { status: 500 });
+  }
+}

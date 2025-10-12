@@ -57,21 +57,23 @@ export async function POST(
     }
 
     // Step 4: Create new post
-    const { data: post, error: postError } = await supabase
-      .from('posts')
-      .insert({
-        user_id: userId,
-        caption,
-        prompt: session.initial_prompt,
-        prompt_visible: promptVisible,
-        html_code: commit.html_code,
-        likes_count: 0,
-        comments_count: 0,
-        commit_id: commitId,
-        session_id: commit.session_id
-      })
-      .select()
-      .single();
+// Step 4: Create new post
+const { data: post, error: postError } = await supabase
+  .from('posts')
+  .insert({
+    user_id: userId,
+    caption,
+    prompt: session.initial_prompt,
+    prompt_visible: promptVisible,
+    html_code: commit.html_code,
+    likes_count: 0,
+    comments_count: 0,
+    commit_id: commitId,
+    session_id: commit.session_id,
+    current_commit_id: commitId // ✅ ADD THIS LINE
+  })
+  .select()
+  .single();
 
     if (postError) {
       console.error('Post creation error:', postError);

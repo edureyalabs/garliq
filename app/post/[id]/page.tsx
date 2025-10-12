@@ -69,55 +69,69 @@ export default function PostDetailPage() {
     if (session) setUser(session.user);
   };
 
-  const fetchPost = async () => {
-    try {
-      const { data: postData, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('id', postId)
-        .single();
+const fetchPost = async () => {
+  try {
+    const { data: postData, error } = await supabase
+      .from('posts')
+      .select('*, current_commit_id')
+      .eq('id', postId)
+      .single();
 
-      if (error) throw error;
+    if (error) throw error;
 
-      if (postData) {
-        console.log('Fetched post data:', postData);
+    if (postData) {
+      console.log('Fetched post data:', postData);
 
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', postData.user_id)
+      // ✅ Load HTML from latest commit if available
+      if (postData.current_commit_id) {
+        const { data: latestCommit } = await supabase
+          .from('commits')
+          .select('html_code')
+          .eq('id', postData.current_commit_id)
           .single();
-
-        if (profileData) setProfile(profileData);
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const [likeData, saveData] = await Promise.all([
-            supabase.from('likes').select('*').eq('post_id', postId).eq('user_id', session.user.id).maybeSingle(),
-            supabase.from('saves').select('*').eq('post_id', postId).eq('user_id', session.user.id).maybeSingle()
-          ]);
-
-          setPost({
-            ...postData,
-            likes_count: postData.likes_count || 0,
-            comments_count: postData.comments_count || 0,
-            is_liked: !!likeData.data,
-            is_saved: !!saveData.data
-          });
-        } else {
-          setPost({
-            ...postData,
-            likes_count: postData.likes_count || 0,
-            comments_count: postData.comments_count || 0
-          });
+        
+        if (latestCommit) {
+          postData.html_code = latestCommit.html_code;
+          console.log('✅ Loaded latest commit code');
         }
       }
-    } catch (error) {
-      console.error('Error fetching post:', error);
-    } finally {
-      setLoading(false);
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', postData.user_id)
+        .single();
+
+      if (profileData) setProfile(profileData);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const [likeData, saveData] = await Promise.all([
+          supabase.from('likes').select('*').eq('post_id', postId).eq('user_id', session.user.id).maybeSingle(),
+          supabase.from('saves').select('*').eq('post_id', postId).eq('user_id', session.user.id).maybeSingle()
+        ]);
+
+        setPost({
+          ...postData,
+          likes_count: postData.likes_count || 0,
+          comments_count: postData.comments_count || 0,
+          is_liked: !!likeData.data,
+          is_saved: !!saveData.data
+        });
+      } else {
+        setPost({
+          ...postData,
+          likes_count: postData.likes_count || 0,
+          comments_count: postData.comments_count || 0
+        });
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error fetching post:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchComments = async () => {
     const { data: commentsData } = await supabase

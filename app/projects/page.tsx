@@ -61,18 +61,34 @@ export default function ProjectsPage() {
     setLoading(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this project? This cannot be undone.')) return;
+const handleDelete = async (project: Project) => {
+  const hasPost = !project.is_draft && project.post_id;
+  const message = hasPost 
+    ? '⚠️ This will delete the project AND its shared post. This cannot be undone. Continue?' 
+    : 'Delete this project? This cannot be undone.';
     
-    const { error } = await supabase.from('projects').delete().eq('id', id);
-    if (error) {
-      alert('Failed to delete project');
-      return;
+  if (!confirm(message)) return;
+  
+  try {
+    const response = await fetch(`/api/projects?projectId=${project.id}&userId=${user?.id}`, {
+      method: 'DELETE'
+    });
+    
+    const { success, error } = await response.json();
+    
+    if (!success) {
+      throw new Error(error || 'Failed to delete');
     }
+    
+    alert('✅ Project deleted successfully');
     
     // Refresh list
     if (user) fetchProjects(user.id);
-  };
+  } catch (error: any) {
+    console.error('Delete error:', error);
+    alert('❌ ' + error.message);
+  }
+};
 
   const handleShareClick = (project: Project) => {
     if (!project.last_commit_id) {
@@ -295,7 +311,7 @@ export default function ProjectsPage() {
 
                       {/* Delete Button */}
                       <button
-                        onClick={() => handleDelete(project.id)}
+                        onClick={() => handleDelete(project)}
                         className="px-4 py-2.5 bg-gray-800 hover:bg-red-600 rounded-xl transition-all"
                         title="Delete Project"
                       >

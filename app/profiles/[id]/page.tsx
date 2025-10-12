@@ -216,17 +216,32 @@ export default function ProfilePage() {
     setSharing(false);
   };
 
-  const handleDeleteProject = async (projectId: string) => {
-    if (!confirm('Delete this project? This cannot be undone.')) return;
+const handleDeleteProject = async (project: Project) => {
+  const hasPost = !project.is_draft && project.post_id;
+  const message = hasPost 
+    ? '⚠️ This will delete the project AND its shared post. This cannot be undone. Continue?' 
+    : 'Delete this project? This cannot be undone.';
     
-    const { error } = await supabase.from('projects').delete().eq('id', projectId);
-    if (error) {
-      alert('Failed to delete project');
-      return;
+  if (!confirm(message)) return;
+  
+  try {
+    const response = await fetch(`/api/projects?projectId=${project.id}&userId=${userId}`, {
+      method: 'DELETE'
+    });
+    
+    const { success, error } = await response.json();
+    
+    if (!success) {
+      throw new Error(error || 'Failed to delete');
     }
     
+    alert('✅ Project deleted successfully');
     await fetchUserProjects();
-  };
+  } catch (error: any) {
+    console.error('Delete error:', error);
+    alert('❌ ' + error.message);
+  }
+};
 
   const handleShareClick = (project: Project) => {
     if (!project.last_commit_id) {
@@ -477,7 +492,7 @@ export default function ProfilePage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteProject(item.id);
+                            handleDeleteProject(item);
                           }}
                           className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
                           title="Delete"

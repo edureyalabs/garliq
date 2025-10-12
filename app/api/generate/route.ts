@@ -124,56 +124,74 @@ export async function POST(request: Request) {
 
           // Save to database after generation
           if (htmlResult) {
-            await supabase.from('chat_messages').insert({
-              session_id: sessionId,
-              role: 'user',
-              content: message
-            });
+            // Save chat messages
+await supabase.from('chat_messages').insert({
+  session_id: sessionId,
+  role: 'user',
+  content: message
+});
 
-            await supabase.from('chat_messages').insert({
-              session_id: sessionId,
-              role: 'assistant',
-              content: 'Generated updated code'
-            });
+await supabase.from('chat_messages').insert({
+  session_id: sessionId,
+  role: 'assistant',
+  content: 'Generated updated code'
+});
 
-            const { data: existingCommits } = await supabase
-              .from('commits')
-              .select('commit_number, id')
-              .eq('session_id', sessionId)
-              .order('commit_number', { ascending: false })
-              .limit(1);
+// Check existing commits
+const { data: existingCommits } = await supabase
+  .from('commits')
+  .select('commit_number, id')
+  .eq('session_id', sessionId)
+  .order('commit_number', { ascending: false })
+  .limit(1);
 
-            const nextNumber = existingCommits && existingCommits.length > 0 
-              ? existingCommits[0].commit_number + 1 
-              : 1;
-            
-            const commitMessage = currentCommit 
-              ? `Update #${nextNumber}` 
-              : 'Initial generation';
+const isFirstGeneration = !existingCommits || existingCommits.length === 0;
 
-            const { data: newCommit, error: commitError } = await supabase
-              .from('commits')
-              .insert({
-                session_id: sessionId,
-                commit_number: nextNumber,
-                commit_message: commitMessage,
-                html_code: htmlResult,
-                parent_commit_id: existingCommits?.[0]?.id || null
-              })
-              .select()
-              .single();
+// ONLY auto-commit on FIRST generation
+if (isFirstGeneration) {
+  console.log('🎯 First generation detected - Auto-creating Commit #1');
 
-            if (commitError) {
-              console.error('Commit creation error:', commitError);
-            } else {
-              await supabase
-                .from('sessions')
-                .update({ current_commit_id: newCommit.id })
-                .eq('id', sessionId);
+  const { data: newCommit, error: commitError } = await supabase
+    .from('commits')
+    .insert({
+      session_id: sessionId,
+      commit_number: 1,
+      commit_message: 'Initial generation',
+      html_code: htmlResult,
+      parent_commit_id: null,
+      is_published: false
+    })
+    .select()
+    .single();
 
-              // Send commit info to client
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'commit', commit: newCommit })}\n\n`));
-            }
+  if (commitError) {
+    console.error('❌ Commit creation error:', commitError);
+  } else {
+    console.log('✅ Commit #1 created:', newCommit.id);
+
+    // Update session's current_commit_id
+    await supabase
+      .from('sessions')
+      .update({ current_commit_id: newCommit.id })
+      .eq('id', sessionId);
+
+    // Update project's last_commit_id
+    await supabase
+      .from('projects')
+      .update({ 
+        last_commit_id: newCommit.id,
+        html_code: htmlResult // Also update project's HTML
+      })
+      .eq('session_id', sessionId);
+
+    // Send commit info to client
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'commit', commit: newCommit })}\n\n`));
+  }
+} else {
+  console.log('💬 Subsequent chat - No auto-commit (temporary update only)');
+  // For subsequent chats: Just return HTML, no commit created
+  // User must manually click "Commit" button to save changes
+}
 
             if (selectedModel === 'claude-sonnet-4.5') {
               const { error: tokenError } = await supabase.rpc('deduct_tokens', {
