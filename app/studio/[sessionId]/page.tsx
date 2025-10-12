@@ -386,9 +386,9 @@ export default function StudioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
       {/* Top Bar */}
-      <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800">
+      <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 flex-shrink-0">
         <div className="px-6 py-4 flex items-center justify-between">
           <button 
             onClick={() => router.push('/feed')} 
@@ -473,11 +473,12 @@ export default function StudioPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Chat Panel - 40% */}
-        <div className="w-2/5 border-r border-gray-800 flex flex-col">
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      {/* Main Content - FIXED STRUCTURE */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Chat Panel - 40% - FIXED */}
+        <div className="w-2/5 border-r border-gray-800 flex flex-col min-h-0">
+          {/* Messages Container - THIS IS THE FIX */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
             {showInsufficientTokens && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -520,8 +521,8 @@ export default function StudioPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <div className="p-6 border-t border-gray-800">
+          {/* Input - FIXED TO BOTTOM */}
+          <div className="p-6 border-t border-gray-800 flex-shrink-0">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -549,8 +550,8 @@ export default function StudioPage() {
         </div>
 
         {/* Preview Panel - 60% */}
-        <div className="flex-1 flex flex-col bg-gray-900">
-          <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+        <div className="flex-1 flex flex-col bg-gray-900 min-h-0">
+          <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2">
               <Eye size={16} className="text-purple-400" />
               <span className="text-sm font-mono text-gray-400">live-preview</span>
@@ -563,7 +564,7 @@ export default function StudioPage() {
             </button>
           </div>
 
-          <div className="flex-1 bg-white">
+          <div className="flex-1 bg-white min-h-0">
             {currentHtml ? (
               <iframe
                 srcDoc={currentHtml}
@@ -585,7 +586,7 @@ export default function StudioPage() {
 
       {/* Commit History Bar */}
       {commits.length > 0 && (
-        <div className="border-t border-gray-800 bg-gray-900/50 p-4">
+        <div className="border-t border-gray-800 bg-gray-900/50 p-4 flex-shrink-0">
           <div className="flex items-center gap-3 overflow-x-auto">
             <span className="text-sm font-semibold text-gray-400 flex-shrink-0">History:</span>
             {commits.map((commit) => (

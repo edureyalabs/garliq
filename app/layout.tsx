@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Garlic - Vibe Coding Social",
+  title: "Garliq - Vibe Coding Social",
   description: "The first social platform for vibe coding",
 };
 
