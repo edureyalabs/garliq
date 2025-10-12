@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Check, Eye, Save } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Check, Eye, Save, Crown, Zap } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -41,6 +41,9 @@ export default function StudioPage() {
   const [publishing, setPublishing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [projectSaved, setProjectSaved] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>('llama-3.3-70b');
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
+  const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const retryCountRef = useRef(0);
@@ -50,6 +53,12 @@ export default function StudioPage() {
     loadSession();
     checkIfProjectSaved();
   }, [sessionId]);
+
+  useEffect(() => {
+    if (user) {
+      fetchTokenBalance();
+    }
+  }, [user]);
 
   useEffect(() => {
     scrollToBottom();
@@ -66,6 +75,18 @@ export default function StudioPage() {
     } else {
       setUser(session.user);
     }
+  };
+
+  const fetchTokenBalance = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('user_wallets')
+      .select('token_balance')
+      .eq('user_id', user.id)
+      .single();
+
+    setTokenBalance(data?.token_balance || 0);
   };
 
   const checkIfProjectSaved = async () => {
@@ -96,6 +117,7 @@ export default function StudioPage() {
       if (data.session) {
         console.log('Session data received:', data);
         setSessionTitle(data.session.title);
+        setSelectedModel(data.session.selected_model || 'llama-3.3-70b');
         setMessages(data.messages || []);
         setCommits(data.commits || []);
 
@@ -134,6 +156,13 @@ export default function StudioPage() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading || !user) return;
 
+    // Check tokens for Claude
+    if (selectedModel === 'claude-sonnet-4.5' && tokenBalance < 1000) {
+      setShowInsufficientTokens(true);
+      setTimeout(() => setShowInsufficientTokens(false), 5000);
+      return;
+    }
+
     setProjectSaved(false); // Reset saved state when making changes
 
     const userMessage = inputMessage;
@@ -154,7 +183,8 @@ export default function StudioPage() {
         body: JSON.stringify({
           sessionId,
           message: userMessage,
-          userId: user.id
+          userId: user.id,
+          model: selectedModel
         })
       });
 
@@ -175,6 +205,7 @@ export default function StudioPage() {
         }]);
 
         await loadSession();
+        await fetchTokenBalance(); // Refresh balance
       }
     } catch (error: any) {
       console.error('Generation failed:', error);
@@ -214,7 +245,7 @@ export default function StudioPage() {
     }
   };
 
-const handleSaveProject = async () => {
+  const handleSaveProject = async () => {
     if (!user || !sessionId || saving) return;
 
     setSaving(true);
@@ -369,6 +400,29 @@ const handleSaveProject = async () => {
           </button>
 
           <div className="flex items-center gap-3">
+            {/* Model Badge */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
+              {selectedModel === 'claude-sonnet-4.5' ? (
+                <>
+                  <Crown size={16} className="text-pink-400" />
+                  <span className="text-sm font-mono text-pink-400">Claude</span>
+                </>
+              ) : (
+                <>
+                  <Zap size={16} className="text-purple-400" />
+                  <span className="text-sm font-mono text-purple-400">Llama</span>
+                </>
+              )}
+            </div>
+
+            {/* Token Balance */}
+            {selectedModel === 'claude-sonnet-4.5' && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
+                <Zap size={16} className="text-yellow-400" />
+                <span className="text-sm font-bold">{tokenBalance.toLocaleString()}</span>
+              </div>
+            )}
+
             <motion.button
               onClick={handleSaveProject}
               disabled={!currentHtml || loading || saving || projectSaved}
@@ -424,6 +478,20 @@ const handleSaveProject = async () => {
         {/* Chat Panel - 40% */}
         <div className="w-2/5 border-r border-gray-800 flex flex-col">
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {showInsufficientTokens && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
+              >
+                <p className="text-red-400 text-sm">
+                  ⚠️ Insufficient tokens! You need at least 1,000 tokens.
+                  <br />
+                  <span className="text-gray-400">Current balance: {tokenBalance} tokens</span>
+                </p>
+              </motion.div>
+            )}
+
             {messages.map((msg) => (
               <div
                 key={msg.id}
