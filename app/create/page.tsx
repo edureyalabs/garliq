@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Terminal, Loader2, Zap, Crown } from 'lucide-react';
+import { ArrowLeft, Send, Terminal, Zap, Crown, Loader2 } from 'lucide-react';
 
 type ModelType = 'llama-3.3-70b' | 'claude-sonnet-4.5';
 
@@ -11,9 +11,9 @@ export default function CreatePage() {
   const router = useRouter();
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelType>('llama-3.3-70b');
   const [tokenBalance, setTokenBalance] = useState<number>(0);
+  const [creating, setCreating] = useState(false);
   const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
 
   useEffect(() => {
@@ -40,17 +40,18 @@ export default function CreatePage() {
     setTokenBalance(data?.token_balance || 0);
   };
 
-  const handleCreateSession = async () => {
-    if (!prompt.trim() || loading || !user) return;
+const handleCreateSession = async () => {
+    if (!prompt.trim() || !user || creating) return;
+
+    setCreating(true);
 
     if (selectedModel === 'claude-sonnet-4.5' && tokenBalance < 1000) {
       setShowInsufficientTokens(true);
       return;
     }
 
-    setLoading(true);
-    
     try {
+      // Step 1: Create session
       const sessionResponse = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,37 +63,35 @@ export default function CreatePage() {
       });
 
       const sessionData = await sessionResponse.json();
-
       if (!sessionData.session || sessionData.error) {
         throw new Error(sessionData.error || 'Failed to create session');
       }
 
       const sessionId = sessionData.session.id;
 
-      const generateResponse = await fetch('/api/generate', {
+      // Step 2: Create project entry immediately
+      const projectResponse = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           sessionId: sessionId,
-          message: prompt,
           userId: user.id,
-          model: selectedModel
+          lastCommitId: null // Will be set after first generation
         })
       });
 
-      const generateData = await generateResponse.json();
-
-      if (!generateData.success || generateData.error) {
-        throw new Error(generateData.error || 'Failed to generate code');
+      const projectData = await projectResponse.json();
+      if (!projectData.success) {
+        throw new Error('Failed to create project');
       }
 
-      await new Promise(resolve => setTimeout(resolve, 500));
-      router.push(`/studio/${sessionId}`);
+// Step 3: Redirect to studio immediately (generation happens there)
+      router.push(`/studio/${sessionId}?firstGen=true`);
       
     } catch (error: any) {
+      setCreating(false);
       console.error('Creation failed:', error);
       alert(error.message || 'Failed to create project. Please try again.');
-      setLoading(false);
     }
   };
 
@@ -213,7 +212,6 @@ export default function CreatePage() {
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="A cyberpunk portfolio with neon gradients and floating particles..."
                 className="w-full h-64 bg-black/50 text-white p-4 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none resize-none font-mono text-sm placeholder:text-gray-600"
-                disabled={loading}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.ctrlKey) {
                     handleCreateSession();
@@ -223,18 +221,18 @@ export default function CreatePage() {
 
               <div className="mt-4 flex items-center justify-between">
                 <span className="text-xs text-gray-500 font-mono">
-                  {loading ? 'Creating your vibe...' : 'Ctrl + Enter to execute'}
+                  {creating ? 'Initializing project...' : 'Ctrl + Enter to execute'}
                 </span>
                 <motion.button
                   onClick={handleCreateSession}
-                  disabled={!prompt.trim() || loading}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  disabled={!prompt.trim() || creating}
+                  whileHover={!creating ? { scale: 1.02 } : {}}
+                  whileTap={!creating ? { scale: 0.98 } : {}}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  {loading ? (
+                  {creating ? (
                     <>
-                      <Loader2 className="animate-spin" size={18} />
+                      <Loader2 size={18} className="animate-spin" />
                       Creating...
                     </>
                   ) : (
@@ -260,8 +258,7 @@ export default function CreatePage() {
                 <button
                   key={i}
                   onClick={() => setPrompt(example)}
-                  disabled={loading}
-                  className="p-4 bg-gray-900 hover:bg-gray-800 rounded-xl border border-gray-800 hover:border-purple-500/50 transition-all text-left text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-4 bg-gray-900 hover:bg-gray-800 rounded-xl border border-gray-800 hover:border-purple-500/50 transition-all text-left text-sm"
                 >
                   {example}
                 </button>

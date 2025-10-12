@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Check, Eye, Save, Crown, Zap } from 'lucide-react';
 
@@ -24,7 +24,9 @@ interface Commit {
 export default function StudioPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
+  const isFirstGen = searchParams.get('firstGen') === 'true';
 
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -44,6 +46,8 @@ export default function StudioPage() {
   const [selectedModel, setSelectedModel] = useState<string>('llama-3.3-70b');
   const [tokenBalance, setTokenBalance] = useState<number>(0);
   const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
+  const [generatingFirst, setGeneratingFirst] = useState(false);
+  const [initialPrompt, setInitialPrompt] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const retryCountRef = useRef(0);
@@ -63,6 +67,13 @@ export default function StudioPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Auto-trigger first generation if coming from create page
+  useEffect(() => {
+    if (isFirstGen && initialPrompt && !generatingFirst && !loading && user) {
+      handleFirstGeneration();
+    }
+  }, [isFirstGen, initialPrompt, user]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -118,6 +129,7 @@ export default function StudioPage() {
         console.log('Session data received:', data);
         setSessionTitle(data.session.title);
         setSelectedModel(data.session.selected_model || 'llama-3.3-70b');
+        setInitialPrompt(data.session.initial_prompt);
         setMessages(data.messages || []);
         setCommits(data.commits || []);
 
@@ -153,17 +165,83 @@ export default function StudioPage() {
     }
   };
 
+  const handleFirstGeneration = async () => {
+    if (generatingFirst || !user || !initialPrompt) return;
+
+    setGeneratingFirst(true);
+    setLoading(true);
+
+    setMessages([{
+      id: Date.now().toString(),
+      role: 'user',
+      content: initialPrompt,
+      created_at: new Date().toISOString()
+    }]);
+
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          message: initialPrompt,
+          userId: user.id,
+          model: selectedModel
+        })
+      });
+
+      const { html, success, error, commit } = await response.json();
+
+      if (!success || error) {
+        throw new Error(error || 'Failed to generate');
+      }
+
+      if (html) {
+        setCurrentHtml(html);
+        
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'Generated initial code',
+          created_at: new Date().toISOString()
+        }]);
+
+        // Update project with first commit
+        if (commit) {
+          await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              userId: user.id,
+              lastCommitId: commit.id
+            })
+          });
+          setProjectSaved(true);
+        }
+
+        await loadSession();
+        await fetchTokenBalance();
+      }
+    } catch (error: any) {
+      console.error('First generation failed:', error);
+      alert(error.message || 'Failed to generate. Please try again.');
+    }
+
+    setLoading(false);
+    setGeneratingFirst(false);
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading || !user) return;
 
-    // Check tokens for Claude
     if (selectedModel === 'claude-sonnet-4.5' && tokenBalance < 1000) {
       setShowInsufficientTokens(true);
       setTimeout(() => setShowInsufficientTokens(false), 5000);
       return;
     }
 
-    setProjectSaved(false); // Reset saved state when making changes
+    setProjectSaved(false);
 
     const userMessage = inputMessage;
     setInputMessage('');
@@ -205,7 +283,7 @@ export default function StudioPage() {
         }]);
 
         await loadSession();
-        await fetchTokenBalance(); // Refresh balance
+        await fetchTokenBalance();
       }
     } catch (error: any) {
       console.error('Generation failed:', error);
@@ -246,12 +324,11 @@ export default function StudioPage() {
   };
 
   const handleSaveProject = async () => {
-    if (!user || !sessionId || saving) return;
+    if (!user || !sessionId || saving || projectSaved) return;
 
     setSaving(true);
 
     try {
-      // Get the latest commit ID
       const latestCommit = commits.length > 0 ? commits[commits.length - 1] : null;
 
       if (!latestCommit) {
@@ -276,12 +353,8 @@ export default function StudioPage() {
         throw new Error(error || 'Failed to save project');
       }
 
-      // Set both states
       setSaving(false);
       setProjectSaved(true);
-
-      // ✅ FIX: Don't auto-hide, keep it saved permanently
-      // User can see "Saved" status until they make new changes
 
     } catch (error: any) {
       console.error('Save project error:', error);
@@ -318,7 +391,6 @@ export default function StudioPage() {
         throw new Error(error || 'Failed to publish');
       }
 
-      // Update project to mark as published
       if (post && post.id) {
         await supabase
           .from('projects')
@@ -400,7 +472,6 @@ export default function StudioPage() {
           </button>
 
           <div className="flex items-center gap-3">
-            {/* Model Badge */}
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
               {selectedModel === 'claude-sonnet-4.5' ? (
                 <>
@@ -415,7 +486,6 @@ export default function StudioPage() {
               )}
             </div>
 
-            {/* Token Balance */}
             {selectedModel === 'claude-sonnet-4.5' && (
               <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
                 <Zap size={16} className="text-yellow-400" />
@@ -473,11 +543,10 @@ export default function StudioPage() {
         </div>
       </div>
 
-      {/* Main Content - FIXED STRUCTURE */}
+      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Chat Panel - 40% - FIXED */}
+        {/* Chat Panel - 40% */}
         <div className="w-2/5 border-r border-gray-800 flex flex-col min-h-0">
-          {/* Messages Container - THIS IS THE FIX */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
             {showInsufficientTokens && (
               <motion.div
@@ -510,10 +579,13 @@ export default function StudioPage() {
               </div>
             ))}
 
-            {loading && (
+            {(loading || generatingFirst) && (
               <div className="flex justify-start">
-                <div className="bg-gray-800 px-4 py-3 rounded-2xl">
+                <div className="bg-gray-800 px-4 py-3 rounded-2xl flex items-center gap-2">
                   <Loader2 className="animate-spin text-purple-400" size={20} />
+                  <span className="text-sm text-gray-400">
+                    {generatingFirst ? 'Creating your project...' : 'Generating...'}
+                  </span>
                 </div>
               </div>
             )}
@@ -521,7 +593,6 @@ export default function StudioPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input - FIXED TO BOTTOM */}
           <div className="p-6 border-t border-gray-800 flex-shrink-0">
             <div className="flex gap-2">
               <input
@@ -536,11 +607,11 @@ export default function StudioPage() {
                 }}
                 placeholder="Describe your changes..."
                 className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none"
-                disabled={loading}
+                disabled={loading || generatingFirst}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || loading}
+                disabled={!inputMessage.trim() || loading || generatingFirst}
                 className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <Send size={20} />
@@ -576,7 +647,7 @@ export default function StudioPage() {
               <div className="flex items-center justify-center h-full text-gray-400">
                 <div className="text-center">
                   <Loader2 className="animate-spin mx-auto mb-4" size={48} />
-                  <p>Waiting for generation...</p>
+                  <p>{generatingFirst ? 'Generating your first creation...' : 'Waiting for generation...'}</p>
                 </div>
               </div>
             )}

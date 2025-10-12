@@ -28,37 +28,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Determine which commit to use
+// Determine which commit to use
     let commitToUse = lastCommitId;
+    let commitHtmlCode = null;
     
     if (!commitToUse) {
       // Fallback: Get latest commit from database
       const { data: commits } = await supabase
         .from('commits')
-        .select('id')
+        .select('id, html_code')
         .eq('session_id', sessionId)
         .order('commit_number', { ascending: false })
         .limit(1);
 
-      if (!commits || commits.length === 0) {
-        return NextResponse.json({ error: 'No commits found. Generate code first.' }, { status: 400 });
+      if (commits && commits.length > 0) {
+        commitToUse = commits[0].id;
+        commitHtmlCode = commits[0].html_code;
       }
-      commitToUse = commits[0].id;
+      // If still no commit, we'll create project with null values (first generation pending)
     }
 
-    // Get commit HTML code
-    const { data: commit, error: commitError } = await supabase
-      .from('commits')
-      .select('html_code')
-      .eq('id', commitToUse)
-      .single();
+// Get commit HTML code (if commit exists)
+    if (commitToUse && !commitHtmlCode) {
+      const { data: commit, error: commitError } = await supabase
+        .from('commits')
+        .select('html_code')
+        .eq('id', commitToUse)
+        .single();
 
-    if (commitError || !commit) {
-      console.error('Commit not found:', commitError);
-      return NextResponse.json({ error: 'Commit not found' }, { status: 404 });
+      if (commit) {
+        commitHtmlCode = commit.html_code;
+      }
     }
 
-    console.log('✅ Using commit:', commitToUse);
+    console.log('✅ Using commit:', commitToUse || 'none (first generation pending)');
 
     // Check if project exists
     const { data: existingProject } = await supabase
@@ -69,13 +72,13 @@ export async function POST(request: Request) {
 
     if (existingProject) {
       // UPDATE existing project
-      const { data: updatedProject, error: updateError } = await supabase
+const { data: updatedProject, error: updateError } = await supabase
         .from('projects')
         .update({
           title: session.title,
           prompt: session.initial_prompt,
-          html_code: commit.html_code,
-          last_commit_id: commitToUse,  // ✅ Store last commit
+          html_code: commitHtmlCode || existingProject.html_code,
+          last_commit_id: commitToUse || existingProject.last_commit_id,
           updated_at: new Date().toISOString()
         })
         .eq('id', existingProject.id)
@@ -92,16 +95,16 @@ export async function POST(request: Request) {
       
     } else {
       // CREATE new project
-      const { data: newProject, error: createError } = await supabase
+const { data: newProject, error: createError } = await supabase
         .from('projects')
         .insert({
           user_id: userId,
           session_id: sessionId,
           title: session.title,
           prompt: session.initial_prompt,
-          html_code: commit.html_code,
+          html_code: commitHtmlCode || '<html><body><h1>Generating...</h1></body></html>',
           is_draft: true,
-          last_commit_id: commitToUse,  // ✅ Store last commit
+          last_commit_id: commitToUse,
           is_shared: false
         })
         .select()
