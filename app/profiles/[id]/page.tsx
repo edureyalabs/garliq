@@ -216,32 +216,32 @@ export default function ProfilePage() {
     setSharing(false);
   };
 
-const handleDeleteProject = async (project: Project) => {
-  const hasPost = !project.is_draft && project.post_id;
-  const message = hasPost 
-    ? '⚠️ This will delete the project AND its shared post. This cannot be undone. Continue?' 
-    : 'Delete this project? This cannot be undone.';
+  const handleDeleteProject = async (project: Project) => {
+    const hasPost = !project.is_draft && project.post_id;
+    const message = hasPost 
+      ? '⚠️ This will delete the project AND its shared post. This cannot be undone. Continue?' 
+      : 'Delete this project? This cannot be undone.';
+      
+    if (!confirm(message)) return;
     
-  if (!confirm(message)) return;
-  
-  try {
-    const response = await fetch(`/api/projects?projectId=${project.id}&userId=${userId}`, {
-      method: 'DELETE'
-    });
-    
-    const { success, error } = await response.json();
-    
-    if (!success) {
-      throw new Error(error || 'Failed to delete');
+    try {
+      const response = await fetch(`/api/projects?projectId=${project.id}&userId=${userId}`, {
+        method: 'DELETE'
+      });
+      
+      const { success, error } = await response.json();
+      
+      if (!success) {
+        throw new Error(error || 'Failed to delete');
+      }
+      
+      alert('✅ Project deleted successfully');
+      await fetchUserProjects();
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      alert('❌ ' + error.message);
     }
-    
-    alert('✅ Project deleted successfully');
-    await fetchUserProjects();
-  } catch (error: any) {
-    console.error('Delete error:', error);
-    alert('❌ ' + error.message);
-  }
-};
+  };
 
   const handleShareClick = (project: Project) => {
     if (!project.last_commit_id) {
@@ -251,6 +251,29 @@ const handleDeleteProject = async (project: Project) => {
     setShareProject(project);
     setShareCaption(project.title);
     setShowShareModal(true);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm('⚠️ Delete this post? The project will remain saved.')) return;
+    
+    try {
+      const response = await fetch(`/api/posts/${postId}?userId=${userId}`, {
+        method: 'DELETE'
+      });
+      
+      const { success, error } = await response.json();
+      
+      if (!success) {
+        throw new Error(error || 'Failed to delete');
+      }
+      
+      alert('✅ Post deleted successfully');
+      await fetchUserPosts();
+      await fetchUserProjects();
+    } catch (error: any) {
+      console.error('Delete post error:', error);
+      alert('❌ ' + error.message);
+    }
   };
 
   if (loading) {
@@ -509,20 +532,34 @@ const handleDeleteProject = async (project: Project) => {
                       <p className="text-sm font-semibold line-clamp-2 mb-2">
                         {'caption' in item ? item.caption : 'Untitled'}
                       </p>
-                      {'likes_count' in item && (
-                        <div className="flex items-center gap-3 text-xs">
-                          <span className="flex items-center gap-1">
-                            <Heart size={14} />
-                            {item.likes_count || 0}
-                          </span>
-                          {'comments_count' in item && (
+                      <div className="flex items-center justify-between">
+                        {'likes_count' in item && (
+                          <div className="flex items-center gap-3 text-xs">
                             <span className="flex items-center gap-1">
-                              <Code2 size={14} />
-                              {item.comments_count || 0}
+                              <Heart size={14} />
+                              {item.likes_count || 0}
                             </span>
-                          )}
-                        </div>
-                      )}
+                            {'comments_count' in item && (
+                              <span className="flex items-center gap-1">
+                                <Code2 size={14} />
+                                {item.comments_count || 0}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {isOwnProfile && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePost(item.id);
+                            }}
+                            className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
+                            title="Delete Post"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </motion.div>

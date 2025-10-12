@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Plus, Heart, MessageCircle, Share2, LogOut, User, TrendingUp, Clock, Users, Search, Code2, Bookmark } from 'lucide-react';
+import { Plus, Heart, MessageCircle, Share2, LogOut, User, TrendingUp, Clock, Users, Search, Code2, Bookmark, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface Post {
@@ -113,24 +113,21 @@ export default function FeedPage() {
       return;
     }
 
-if (data) {
-  const userIds = [...new Set(data.map(p => p.user_id))];
-  const { data: profilesData } = await supabase
-    .from('profiles')
-    .select('id, username, display_name, avatar_url')
-    .in('id', userIds);
+    if (data) {
+      const userIds = [...new Set(data.map(p => p.user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', userIds);
 
-  const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
-  
-  // Ensure counts are never null/undefined
-  const postsWithProfiles = data.map(post => ({
-    ...post,
-    likes_count: post.likes_count ?? 0,
-    comments_count: post.comments_count ?? 0,
-    profiles: profilesMap.get(post.user_id)
-  }));
-
-  // Rest of the code remains the same...
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+      
+      const postsWithProfiles = data.map(post => ({
+        ...post,
+        likes_count: post.likes_count ?? 0,
+        comments_count: post.comments_count ?? 0,
+        profiles: profilesMap.get(post.user_id)
+      }));
 
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -187,71 +184,68 @@ if (data) {
     }
   };
 
-const handleLike = async (postId: string, isLiked: boolean) => {
-  if (!user) return;
+  const handleLike = async (postId: string, isLiked: boolean) => {
+    if (!user) return;
 
-  console.log('Feed like action:', { postId, isLiked }); // Debug
+    console.log('Feed like action:', { postId, isLiked });
 
-  try {
-    if (isLiked) {
-      const { error } = await supabase
-        .from('likes')
-        .delete()
-        .eq('post_id', postId)
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
+    try {
+      if (isLiked) {
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
 
-      const { error: rpcError } = await supabase.rpc('decrement_likes', { post_id: postId });
-      if (rpcError) throw rpcError;
-    } else {
-      const { error } = await supabase
-        .from('likes')
-        .insert({ post_id: postId, user_id: user.id });
-      
-      if (error) throw error;
+        const { error: rpcError } = await supabase.rpc('decrement_likes', { post_id: postId });
+        if (rpcError) throw rpcError;
+      } else {
+        const { error } = await supabase
+          .from('likes')
+          .insert({ post_id: postId, user_id: user.id });
+        
+        if (error) throw error;
 
-      const { error: rpcError } = await supabase.rpc('increment_likes', { post_id: postId });
-      if (rpcError) throw rpcError;
+        const { error: rpcError } = await supabase.rpc('increment_likes', { post_id: postId });
+        if (rpcError) throw rpcError;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const { data: updatedPost, error: fetchError } = await supabase
+        .from('posts')
+        .select('likes_count, comments_count')
+        .eq('id', postId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      console.log('Updated post data:', updatedPost);
+
+      if (updatedPost) {
+        const { data: likeCheck } = await supabase
+          .from('likes')
+          .select('*')
+          .eq('post_id', postId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        setPosts(prevPosts => prevPosts.map(post => 
+          post.id === postId ? {
+            ...post,
+            is_liked: !!likeCheck,
+            likes_count: updatedPost.likes_count || 0,
+            comments_count: updatedPost.comments_count || 0
+          } : post
+        ));
+      }
+    } catch (error: any) {
+      console.error('Like error:', error);
+      alert('Failed to update like: ' + error.message);
     }
-
-    // Wait for DB
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Fetch updated post data
-    const { data: updatedPost, error: fetchError } = await supabase
-      .from('posts')
-      .select('likes_count, comments_count')
-      .eq('id', postId)
-      .single();
-
-    if (fetchError) throw fetchError;
-
-    console.log('Updated post data:', updatedPost); // Debug
-
-    if (updatedPost) {
-      // Check if user still likes it
-      const { data: likeCheck } = await supabase
-        .from('likes')
-        .select('*')
-        .eq('post_id', postId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      setPosts(prevPosts => prevPosts.map(post => 
-        post.id === postId ? {
-          ...post,
-          is_liked: !!likeCheck,
-          likes_count: updatedPost.likes_count || 0,
-          comments_count: updatedPost.comments_count || 0
-        } : post
-      ));
-    }
-  } catch (error: any) {
-    console.error('Like error:', error);
-    alert('Failed to update like: ' + error.message);
-  }
-};
+  };
 
   const handleSave = async (postId: string, isSaved: boolean) => {
     if (!user) return;
@@ -289,6 +283,30 @@ const handleLike = async (postId: string, isLiked: boolean) => {
     } else {
       navigator.clipboard.writeText(shareUrl);
       alert('Link copied!');
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!user) return;
+    
+    if (!confirm('⚠️ Delete this post? Your project will remain saved.')) return;
+    
+    try {
+      const response = await fetch(`/api/posts/${postId}?userId=${user.id}`, {
+        method: 'DELETE'
+      });
+      
+      const { success, error } = await response.json();
+      
+      if (!success) {
+        throw new Error(error || 'Failed to delete');
+      }
+      
+      setPosts(prevPosts => prevPosts.filter(p => p.id !== postId));
+      alert('✅ Post deleted');
+    } catch (error: any) {
+      console.error('Delete post error:', error);
+      alert('❌ ' + error.message);
     }
   };
 
@@ -502,6 +520,15 @@ const handleLike = async (postId: string, isLiked: boolean) => {
                         >
                           <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
                         </button>
+
+                        {user?.id === post.user_id && (
+                          <button
+                            onClick={() => handleDeletePost(post.id)}
+                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                          >
+                            <Trash2 size={18} className="text-gray-500 hover:text-red-400 transition-colors" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

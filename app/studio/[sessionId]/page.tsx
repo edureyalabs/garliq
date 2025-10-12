@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Eye, Crown, Zap } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -19,6 +19,13 @@ interface Commit {
   html_code: string;
   created_at: string;
   is_published: boolean;
+}
+
+interface Project {
+  id: string;
+  post_id: string | null;
+  html_code: string;
+  is_shared: boolean;
 }
 
 export default function StudioPage() {
@@ -46,6 +53,11 @@ export default function StudioPage() {
   const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
   const [generatingFirst, setGeneratingFirst] = useState(false);
   const [initialPrompt, setInitialPrompt] = useState('');
+  
+  // NEW: Save project state
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [project, setProject] = useState<Project | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const retryCountRef = useRef(0);
@@ -53,6 +65,7 @@ export default function StudioPage() {
   useEffect(() => {
     checkUser();
     loadSession();
+    loadProject();
   }, [sessionId]);
 
   useEffect(() => {
@@ -65,18 +78,14 @@ export default function StudioPage() {
     scrollToBottom();
   }, [messages]);
 
-  // CHANGE 1: Fixed useEffect with commits.length check
   useEffect(() => {
-    // Only trigger ONCE when all conditions are met
     if (isFirstGen && initialPrompt && !generatingFirst && !loading && user && commits.length === 0) {
       handleFirstGeneration();
     }
   }, [isFirstGen, initialPrompt, user, commits.length]);
 
-  // CHANGE 4: Reset firstGen flag after it's used
   useEffect(() => {
     if (isFirstGen && generatingFirst) {
-      // Clear the query param after triggering generation
       const url = new URL(window.location.href);
       url.searchParams.delete('firstGen');
       window.history.replaceState({}, '', url.toString());
@@ -106,6 +115,22 @@ export default function StudioPage() {
       .single();
 
     setTokenBalance(data?.token_balance || 0);
+  };
+
+  const loadProject = async () => {
+    try {
+      const { data } = await supabase
+        .from('projects')
+        .select('id, post_id, html_code, is_shared')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (data) {
+        setProject(data);
+      }
+    } catch (error) {
+      console.error('Load project error:', error);
+    }
   };
 
   const loadSession = async () => {
@@ -218,6 +243,7 @@ export default function StudioPage() {
               } else if (data.type === 'complete') {
                 htmlResult = data.html;
                 setCurrentHtml(data.html);
+                setHasUnsavedChanges(false); // First commit auto-saved
                 setMessages(prev => {
                   const filtered = prev.filter(m => m.id !== 'status-msg');
                   return [...filtered, {
@@ -239,10 +265,7 @@ export default function StudioPage() {
         }
       }
 
-      // CHANGE 3: Add commit to state instead of reloading
       if (commitResult) {
-        // Project already created in /create page
-        // Just update it with the first commit
         await fetch('/api/projects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -253,11 +276,10 @@ export default function StudioPage() {
           })
         });
         
-        // Add commit to state
         setCommits([commitResult]);
+        await loadProject();
       }
 
-      // ✅ ONLY refresh token balance
       await fetchTokenBalance();
 
     } catch (error: any) {
@@ -289,7 +311,6 @@ export default function StudioPage() {
       created_at: new Date().toISOString()
     }]);
 
-    // CHANGE 2: Removed loadSession() and only keep HTML in state
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -337,8 +358,8 @@ export default function StudioPage() {
                   }];
                 });
               } else if (data.type === 'complete') {
-                // ✅ KEEP HTML IN STATE (don't reload from DB)
                 setCurrentHtml(data.html);
+                setHasUnsavedChanges(true); // Mark as unsaved
                 setMessages(prev => {
                   const filtered = prev.filter(m => m.id !== 'status-msg');
                   return [...filtered, {
@@ -358,7 +379,6 @@ export default function StudioPage() {
         }
       }
 
-      // ✅ ONLY refresh token balance, NOT the whole session
       await fetchTokenBalance();
 
     } catch (error: any) {
@@ -367,6 +387,35 @@ export default function StudioPage() {
     }
 
     setLoading(false);
+  };
+
+  // NEW: Save project without commit
+  const handleSaveProject = async () => {
+    if (!currentHtml || !user || !project || saving) return;
+
+    setSaving(true);
+
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ htmlCode: currentHtml })
+      });
+
+      const { success, error } = await response.json();
+
+      if (!success || error) {
+        throw new Error(error || 'Failed to save');
+      }
+
+      setHasUnsavedChanges(false);
+      await loadProject();
+    } catch (error: any) {
+      console.error('Save failed:', error);
+      alert(error.message || 'Failed to save project');
+    }
+
+    setSaving(false);
   };
 
   const handleCommit = async () => {
@@ -391,11 +440,39 @@ export default function StudioPage() {
         throw new Error(error || 'Failed to save commit');
       }
 
+      setHasUnsavedChanges(false);
       await loadSession();
-      alert('Commit saved successfully!');
+      await loadProject();
+      alert('✅ Commit saved successfully!');
     } catch (error: any) {
       console.error('Commit failed:', error);
       alert(error.message || 'Failed to save commit');
+    }
+  };
+
+  // NEW: Update existing post
+  const handleUpdatePost = async () => {
+    if (!project?.post_id || !currentHtml) return;
+
+    if (!confirm('Update the published post with current code?')) return;
+
+    try {
+      const response = await fetch(`/api/posts/${project.post_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ htmlCode: currentHtml })
+      });
+
+      const { success, error } = await response.json();
+
+      if (!success || error) {
+        throw new Error(error || 'Failed to update post');
+      }
+
+      alert('✅ Post updated successfully!');
+    } catch (error: any) {
+      console.error('Update post failed:', error);
+      alert(error.message || 'Failed to update post');
     }
   };
 
@@ -440,6 +517,8 @@ export default function StudioPage() {
 
       setShowPublishModal(false);
       setPublishCaption('');
+      await loadProject();
+      alert('✅ Published to feed!');
       router.push('/feed');
     } catch (error: any) {
       console.error('Publish failed:', error);
@@ -461,6 +540,7 @@ export default function StudioPage() {
 
       if (success) {
         setCurrentHtml(commitHtml);
+        setHasUnsavedChanges(true); // Mark as unsaved after checkout
         await loadSession();
       }
     } catch (error) {
@@ -529,6 +609,22 @@ export default function StudioPage() {
               </div>
             )}
 
+            {/* NEW: Save Project Button */}
+            <motion.button
+              onClick={handleSaveProject}
+              disabled={!hasUnsavedChanges || saving || loading}
+              whileHover={hasUnsavedChanges && !saving ? { scale: 1.05 } : {}}
+              whileTap={hasUnsavedChanges && !saving ? { scale: 0.95 } : {}}
+              className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-all ${
+                hasUnsavedChanges 
+                  ? 'bg-yellow-600 hover:bg-yellow-700' 
+                  : 'bg-green-600/30 text-green-400 cursor-default'
+              } disabled:opacity-30`}
+            >
+              <Save size={18} />
+              {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Project' : 'Saved ✓'}
+            </motion.button>
+
             <motion.button
               onClick={handleCommit}
               disabled={!currentHtml || loading}
@@ -540,16 +636,30 @@ export default function StudioPage() {
               Commit
             </motion.button>
 
-            <motion.button
-              onClick={() => setShowPublishModal(true)}
-              disabled={commits.length === 0}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
-            >
-              <Share2 size={18} />
-              Share
-            </motion.button>
+            {/* NEW: Update Post Button (only if post exists) */}
+            {project?.post_id ? (
+              <motion.button
+                onClick={handleUpdatePost}
+                disabled={loading || !currentHtml}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
+              >
+                <RefreshCw size={18} />
+                Update Post
+              </motion.button>
+            ) : (
+              <motion.button
+                onClick={() => setShowPublishModal(true)}
+                disabled={commits.length === 0}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
+              >
+                <Share2 size={18} />
+                Share
+              </motion.button>
+            )}
           </div>
         </div>
       </div>
@@ -637,6 +747,11 @@ export default function StudioPage() {
             <div className="flex items-center gap-2">
               <Eye size={16} className="text-purple-400" />
               <span className="text-sm font-mono text-gray-400">live-preview</span>
+              {hasUnsavedChanges && (
+                <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-full font-bold">
+                  Unsaved
+                </span>
+              )}
             </div>
             <button 
               onClick={() => setFullscreen(true)}

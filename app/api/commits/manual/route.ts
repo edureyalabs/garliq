@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       })
       .eq('session_id', sessionId);
 
-    // ✅ NEW: Check if this project has an associated post
+    // ✅ Check if this project has an associated post
     const { data: project } = await supabase
       .from('projects')
       .select('post_id')
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (project?.post_id) {
-      // Update the post with new commit
+      // Auto-update the post with new commit
       await supabase
         .from('posts')
         .update({
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         })
         .eq('id', project.post_id);
       
-      console.log('✅ Post updated with new commit:', newCommit.id);
+      console.log('✅ Post auto-updated with new commit:', newCommit.id);
     }
 
     console.log('✅ Manual commit created:', newCommit.id);

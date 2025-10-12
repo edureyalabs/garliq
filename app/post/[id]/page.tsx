@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Maximize2, X, Code2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Maximize2, X, Code2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface Post {
@@ -69,69 +69,69 @@ export default function PostDetailPage() {
     if (session) setUser(session.user);
   };
 
-const fetchPost = async () => {
-  try {
-    const { data: postData, error } = await supabase
-      .from('posts')
-      .select('*, current_commit_id')
-      .eq('id', postId)
-      .single();
-
-    if (error) throw error;
-
-    if (postData) {
-      console.log('Fetched post data:', postData);
-
-      // ✅ Load HTML from latest commit if available
-      if (postData.current_commit_id) {
-        const { data: latestCommit } = await supabase
-          .from('commits')
-          .select('html_code')
-          .eq('id', postData.current_commit_id)
-          .single();
-        
-        if (latestCommit) {
-          postData.html_code = latestCommit.html_code;
-          console.log('✅ Loaded latest commit code');
-        }
-      }
-
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', postData.user_id)
+  const fetchPost = async () => {
+    try {
+      const { data: postData, error } = await supabase
+        .from('posts')
+        .select('*, current_commit_id')
+        .eq('id', postId)
         .single();
 
-      if (profileData) setProfile(profileData);
+      if (error) throw error;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const [likeData, saveData] = await Promise.all([
-          supabase.from('likes').select('*').eq('post_id', postId).eq('user_id', session.user.id).maybeSingle(),
-          supabase.from('saves').select('*').eq('post_id', postId).eq('user_id', session.user.id).maybeSingle()
-        ]);
+      if (postData) {
+        console.log('Fetched post data:', postData);
 
-        setPost({
-          ...postData,
-          likes_count: postData.likes_count || 0,
-          comments_count: postData.comments_count || 0,
-          is_liked: !!likeData.data,
-          is_saved: !!saveData.data
-        });
-      } else {
-        setPost({
-          ...postData,
-          likes_count: postData.likes_count || 0,
-          comments_count: postData.comments_count || 0
-        });
+        // ✅ Load HTML from latest commit if available
+        if (postData.current_commit_id) {
+          const { data: latestCommit } = await supabase
+            .from('commits')
+            .select('html_code')
+            .eq('id', postData.current_commit_id)
+            .single();
+          
+          if (latestCommit) {
+            postData.html_code = latestCommit.html_code;
+            console.log('✅ Loaded latest commit code');
+          }
+        }
+
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', postData.user_id)
+          .single();
+
+        if (profileData) setProfile(profileData);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const [likeData, saveData] = await Promise.all([
+            supabase.from('likes').select('*').eq('post_id', postId).eq('user_id', session.user.id).maybeSingle(),
+            supabase.from('saves').select('*').eq('post_id', postId).eq('user_id', session.user.id).maybeSingle()
+          ]);
+
+          setPost({
+            ...postData,
+            likes_count: postData.likes_count || 0,
+            comments_count: postData.comments_count || 0,
+            is_liked: !!likeData.data,
+            is_saved: !!saveData.data
+          });
+        } else {
+          setPost({
+            ...postData,
+            likes_count: postData.likes_count || 0,
+            comments_count: postData.comments_count || 0
+          });
+        }
       }
+    } catch (error) {
+      console.error('Error fetching post:', error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching post:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const fetchComments = async () => {
     const { data: commentsData } = await supabase
@@ -232,6 +232,35 @@ const fetchPost = async () => {
     } else {
       navigator.clipboard.writeText(shareUrl);
       alert('Link copied!');
+    }
+  };
+
+  const handleDeletePost = async () => {
+    if (!user || !post) return;
+    
+    if (user.id !== post.user_id) {
+      alert('You can only delete your own posts');
+      return;
+    }
+    
+    if (!confirm('⚠️ Delete this post? Your project will remain saved.')) return;
+    
+    try {
+      const response = await fetch(`/api/posts/${postId}?userId=${user.id}`, {
+        method: 'DELETE'
+      });
+      
+      const { success, error } = await response.json();
+      
+      if (!success) {
+        throw new Error(error || 'Failed to delete');
+      }
+      
+      alert('✅ Post deleted');
+      router.push('/feed');
+    } catch (error: any) {
+      console.error('Delete post error:', error);
+      alert('❌ ' + error.message);
     }
   };
 
@@ -336,6 +365,14 @@ const fetchPost = async () => {
             >
               <Share2 size={20} className="text-gray-400" />
             </button>
+            {user?.id === post.user_id && (
+              <button
+                onClick={handleDeletePost}
+                className="p-2 hover:bg-gray-800 rounded-full transition-colors"
+              >
+                <Trash2 size={20} className="text-gray-400 hover:text-red-400 transition-colors" />
+              </button>
+            )}
           </div>
         </div>
       </div>
