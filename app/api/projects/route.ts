@@ -8,13 +8,13 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { sessionId, userId, lastCommitId } = await request.json();
+    const { sessionId, userId } = await request.json();
 
     if (!sessionId || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    console.log('📦 Saving project:', { sessionId, lastCommitId });
+    console.log('📦 Creating/updating project:', { sessionId });
 
     // Get session data
     const { data: session, error: sessionError } = await supabase
@@ -28,41 +28,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-// Determine which commit to use
-    let commitToUse = lastCommitId;
-    let commitHtmlCode = null;
-    
-    if (!commitToUse) {
-      // Fallback: Get latest commit from database
-      const { data: commits } = await supabase
-        .from('commits')
-        .select('id, html_code')
-        .eq('session_id', sessionId)
-        .order('commit_number', { ascending: false })
-        .limit(1);
-
-      if (commits && commits.length > 0) {
-        commitToUse = commits[0].id;
-        commitHtmlCode = commits[0].html_code;
-      }
-      // If still no commit, we'll create project with null values (first generation pending)
-    }
-
-// Get commit HTML code (if commit exists)
-    if (commitToUse && !commitHtmlCode) {
-      const { data: commit, error: commitError } = await supabase
-        .from('commits')
-        .select('html_code')
-        .eq('id', commitToUse)
-        .single();
-
-      if (commit) {
-        commitHtmlCode = commit.html_code;
-      }
-    }
-
-    console.log('✅ Using commit:', commitToUse || 'none (first generation pending)');
-
     // Check if project exists
     const { data: existingProject } = await supabase
       .from('projects')
@@ -72,13 +37,11 @@ export async function POST(request: Request) {
 
     if (existingProject) {
       // UPDATE existing project
-const { data: updatedProject, error: updateError } = await supabase
+      const { data: updatedProject, error: updateError } = await supabase
         .from('projects')
         .update({
           title: session.title,
           prompt: session.initial_prompt,
-          html_code: commitHtmlCode || existingProject.html_code,
-          last_commit_id: commitToUse || existingProject.last_commit_id,
           updated_at: new Date().toISOString()
         })
         .eq('id', existingProject.id)
@@ -95,16 +58,15 @@ const { data: updatedProject, error: updateError } = await supabase
       
     } else {
       // CREATE new project
-const { data: newProject, error: createError } = await supabase
+      const { data: newProject, error: createError } = await supabase
         .from('projects')
         .insert({
           user_id: userId,
           session_id: sessionId,
           title: session.title,
           prompt: session.initial_prompt,
-          html_code: commitHtmlCode || '<html><body><h1>Generating...</h1></body></html>',
+          html_code: '<html><body><h1>Generating...</h1></body></html>',
           is_draft: true,
-          last_commit_id: commitToUse,
           is_shared: false
         })
         .select()
@@ -171,17 +133,17 @@ export async function DELETE(request: Request) {
     // Get project details
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('session_id, post_id')
+      .select('session_id, post_id, user_id')
       .eq('id', projectId)
       .eq('user_id', userId)
       .single();
 
     if (projectError || !project) {
       console.error('Project not found:', projectError);
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Project not found or unauthorized' }, { status: 404 });
     }
 
-    // Delete associated post if exists
+    // Delete associated post if exists (this will cascade to likes/comments/saves)
     if (project.post_id) {
       const { error: postError } = await supabase
         .from('posts')
@@ -195,40 +157,30 @@ export async function DELETE(request: Request) {
       }
     }
 
-    // Delete commits (this will cascade to chat_messages if FK is set)
-    const { error: commitsError } = await supabase
-      .from('commits')
-      .delete()
-      .eq('session_id', project.session_id);
-    
-    if (commitsError) {
-      console.error('Error deleting commits:', commitsError);
-    } else {
-      console.log('✅ Deleted commits');
-    }
+    // Delete chat messages if session exists
+    if (project.session_id) {
+      const { error: messagesError } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('session_id', project.session_id);
+      
+      if (messagesError) {
+        console.error('Error deleting messages:', messagesError);
+      } else {
+        console.log('✅ Deleted chat messages');
+      }
 
-    // Delete chat messages
-    const { error: messagesError } = await supabase
-      .from('chat_messages')
-      .delete()
-      .eq('session_id', project.session_id);
-    
-    if (messagesError) {
-      console.error('Error deleting messages:', messagesError);
-    } else {
-      console.log('✅ Deleted chat messages');
-    }
-
-    // Delete session
-    const { error: sessionError } = await supabase
-      .from('sessions')
-      .delete()
-      .eq('id', project.session_id);
-    
-    if (sessionError) {
-      console.error('Error deleting session:', sessionError);
-    } else {
-      console.log('✅ Deleted session');
+      // Delete session
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', project.session_id);
+      
+      if (sessionError) {
+        console.error('Error deleting session:', sessionError);
+      } else {
+        console.log('✅ Deleted session');
+      }
     }
 
     // Finally, delete project

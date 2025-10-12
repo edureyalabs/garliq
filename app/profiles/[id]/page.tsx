@@ -35,7 +35,6 @@ interface Project {
   is_draft: boolean;
   is_shared: boolean;
   post_id: string | null;
-  last_commit_id: string | null;
   prompt: string;
   updated_at: string;
 }
@@ -170,36 +169,22 @@ export default function ProfilePage() {
     setSharing(true);
 
     try {
-      if (!shareProject.last_commit_id) {
-        alert('No commits found. Please edit and save the project first.');
-        setSharing(false);
-        return;
-      }
-
-      const response = await fetch(`/api/commits/${shareProject.last_commit_id}/publish`, {
+      const response = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          projectId: shareProject.id,
           caption: shareCaption,
           promptVisible,
           userId: currentUser.id
         })
       });
 
-      const { success, error, post } = await response.json();
+      const { success, error } = await response.json();
 
       if (!success || error) {
         throw new Error(error || 'Failed to publish');
       }
-
-      await supabase
-        .from('projects')
-        .update({ 
-          is_draft: false, 
-          is_shared: true,
-          post_id: post.id 
-        })
-        .eq('id', shareProject.id);
 
       setShowShareModal(false);
       setShareCaption('');
@@ -244,10 +229,6 @@ export default function ProfilePage() {
   };
 
   const handleShareClick = (project: Project) => {
-    if (!project.last_commit_id) {
-      alert('No commits found. Please edit and save the project first.');
-      return;
-    }
     setShareProject(project);
     setShareCaption(project.title);
     setShowShareModal(true);
@@ -325,7 +306,7 @@ export default function ProfilePage() {
             </button>
 
             {isOwnProfile && (
-              <Link href="/profile/edit">
+              <Link href="/profiles/edit">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

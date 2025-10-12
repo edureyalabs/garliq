@@ -15,7 +15,6 @@ interface Project {
   is_draft: boolean;
   session_id: string | null;
   post_id: string | null;
-  last_commit_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -61,40 +60,35 @@ export default function ProjectsPage() {
     setLoading(false);
   };
 
-const handleDelete = async (project: Project) => {
-  const hasPost = !project.is_draft && project.post_id;
-  const message = hasPost 
-    ? '⚠️ This will delete the project AND its shared post. This cannot be undone. Continue?' 
-    : 'Delete this project? This cannot be undone.';
+  const handleDelete = async (project: Project) => {
+    const hasPost = !project.is_draft && project.post_id;
+    const message = hasPost 
+      ? '⚠️ This will delete the project AND its shared post. This cannot be undone. Continue?' 
+      : 'Delete this project? This cannot be undone.';
+      
+    if (!confirm(message)) return;
     
-  if (!confirm(message)) return;
-  
-  try {
-    const response = await fetch(`/api/projects?projectId=${project.id}&userId=${user?.id}`, {
-      method: 'DELETE'
-    });
-    
-    const { success, error } = await response.json();
-    
-    if (!success) {
-      throw new Error(error || 'Failed to delete');
+    try {
+      const response = await fetch(`/api/projects?projectId=${project.id}&userId=${user?.id}`, {
+        method: 'DELETE'
+      });
+      
+      const { success, error } = await response.json();
+      
+      if (!success) {
+        throw new Error(error || 'Failed to delete');
+      }
+      
+      alert('✅ Project deleted successfully');
+      
+      if (user) fetchProjects(user.id);
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      alert('❌ ' + error.message);
     }
-    
-    alert('✅ Project deleted successfully');
-    
-    // Refresh list
-    if (user) fetchProjects(user.id);
-  } catch (error: any) {
-    console.error('Delete error:', error);
-    alert('❌ ' + error.message);
-  }
-};
+  };
 
   const handleShareClick = (project: Project) => {
-    if (!project.last_commit_id) {
-      alert('No commits found. Please edit and save the project first.');
-      return;
-    }
     setShareProject(project);
     setShareCaption(project.title);
     setShowShareModal(true);
@@ -106,38 +100,27 @@ const handleDelete = async (project: Project) => {
     setSharing(true);
 
     try {
-      // Publish the commit
-      const response = await fetch(`/api/commits/${shareProject.last_commit_id}/publish`, {
+      const response = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          projectId: shareProject.id,
           caption: shareCaption,
           promptVisible,
           userId: user.id
         })
       });
 
-      const { success, error, post } = await response.json();
+      const { success, error } = await response.json();
 
       if (!success || error) {
         throw new Error(error || 'Failed to publish');
       }
 
-      // Update project status
-      await supabase
-        .from('projects')
-        .update({ 
-          is_draft: false, 
-          is_shared: true,
-          post_id: post.id 
-        })
-        .eq('id', shareProject.id);
-
       setShowShareModal(false);
       setShareCaption('');
       setShareProject(null);
       
-      // Refresh projects list
       fetchProjects(user.id);
       
       alert('✅ Project published to feed!');

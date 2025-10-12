@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, GitCommit, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -12,20 +12,12 @@ interface Message {
   created_at: string;
 }
 
-interface Commit {
-  id: string;
-  commit_number: number;
-  commit_message: string;
-  html_code: string;
-  created_at: string;
-  is_published: boolean;
-}
-
 interface Project {
   id: string;
   post_id: string | null;
   html_code: string;
   is_shared: boolean;
+  updated_at: string;
 }
 
 export default function StudioPage() {
@@ -37,7 +29,6 @@ export default function StudioPage() {
 
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [commits, setCommits] = useState<Commit[]>([]);
   const [currentHtml, setCurrentHtml] = useState('');
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -79,10 +70,10 @@ export default function StudioPage() {
   }, [messages]);
 
   useEffect(() => {
-    if (isFirstGen && initialPrompt && !generatingFirst && !loading && user && commits.length === 0) {
+    if (isFirstGen && initialPrompt && !generatingFirst && !loading && user) {
       handleFirstGeneration();
     }
-  }, [isFirstGen, initialPrompt, user, commits.length]);
+  }, [isFirstGen, initialPrompt, user]);
 
   useEffect(() => {
     if (isFirstGen && generatingFirst) {
@@ -121,12 +112,15 @@ export default function StudioPage() {
     try {
       const { data } = await supabase
         .from('projects')
-        .select('id, post_id, html_code, is_shared')
+        .select('id, post_id, html_code, is_shared, updated_at')
         .eq('session_id', sessionId)
         .single();
 
       if (data) {
         setProject(data);
+        if (data.html_code && data.html_code !== '<html><body><h1>Generating...</h1></body></html>') {
+          setCurrentHtml(data.html_code);
+        }
       }
     } catch (error) {
       console.error('Load project error:', error);
@@ -145,12 +139,6 @@ export default function StudioPage() {
         setSelectedModel(data.session.selected_model || 'llama-3.3-70b');
         setInitialPrompt(data.session.initial_prompt);
         setMessages(data.messages || []);
-        setCommits(data.commits || []);
-
-        if (data.commits && data.commits.length > 0) {
-          const latestCommit = data.commits[data.commits.length - 1];
-          setCurrentHtml(latestCommit.html_code);
-        }
         
         setInitialLoading(false);
         retryCountRef.current = 0;
@@ -209,7 +197,6 @@ export default function StudioPage() {
 
       const decoder = new TextDecoder();
       let htmlResult = '';
-      let commitResult = null;
       let buffer = '';
 
       while (true) {
@@ -243,7 +230,7 @@ export default function StudioPage() {
               } else if (data.type === 'complete') {
                 htmlResult = data.html;
                 setCurrentHtml(data.html);
-                setHasUnsavedChanges(false); // First commit auto-saved
+                setHasUnsavedChanges(false); // First generation auto-saved by backend
                 setMessages(prev => {
                   const filtered = prev.filter(m => m.id !== 'status-msg');
                   return [...filtered, {
@@ -253,8 +240,6 @@ export default function StudioPage() {
                     created_at: new Date().toISOString()
                   }];
                 });
-              } else if (data.type === 'commit') {
-                commitResult = data.commit;
               } else if (data.type === 'error') {
                 throw new Error(data.message);
               }
@@ -265,21 +250,7 @@ export default function StudioPage() {
         }
       }
 
-      if (commitResult) {
-        await fetch('/api/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId,
-            userId: user.id,
-            lastCommitId: commitResult.id
-          })
-        });
-        
-        setCommits([commitResult]);
-        await loadProject();
-      }
-
+      await loadProject();
       await fetchTokenBalance();
 
     } catch (error: any) {
@@ -359,7 +330,7 @@ export default function StudioPage() {
                 });
               } else if (data.type === 'complete') {
                 setCurrentHtml(data.html);
-                setHasUnsavedChanges(true); // Mark as unsaved
+                setHasUnsavedChanges(true); // Mark as unsaved after generation
                 setMessages(prev => {
                   const filtered = prev.filter(m => m.id !== 'status-msg');
                   return [...filtered, {
@@ -379,6 +350,7 @@ export default function StudioPage() {
         }
       }
 
+      await loadProject();
       await fetchTokenBalance();
 
     } catch (error: any) {
@@ -389,7 +361,7 @@ export default function StudioPage() {
     setLoading(false);
   };
 
-  // NEW: Save project without commit
+  // NEW: Save project without creating post
   const handleSaveProject = async () => {
     if (!currentHtml || !user || !project || saving) return;
 
@@ -410,6 +382,7 @@ export default function StudioPage() {
 
       setHasUnsavedChanges(false);
       await loadProject();
+      console.log('✅ Project saved');
     } catch (error: any) {
       console.error('Save failed:', error);
       alert(error.message || 'Failed to save project');
@@ -418,41 +391,9 @@ export default function StudioPage() {
     setSaving(false);
   };
 
-  const handleCommit = async () => {
-    if (!currentHtml || !user) return;
-
-    const commitMessage = prompt('Enter commit message:') || `Update #${commits.length + 1}`;
-
-    try {
-      const response = await fetch('/api/commits/manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          htmlCode: currentHtml,
-          commitMessage
-        })
-      });
-
-      const { success, error } = await response.json();
-
-      if (!success || error) {
-        throw new Error(error || 'Failed to save commit');
-      }
-
-      setHasUnsavedChanges(false);
-      await loadSession();
-      await loadProject();
-      alert('✅ Commit saved successfully!');
-    } catch (error: any) {
-      console.error('Commit failed:', error);
-      alert(error.message || 'Failed to save commit');
-    }
-  };
-
-  // NEW: Update existing post
+  // NEW: Update existing post with current code
   const handleUpdatePost = async () => {
-    if (!project?.post_id || !currentHtml) return;
+    if (!project?.post_id || !currentHtml || !user) return;
 
     if (!confirm('Update the published post with current code?')) return;
 
@@ -460,7 +401,10 @@ export default function StudioPage() {
       const response = await fetch(`/api/posts/${project.post_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ htmlCode: currentHtml })
+        body: JSON.stringify({ 
+          htmlCode: currentHtml,
+          userId: user.id 
+        })
       });
 
       const { success, error } = await response.json();
@@ -470,49 +414,35 @@ export default function StudioPage() {
       }
 
       alert('✅ Post updated successfully!');
+      await loadProject();
     } catch (error: any) {
       console.error('Update post failed:', error);
       alert(error.message || 'Failed to update post');
     }
   };
 
-  const handlePublish = async () => {
-    if (!publishCaption.trim() || publishing || !user) return;
+  // NEW: Share project to feed (first time)
+  const handleShare = async () => {
+    if (!publishCaption.trim() || publishing || !user || !project) return;
 
     setPublishing(true);
 
     try {
-      const latestCommit = commits[commits.length - 1];
-
-      if (!latestCommit) {
-        throw new Error('No commits to publish');
-      }
-
-      const response = await fetch(`/api/commits/${latestCommit.id}/publish`, {
+      const response = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          projectId: project.id,
           caption: publishCaption,
           promptVisible,
           userId: user.id
         })
       });
 
-      const { success, error, post } = await response.json();
+      const { success, error } = await response.json();
 
       if (!success || error) {
         throw new Error(error || 'Failed to publish');
-      }
-
-      if (post && post.id) {
-        await supabase
-          .from('projects')
-          .update({ 
-            is_draft: false, 
-            is_shared: true,
-            post_id: post.id 
-          })
-          .eq('session_id', sessionId);
       }
 
       setShowPublishModal(false);
@@ -526,26 +456,6 @@ export default function StudioPage() {
     }
 
     setPublishing(false);
-  };
-
-  const handleCheckoutCommit = async (commitId: string, commitHtml: string) => {
-    try {
-      const response = await fetch(`/api/commits/${commitId}/checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId })
-      });
-
-      const { success } = await response.json();
-
-      if (success) {
-        setCurrentHtml(commitHtml);
-        setHasUnsavedChanges(true); // Mark as unsaved after checkout
-        await loadSession();
-      }
-    } catch (error) {
-      console.error('Checkout failed:', error);
-    }
   };
 
   if (initialLoading) {
@@ -625,17 +535,6 @@ export default function StudioPage() {
               {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Project' : 'Saved ✓'}
             </motion.button>
 
-            <motion.button
-              onClick={handleCommit}
-              disabled={!currentHtml || loading}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-5 py-2 bg-purple-600 hover:bg-purple-700 rounded-full font-semibold flex items-center gap-2 disabled:opacity-30"
-            >
-              <GitCommit size={18} />
-              Commit
-            </motion.button>
-
             {/* NEW: Update Post Button (only if post exists) */}
             {project?.post_id ? (
               <motion.button
@@ -651,13 +550,13 @@ export default function StudioPage() {
             ) : (
               <motion.button
                 onClick={() => setShowPublishModal(true)}
-                disabled={commits.length === 0}
+                disabled={!project || !currentHtml}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
               >
                 <Share2 size={18} />
-                Share
+                Share to Feed
               </motion.button>
             )}
           </div>
@@ -781,29 +680,7 @@ export default function StudioPage() {
         </div>
       </div>
 
-      {/* Commit History Bar */}
-      {commits.length > 0 && (
-        <div className="border-t border-gray-800 bg-gray-900/50 p-4 flex-shrink-0">
-          <div className="flex items-center gap-3 overflow-x-auto">
-            <span className="text-sm font-semibold text-gray-400 flex-shrink-0">History:</span>
-            {commits.map((commit) => (
-              <button
-                key={commit.id}
-                onClick={() => handleCheckoutCommit(commit.id, commit.html_code)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0 group"
-              >
-                <GitCommit size={14} className="text-purple-400" />
-                <span className="text-sm font-mono">#{commit.commit_number}</span>
-                {commit.is_published && (
-                  <span className="text-green-400">✓</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Publish Modal */}
+      {/* Share Modal */}
       <AnimatePresence>
         {showPublishModal && (
           <motion.div
@@ -811,7 +688,7 @@ export default function StudioPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6"
-            onClick={() => setShowPublishModal(false)}
+            onClick={() => !publishing && setShowPublishModal(false)}
           >
             <motion.div
               initial={{ scale: 0.9 }}
@@ -822,7 +699,7 @@ export default function StudioPage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold">Share to Feed</h3>
-                <button onClick={() => setShowPublishModal(false)}>
+                <button onClick={() => !publishing && setShowPublishModal(false)} disabled={publishing}>
                   <X size={24} className="text-gray-400 hover:text-white" />
                 </button>
               </div>
@@ -833,6 +710,7 @@ export default function StudioPage() {
                 onChange={(e) => setPublishCaption(e.target.value)}
                 placeholder="Add a caption..."
                 className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4"
+                disabled={publishing}
               />
 
               <label className="flex items-center gap-3 mb-6 cursor-pointer">
@@ -841,18 +719,34 @@ export default function StudioPage() {
                   checked={promptVisible}
                   onChange={(e) => setPromptVisible(e.target.checked)}
                   className="w-5 h-5"
+                  disabled={publishing}
                 />
                 <span className="text-sm text-gray-400">Share prompt publicly</span>
               </label>
 
               <motion.button
-                onClick={handlePublish}
+                onClick={handleShare}
                 disabled={!publishCaption.trim() || publishing}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                whileHover={!publishing ? { scale: 1.02 } : {}}
+                whileTap={!publishing ? { scale: 0.98 } : {}}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {publishing ? 'Publishing...' : 'Publish'}
+                {publishing ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    >
+                      🧄
+                    </motion.div>
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Share2 size={18} />
+                    Publish
+                  </>
+                )}
               </motion.button>
             </motion.div>
           </motion.div>

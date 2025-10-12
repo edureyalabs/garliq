@@ -20,10 +20,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    // Verify ownership
+    console.log('🗑️ Deleting post:', postId);
+
+    // Verify ownership and get project_id
     const { data: post } = await supabase
       .from('posts')
-      .select('user_id, session_id')
+      .select('user_id, project_id')
       .eq('id', postId)
       .single();
 
@@ -31,17 +33,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Update project to unlink post
-    await supabase
-      .from('projects')
-      .update({ 
-        post_id: null, 
-        is_shared: false,
-        is_draft: true
-      })
-      .eq('session_id', post.session_id);
+    // Update project to unlink post (set back to draft)
+    if (post.project_id) {
+      await supabase
+        .from('projects')
+        .update({ 
+          post_id: null, 
+          is_shared: false,
+          is_draft: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', post.project_id);
+      
+      console.log('✅ Project unlinked from post');
+    }
 
-    // Delete post (likes/comments cascade automatically if FK set)
+    // Delete post (likes/comments/saves cascade automatically)
     const { error: deleteError } = await supabase
       .from('posts')
       .delete()
@@ -49,9 +56,11 @@ export async function DELETE(
 
     if (deleteError) throw deleteError;
 
+    console.log('✅ Post deleted, project kept as draft');
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Delete post error:', error);
+    console.error('❌ Delete post error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to delete post',
       success: false 
@@ -59,25 +68,37 @@ export async function DELETE(
   }
 }
 
-// PATCH - Update post with new code
+// PATCH - Update post with new code (the "Update Post" button)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { htmlCode, commitId, caption, promptVisible } = await request.json();
+    const { htmlCode, caption, promptVisible, userId } = await request.json();
     const { id: postId } = await params;
+
+    console.log('🔄 Updating post:', postId);
+
+    // Verify ownership
+    const { data: post } = await supabase
+      .from('posts')
+      .select('user_id, project_id')
+      .eq('id', postId)
+      .single();
+
+    if (!post || post.user_id !== userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
 
     const updateData: any = {
       updated_at: new Date().toISOString()
     };
 
-    if (htmlCode) updateData.html_code = htmlCode;
-    if (commitId) updateData.current_commit_id = commitId;
+    if (htmlCode !== undefined) updateData.html_code = htmlCode;
     if (caption !== undefined) updateData.caption = caption;
     if (promptVisible !== undefined) updateData.prompt_visible = promptVisible;
 
-    const { data: post, error } = await supabase
+    const { data: updatedPost, error } = await supabase
       .from('posts')
       .update(updateData)
       .eq('id', postId)
@@ -86,9 +107,11 @@ export async function PATCH(
 
     if (error) throw error;
 
-    return NextResponse.json({ post, success: true });
+    console.log('✅ Post updated successfully');
+
+    return NextResponse.json({ post: updatedPost, success: true });
   } catch (error: any) {
-    console.error('Update post error:', error);
+    console.error('❌ Update post error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to update post',
       success: false 

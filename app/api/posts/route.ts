@@ -6,91 +6,76 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// DELETE - Delete post only (keep project)
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// POST - Share project to feed (create new post)
+export async function POST(request: Request) {
   try {
-    const { id: postId } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const { projectId, caption, promptVisible, userId } = await request.json();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+    if (!projectId || !caption || !userId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Verify ownership
-    const { data: post } = await supabase
-      .from('posts')
-      .select('user_id, session_id')
-      .eq('id', postId)
+    console.log('📤 Sharing project to feed:', projectId);
+
+    // Get project data
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .eq('user_id', userId)
       .single();
 
-    if (!post || post.user_id !== userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (projectError || !project) {
+      return NextResponse.json({ error: 'Project not found or unauthorized' }, { status: 404 });
     }
 
-    // Update project to unlink post
-    await supabase
-      .from('projects')
-      .update({ 
-        post_id: null, 
-        is_shared: false,
-        is_draft: true
+    // Check if already shared
+    if (project.post_id) {
+      return NextResponse.json({ 
+        error: 'Project already shared. Use update instead.',
+        success: false 
+      }, { status: 400 });
+    }
+
+    // Create new post
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .insert({
+        user_id: userId,
+        project_id: projectId,
+        caption,
+        prompt: project.prompt,
+        prompt_visible: promptVisible,
+        html_code: project.html_code,
+        likes_count: 0,
+        comments_count: 0
       })
-      .eq('session_id', post.session_id);
-
-    // Delete post (likes/comments cascade automatically if FK set)
-    const { error: deleteError } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', postId);
-
-    if (deleteError) throw deleteError;
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('Delete post error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Failed to delete post',
-      success: false 
-    }, { status: 500 });
-  }
-}
-
-// PATCH - Update post with new code
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { htmlCode, commitId, caption, promptVisible } = await request.json();
-    const { id: postId } = await params;
-
-    const updateData: any = {
-      updated_at: new Date().toISOString()
-    };
-
-    if (htmlCode) updateData.html_code = htmlCode;
-    if (commitId) updateData.current_commit_id = commitId;
-    if (caption !== undefined) updateData.caption = caption;
-    if (promptVisible !== undefined) updateData.prompt_visible = promptVisible;
-
-    const { data: post, error } = await supabase
-      .from('posts')
-      .update(updateData)
-      .eq('id', postId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (postError) {
+      console.error('Post creation error:', postError);
+      return NextResponse.json({ error: postError.message, success: false }, { status: 500 });
+    }
+
+    // Update project to mark as shared
+    await supabase
+      .from('projects')
+      .update({
+        is_shared: true,
+        is_draft: false,
+        post_id: post.id,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', projectId);
+
+    console.log('✅ Project shared to feed');
 
     return NextResponse.json({ post, success: true });
   } catch (error: any) {
-    console.error('Update post error:', error);
+    console.error('❌ Share project error:', error);
     return NextResponse.json({ 
-      error: error.message || 'Failed to update post',
+      error: error.message || 'Failed to share project',
       success: false 
     }, { status: 500 });
   }

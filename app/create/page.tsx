@@ -40,15 +40,15 @@ export default function CreatePage() {
     setTokenBalance(data?.token_balance || 0);
   };
 
-const handleCreateSession = async () => {
+  const handleCreateSession = async () => {
     if (!prompt.trim() || !user || creating) return;
-
-    setCreating(true);
 
     if (selectedModel === 'claude-sonnet-4.5' && tokenBalance < 1000) {
       setShowInsufficientTokens(true);
       return;
     }
+
+    setCreating(true);
 
     try {
       // Step 1: Create session
@@ -69,14 +69,13 @@ const handleCreateSession = async () => {
 
       const sessionId = sessionData.session.id;
 
-      // Step 2: Create project entry immediately
+      // Step 2: Create project entry
       const projectResponse = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           sessionId: sessionId,
-          userId: user.id,
-          lastCommitId: null // Will be set after first generation
+          userId: user.id
         })
       });
 
@@ -85,7 +84,9 @@ const handleCreateSession = async () => {
         throw new Error('Failed to create project');
       }
 
-// Step 3: Redirect to studio immediately (generation happens there)
+      console.log('✅ Session + Project created, redirecting to studio');
+
+      // Step 3: Redirect to studio (generation happens there)
       router.push(`/studio/${sessionId}?firstGen=true`);
       
     } catch (error: any) {
@@ -127,7 +128,7 @@ const handleCreateSession = async () => {
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
               <Terminal size={16} className="text-purple-400" />
-              <span className="text-sm font-mono text-gray-400">v1.0.0</span>
+              <span className="text-sm font-mono text-gray-400">v2.0.0</span>
             </div>
           </div>
         </div>

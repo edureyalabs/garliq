@@ -28,6 +28,7 @@ export async function POST(request: Request) {
 
     const selectedModel = model || session?.selected_model || 'llama-3.3-70b';
 
+    // Check token balance for Claude
     if (selectedModel === 'claude-sonnet-4.5') {
       const { data: wallet } = await supabase
         .from('user_wallets')
@@ -45,18 +46,18 @@ export async function POST(request: Request) {
       }
     }
 
+    // Get chat history (we keep this for context)
     const { data: chatHistory } = await supabase
       .from('chat_messages')
       .select('role, content')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
-    const { data: currentCommit } = await supabase
-      .from('commits')
+    // Get current project code
+    const { data: project } = await supabase
+      .from('projects')
       .select('html_code')
       .eq('session_id', sessionId)
-      .order('commit_number', { ascending: false })
-      .limit(1)
       .maybeSingle();
 
     // Create streaming response
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
             body: JSON.stringify({
               prompt: message,
               model: selectedModel,
-              current_code: currentCommit?.html_code || null,
+              current_code: project?.html_code || null,
               chat_history: chatHistory || []
             })
           });
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
             buffer += text;
             
             const lines = buffer.split('\n');
-            buffer = lines.pop() || ''; // Keep incomplete line in buffer
+            buffer = lines.pop() || '';
 
             for (const line of lines) {
               if (line.startsWith('data: ')) {
@@ -116,7 +117,6 @@ export async function POST(request: Request) {
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
                 } catch (e) {
                   console.error('JSON parse error:', e);
-                  // Skip malformed JSON
                 }
               }
             }
@@ -125,74 +125,30 @@ export async function POST(request: Request) {
           // Save to database after generation
           if (htmlResult) {
             // Save chat messages
-await supabase.from('chat_messages').insert({
-  session_id: sessionId,
-  role: 'user',
-  content: message
-});
+            await supabase.from('chat_messages').insert({
+              session_id: sessionId,
+              role: 'user',
+              content: message
+            });
 
-await supabase.from('chat_messages').insert({
-  session_id: sessionId,
-  role: 'assistant',
-  content: 'Generated updated code'
-});
+            await supabase.from('chat_messages').insert({
+              session_id: sessionId,
+              role: 'assistant',
+              content: 'Generated updated code'
+            });
 
-// Check existing commits
-const { data: existingCommits } = await supabase
-  .from('commits')
-  .select('commit_number, id')
-  .eq('session_id', sessionId)
-  .order('commit_number', { ascending: false })
-  .limit(1);
+            // Update project's html_code directly (no commit creation)
+            await supabase
+              .from('projects')
+              .update({ 
+                html_code: htmlResult,
+                updated_at: new Date().toISOString()
+              })
+              .eq('session_id', sessionId);
 
-const isFirstGeneration = !existingCommits || existingCommits.length === 0;
+            console.log('✅ Project html_code updated');
 
-// ONLY auto-commit on FIRST generation
-if (isFirstGeneration) {
-  console.log('🎯 First generation detected - Auto-creating Commit #1');
-
-  const { data: newCommit, error: commitError } = await supabase
-    .from('commits')
-    .insert({
-      session_id: sessionId,
-      commit_number: 1,
-      commit_message: 'Initial generation',
-      html_code: htmlResult,
-      parent_commit_id: null,
-      is_published: false
-    })
-    .select()
-    .single();
-
-  if (commitError) {
-    console.error('❌ Commit creation error:', commitError);
-  } else {
-    console.log('✅ Commit #1 created:', newCommit.id);
-
-    // Update session's current_commit_id
-    await supabase
-      .from('sessions')
-      .update({ current_commit_id: newCommit.id })
-      .eq('id', sessionId);
-
-    // Update project's last_commit_id
-    await supabase
-      .from('projects')
-      .update({ 
-        last_commit_id: newCommit.id,
-        html_code: htmlResult // Also update project's HTML
-      })
-      .eq('session_id', sessionId);
-
-    // Send commit info to client
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'commit', commit: newCommit })}\n\n`));
-  }
-} else {
-  console.log('💬 Subsequent chat - No auto-commit (temporary update only)');
-  // For subsequent chats: Just return HTML, no commit created
-  // User must manually click "Commit" button to save changes
-}
-
+            // Deduct tokens if using Claude
             if (selectedModel === 'claude-sonnet-4.5') {
               const { error: tokenError } = await supabase.rpc('deduct_tokens', {
                 p_user_id: userId,

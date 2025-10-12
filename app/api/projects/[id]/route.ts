@@ -19,7 +19,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'HTML code required' }, { status: 400 });
     }
 
-    // Update project's html_code
+    console.log('💾 Saving project:', projectId);
+
+    // Update project's html_code and timestamp
     const { data: project, error } = await supabase
       .from('projects')
       .update({
@@ -32,9 +34,11 @@ export async function PATCH(
 
     if (error) throw error;
 
+    console.log('✅ Project saved successfully');
+
     return NextResponse.json({ project, success: true });
   } catch (error: any) {
-    console.error('Save project error:', error);
+    console.error('❌ Save project error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to save project',
       success: false 
