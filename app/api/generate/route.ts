@@ -9,6 +9,8 @@ const supabase = createClient(
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:8000';
 
 export async function POST(request: Request) {
+  const encoder = new TextEncoder();
+  
   try {
     const { sessionId, message, userId, model } = await request.json();
 
@@ -57,99 +59,152 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
 
-    const agentResponse = await fetch(`${AGENT_SERVICE_URL}/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: message,
-        model: selectedModel,
-        current_code: currentCommit?.html_code || null,
-        chat_history: chatHistory || []
-      })
-    });
+    // Create streaming response
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const agentResponse = await fetch(`${AGENT_SERVICE_URL}/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: message,
+              model: selectedModel,
+              current_code: currentCommit?.html_code || null,
+              chat_history: chatHistory || []
+            })
+          });
 
-    if (!agentResponse.ok) {
-      const errorText = await agentResponse.text();
-      console.error('Agent service error:', errorText);
-      throw new Error('AI service unavailable');
-    }
+          if (!agentResponse.ok) {
+            const errorText = await agentResponse.text();
+            console.error('Agent service error:', errorText);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'AI service unavailable' })}\n\n`));
+            controller.close();
+            return;
+          }
 
-    const agentData = await agentResponse.json();
-    
-    if (!agentData.success || !agentData.html) {
-      throw new Error(agentData.error || 'No response from AI');
-    }
+          const reader = agentResponse.body?.getReader();
+          if (!reader) {
+            throw new Error('No response body');
+          }
 
-    const html = agentData.html;
+          let htmlResult = '';
+          let buffer = '';
 
-    console.log('HTML generated, length:', html.length);
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-    await supabase.from('chat_messages').insert({
-      session_id: sessionId,
-      role: 'user',
-      content: message
-    });
+            const text = new TextDecoder().decode(value);
+            buffer += text;
+            
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
-    await supabase.from('chat_messages').insert({
-      session_id: sessionId,
-      role: 'assistant',
-      content: 'Generated updated code'
-    });
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const jsonStr = line.slice(6).trim();
+                  if (!jsonStr) continue;
+                  
+                  const data = JSON.parse(jsonStr);
+                  
+                  if (data.type === 'complete') {
+                    htmlResult = data.html;
+                  }
+                  
+                  // Forward to client
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+                } catch (e) {
+                  console.error('JSON parse error:', e);
+                  // Skip malformed JSON
+                }
+              }
+            }
+          }
 
-    const { data: existingCommits } = await supabase
-      .from('commits')
-      .select('commit_number, id')
-      .eq('session_id', sessionId)
-      .order('commit_number', { ascending: false })
-      .limit(1);
+          // Save to database after generation
+          if (htmlResult) {
+            await supabase.from('chat_messages').insert({
+              session_id: sessionId,
+              role: 'user',
+              content: message
+            });
 
-    const nextNumber = existingCommits && existingCommits.length > 0 
-      ? existingCommits[0].commit_number + 1 
-      : 1;
-    
-    const commitMessage = currentCommit 
-      ? `Update #${nextNumber}` 
-      : 'Initial generation';
+            await supabase.from('chat_messages').insert({
+              session_id: sessionId,
+              role: 'assistant',
+              content: 'Generated updated code'
+            });
 
-    const { data: newCommit, error: commitError } = await supabase
-      .from('commits')
-      .insert({
-        session_id: sessionId,
-        commit_number: nextNumber,
-        commit_message: commitMessage,
-        html_code: html,
-        parent_commit_id: existingCommits?.[0]?.id || null
-      })
-      .select()
-      .single();
+            const { data: existingCommits } = await supabase
+              .from('commits')
+              .select('commit_number, id')
+              .eq('session_id', sessionId)
+              .order('commit_number', { ascending: false })
+              .limit(1);
 
-    if (commitError) {
-      console.error('Commit creation error:', commitError);
-      throw commitError;
-    }
+            const nextNumber = existingCommits && existingCommits.length > 0 
+              ? existingCommits[0].commit_number + 1 
+              : 1;
+            
+            const commitMessage = currentCommit 
+              ? `Update #${nextNumber}` 
+              : 'Initial generation';
 
-    await supabase
-      .from('sessions')
-      .update({ current_commit_id: newCommit.id })
-      .eq('id', sessionId);
+            const { data: newCommit, error: commitError } = await supabase
+              .from('commits')
+              .insert({
+                session_id: sessionId,
+                commit_number: nextNumber,
+                commit_message: commitMessage,
+                html_code: htmlResult,
+                parent_commit_id: existingCommits?.[0]?.id || null
+              })
+              .select()
+              .single();
 
-    if (selectedModel === 'claude-sonnet-4.5') {
-      const { error: tokenError } = await supabase.rpc('deduct_tokens', {
-        p_user_id: userId,
-        p_amount: 1000,
-        p_description: `Code generation with ${selectedModel}`
-      });
+            if (commitError) {
+              console.error('Commit creation error:', commitError);
+            } else {
+              await supabase
+                .from('sessions')
+                .update({ current_commit_id: newCommit.id })
+                .eq('id', sessionId);
 
-      if (tokenError) {
-        console.error('Token deduction error:', tokenError);
+              // Send commit info to client
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'commit', commit: newCommit })}\n\n`));
+            }
+
+            if (selectedModel === 'claude-sonnet-4.5') {
+              const { error: tokenError } = await supabase.rpc('deduct_tokens', {
+                p_user_id: userId,
+                p_amount: 1000,
+                p_description: `Code generation with ${selectedModel}`
+              });
+
+              if (tokenError) {
+                console.error('Token deduction error:', tokenError);
+              }
+            }
+          }
+
+          controller.close();
+        } catch (error: any) {
+          console.error('Stream error:', error);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`));
+          controller.close();
+        }
       }
-    }
-
-    return NextResponse.json({ 
-      html, 
-      success: true,
-      commit: newCommit
     });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
+
   } catch (error: any) {
     console.error('Generate error:', error);
     return NextResponse.json({ 

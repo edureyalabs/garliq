@@ -68,7 +68,6 @@ export default function StudioPage() {
     scrollToBottom();
   }, [messages]);
 
-  // Auto-trigger first generation if coming from create page
   useEffect(() => {
     if (isFirstGen && initialPrompt && !generatingFirst && !loading && user) {
       handleFirstGeneration();
@@ -190,39 +189,82 @@ export default function StudioPage() {
         })
       });
 
-      const { html, success, error, commit } = await response.json();
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response stream');
 
-      if (!success || error) {
-        throw new Error(error || 'Failed to generate');
-      }
+      const decoder = new TextDecoder();
+      let htmlResult = '';
+      let commitResult = null;
+      let buffer = '';
 
-      if (html) {
-        setCurrentHtml(html);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value);
+        buffer += text;
         
-        setMessages(prev => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: 'Generated initial code',
-          created_at: new Date().toISOString()
-        }]);
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-        // Update project with first commit
-        if (commit) {
-          await fetch('/api/projects', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId,
-              userId: user.id,
-              lastCommitId: commit.id
-            })
-          });
-          setProjectSaved(true);
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr) continue;
+              
+              const data = JSON.parse(jsonStr);
+
+              if (data.type === 'status') {
+                setMessages(prev => {
+                  const filtered = prev.filter(m => m.id !== 'status-msg');
+                  return [...filtered, {
+                    id: 'status-msg',
+                    role: 'assistant',
+                    content: data.message,
+                    created_at: new Date().toISOString()
+                  }];
+                });
+              } else if (data.type === 'complete') {
+                htmlResult = data.html;
+                setCurrentHtml(data.html);
+                setMessages(prev => {
+                  const filtered = prev.filter(m => m.id !== 'status-msg');
+                  return [...filtered, {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: 'Generated initial code',
+                    created_at: new Date().toISOString()
+                  }];
+                });
+              } else if (data.type === 'commit') {
+                commitResult = data.commit;
+              } else if (data.type === 'error') {
+                throw new Error(data.message);
+              }
+            } catch (e) {
+              console.error('JSON parse error:', e);
+            }
+          }
         }
-
-        await loadSession();
-        await fetchTokenBalance();
       }
+
+      if (commitResult) {
+        await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            userId: user.id,
+            lastCommitId: commitResult.id
+          })
+        });
+        setProjectSaved(true);
+      }
+
+      await loadSession();
+      await fetchTokenBalance();
+
     } catch (error: any) {
       console.error('First generation failed:', error);
       alert(error.message || 'Failed to generate. Please try again.');
@@ -266,25 +308,64 @@ export default function StudioPage() {
         })
       });
 
-      const { html, success, error } = await response.json();
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response stream');
 
-      if (!success || error) {
-        throw new Error(error || 'Failed to generate');
-      }
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      if (html) {
-        setCurrentHtml(html);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value);
+        buffer += text;
         
-        setMessages(prev => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: 'Generated updated code',
-          created_at: new Date().toISOString()
-        }]);
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-        await loadSession();
-        await fetchTokenBalance();
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr) continue;
+              
+              const data = JSON.parse(jsonStr);
+
+              if (data.type === 'status') {
+                setMessages(prev => {
+                  const filtered = prev.filter(m => m.id !== 'status-msg');
+                  return [...filtered, {
+                    id: 'status-msg',
+                    role: 'assistant',
+                    content: data.message,
+                    created_at: new Date().toISOString()
+                  }];
+                });
+              } else if (data.type === 'complete') {
+                setCurrentHtml(data.html);
+                setMessages(prev => {
+                  const filtered = prev.filter(m => m.id !== 'status-msg');
+                  return [...filtered, {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: 'Generated updated code',
+                    created_at: new Date().toISOString()
+                  }];
+                });
+              } else if (data.type === 'error') {
+                throw new Error(data.message);
+              }
+            } catch (e) {
+              console.error('JSON parse error:', e);
+            }
+          }
+        }
       }
+
+      await loadSession();
+      await fetchTokenBalance();
+
     } catch (error: any) {
       console.error('Generation failed:', error);
       alert(error.message || 'Failed to generate. Please try again.');
