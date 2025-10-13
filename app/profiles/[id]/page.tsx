@@ -391,7 +391,7 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* Content Grid */}
+        {/* Content Grid - ✅ FIXED */}
         {displayItems.length === 0 ? (
           <div className="text-center py-20 bg-gray-900/30 rounded-2xl border border-gray-800">
             <Code2 size={48} className="mx-auto mb-4 text-gray-700" />
@@ -402,7 +402,10 @@ export default function ProfilePage() {
         ) : (
           <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayItems.map((item, i) => {
-              const isProject = 'session_id' in item;
+              // ✅ FIX: Better type checking based on active tab
+              const isProject = activeTab === 'projects';
+              const post = !isProject ? (item as Post) : null;
+              const project = isProject ? (item as Project) : null;
               
               return (
                 <motion.div
@@ -443,28 +446,28 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Info Overlay for Projects */}
-                  {isProject && isOwnProfile && (
+                  {isProject && project && isOwnProfile && (
                     <div className="absolute top-2 right-2 z-10 flex gap-1">
                       <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                        item.is_draft 
+                        project.is_draft 
                           ? 'bg-yellow-500/90 text-black' 
                           : 'bg-green-500/90 text-black'
                       }`}>
-                        {item.is_draft ? 'Draft' : 'Live'}
+                        {project.is_draft ? 'Draft' : 'Live'}
                       </span>
                     </div>
                   )}
 
                   {/* Hover Actions for Projects */}
-                  {isProject && isOwnProfile && (
+                  {isProject && project && isOwnProfile && (
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity space-y-2">
                       <p className="text-sm font-bold line-clamp-1 mb-2">
-                        {'title' in item ? item.title : 'Untitled'}
+                        {project.title || 'Untitled'}
                       </p>
                       
                       <div className="flex gap-2">
-                        {item.session_id && (
-                          <Link href={`/studio/${item.session_id}`} className="flex-1">
+                        {project.session_id && (
+                          <Link href={`/studio/${project.session_id}`} className="flex-1">
                             <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold">
                               <Edit size={14} />
                               Edit
@@ -472,11 +475,11 @@ export default function ProfilePage() {
                           </Link>
                         )}
                         
-                        {item.is_draft && item.session_id && (
+                        {project.is_draft && project.session_id && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleShareClick(item);
+                              handleShareClick(project);
                             }}
                             className="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg"
                             title="Share"
@@ -485,8 +488,8 @@ export default function ProfilePage() {
                           </button>
                         )}
                         
-                        {!item.is_draft && item.post_id && (
-                          <Link href={`/post/${item.post_id}`} onClick={(e) => e.stopPropagation()}>
+                        {!project.is_draft && project.post_id && (
+                          <Link href={`/post/${project.post_id}`} onClick={(e) => e.stopPropagation()}>
                             <button className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg" title="View Post">
                               <ExternalLink size={14} />
                             </button>
@@ -496,7 +499,7 @@ export default function ProfilePage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteProject(item);
+                            handleDeleteProject(project);
                           }}
                           className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
                           title="Delete"
@@ -507,32 +510,28 @@ export default function ProfilePage() {
                     </div>
                   )}
 
-                  {/* Post Stats */}
-                  {!isProject && (
+                  {/* Post Stats - ✅ FIXED */}
+                  {!isProject && post && (
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                       <p className="text-sm font-semibold line-clamp-2 mb-2">
-                        {'caption' in item ? item.caption : 'Untitled'}
+                        {post.caption || 'Untitled'}
                       </p>
                       <div className="flex items-center justify-between">
-                        {'likes_count' in item && (
-                          <div className="flex items-center gap-3 text-xs">
-                            <span className="flex items-center gap-1">
-                              <Heart size={14} />
-                              {item.likes_count || 0}
-                            </span>
-                            {'comments_count' in item && (
-                              <span className="flex items-center gap-1">
-                                <Code2 size={14} />
-                                {item.comments_count || 0}
-                              </span>
-                            )}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="flex items-center gap-1">
+                            <Heart size={14} />
+                            {post.likes_count || 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Code2 size={14} />
+                            {post.comments_count || 0}
+                          </span>
+                        </div>
                         {isOwnProfile && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDeletePost(item.id);
+                              handleDeletePost(post.id);
                             }}
                             className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
                             title="Delete Post"
