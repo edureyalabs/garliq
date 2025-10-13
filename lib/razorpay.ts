@@ -1,12 +1,20 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
-// Initialize Razorpay instance
-// Make sure to add these to your .env.local file
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
+/**
+ * Create a Razorpay client instance
+ * Must be called inside functions to ensure env vars are loaded
+ */
+function createRazorpayClient() {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error('Razorpay credentials are not configured');
+  }
+
+  return new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+}
 
 /**
  * Create a Razorpay order
@@ -21,16 +29,17 @@ export async function createRazorpayOrder(
   tokensPerDollar: number
 ) {
   try {
-    // Razorpay accepts amount in smallest currency unit (paise for INR, cents for USD)
-    // We'll use INR as Razorpay's base, convert USD to INR
-    const INR_RATE = 83; // You can make this dynamic by calling a currency API
-    const amountInINR = Math.round(amountUSD * INR_RATE * 100); // Convert to paise
+    const razorpay = createRazorpayClient();
+
+    // Razorpay will handle multi-currency
+    // Amount should be in smallest currency unit (cents for USD)
+    const amountInCents = Math.round(amountUSD * 100);
 
     const tokenAmount = Math.floor(amountUSD * tokensPerDollar);
 
     const options = {
-      amount: amountInINR, // Amount in paise
-      currency: 'INR',
+      amount: amountInCents, // Amount in cents
+      currency: 'USD', // Let Razorpay handle currency conversion
       receipt: `receipt_${userId}_${Date.now()}`,
       notes: {
         user_id: userId,
@@ -71,9 +80,13 @@ export function verifyRazorpaySignature(
   signature: string
 ): boolean {
   try {
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      throw new Error('Razorpay secret key is not configured');
+    }
+
     const text = `${orderId}|${paymentId}`;
     const generated_signature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(text)
       .digest('hex');
 
@@ -92,6 +105,7 @@ export function verifyRazorpaySignature(
  */
 export async function fetchPaymentDetails(paymentId: string) {
   try {
+    const razorpay = createRazorpayClient();
     const payment = await razorpay.payments.fetch(paymentId);
     return {
       success: true,
@@ -115,15 +129,3 @@ export async function fetchPaymentDetails(paymentId: string) {
 export function calculateTokens(amountUSD: number, tokensPerDollar: number): number {
   return Math.floor(amountUSD * tokensPerDollar);
 }
-
-/**
- * Convert USD to INR for display
- * @param amountUSD - Amount in USD
- * @returns Amount in INR
- */
-export function convertUSDtoINR(amountUSD: number): number {
-  const INR_RATE = 83; // You can make this dynamic
-  return Math.round(amountUSD * INR_RATE);
-}
-
-export default razorpay;
