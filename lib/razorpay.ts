@@ -6,13 +6,22 @@ import crypto from 'crypto';
  * Must be called inside functions to ensure env vars are loaded
  */
 function createRazorpayClient() {
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  // Use NEXT_PUBLIC_ prefix for key_id (it's safe to expose)
+  // But keep secret without prefix (server-side only)
+  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    console.error('Missing credentials:', { 
+      hasKeyId: !!keyId, 
+      hasKeySecret: !!keySecret 
+    });
     throw new Error('Razorpay credentials are not configured');
   }
 
   return new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
+    key_id: keyId,
+    key_secret: keySecret,
   });
 }
 
@@ -31,18 +40,15 @@ export async function createRazorpayOrder(
   try {
     const razorpay = createRazorpayClient();
 
-    // Razorpay will handle multi-currency
-    // Amount should be in smallest currency unit (cents for USD)
     const amountInCents = Math.round(amountUSD * 100);
-
     const tokenAmount = Math.floor(amountUSD * tokensPerDollar);
 
     const options = {
-      amount: amountInCents, // Amount in cents
-      currency: 'USD', // Let Razorpay handle currency conversion
-      receipt: `receipt_${userId}_${Date.now()}`,
+      amount: amountInCents,
+      currency: 'USD',
+      receipt: `rcpt_${Date.now()}`, // ✅ Short receipt (max 40 chars)
       notes: {
-        user_id: userId,
+        user_id: userId, // ✅ Store full user ID in notes instead
         amount_usd: amountUSD.toFixed(2),
         tokens_per_dollar: tokensPerDollar.toString(),
         token_amount: tokenAmount.toString(),
