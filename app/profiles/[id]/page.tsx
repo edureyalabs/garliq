@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, GitFork, Share2, ExternalLink, Trash2, Eye } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, GitFork, Share2, ExternalLink, Trash2, Eye, Zap } from 'lucide-react';
 import Link from 'next/link';
+import TokenPurchaseModal from '@/components/TokenPurchaseModal';
 
 interface Profile {
   id: string;
@@ -59,6 +60,8 @@ export default function ProfilePage() {
   const [shareCaption, setShareCaption] = useState('');
   const [promptVisible, setPromptVisible] = useState(true);
   const [sharing, setSharing] = useState(false);
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
   const [stats, setStats] = useState({ 
     posts: 0, 
     totalLikes: 0,
@@ -77,12 +80,25 @@ export default function ProfilePage() {
   useEffect(() => {
     if (currentUser?.id === userId) {
       fetchSavedPosts();
+      fetchTokenBalance();
     }
   }, [currentUser, userId]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) setCurrentUser(session.user);
+  };
+
+  const fetchTokenBalance = async () => {
+    if (!currentUser?.id) return;
+    
+    const { data } = await supabase
+      .from('user_wallets')
+      .select('token_balance')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    setTokenBalance(data?.token_balance || 0);
   };
 
   const fetchProfile = async () => {
@@ -298,6 +314,25 @@ export default function ProfilePage() {
           </button>
 
           <div className="flex items-center gap-3">
+            {isOwnProfile && (
+              <>
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
+                  <Zap size={16} className="text-yellow-400" />
+                  <span className="text-sm font-bold">{tokenBalance.toLocaleString()}</span>
+                </div>
+                
+                <motion.button
+                  onClick={() => setShowTokenModal(true)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-5 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-full font-semibold flex items-center gap-2"
+                >
+                  <Zap size={18} />
+                  Buy Tokens
+                </motion.button>
+              </>
+            )}
+
             <button
               onClick={handleShare}
               className="p-2.5 hover:bg-gray-800 rounded-full transition-colors"
@@ -391,7 +426,7 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* Content Grid - ✅ FIXED */}
+        {/* Content Grid */}
         {displayItems.length === 0 ? (
           <div className="text-center py-20 bg-gray-900/30 rounded-2xl border border-gray-800">
             <Code2 size={48} className="mx-auto mb-4 text-gray-700" />
@@ -402,7 +437,6 @@ export default function ProfilePage() {
         ) : (
           <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayItems.map((item, i) => {
-              // ✅ FIX: Better type checking based on active tab
               const isProject = activeTab === 'projects';
               const post = !isProject ? (item as Post) : null;
               const project = isProject ? (item as Project) : null;
@@ -510,7 +544,7 @@ export default function ProfilePage() {
                     </div>
                   )}
 
-                  {/* Post Stats - ✅ FIXED */}
+                  {/* Post Stats */}
                   {!isProject && post && (
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                       <p className="text-sm font-semibold line-clamp-2 mb-2">
@@ -680,6 +714,15 @@ export default function ProfilePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Token Purchase Modal */}
+      <TokenPurchaseModal
+        isOpen={showTokenModal}
+        onClose={() => setShowTokenModal(false)}
+        userId={userId}
+        currentBalance={tokenBalance}
+        onSuccess={fetchTokenBalance}
+      />
     </div>
   );
 }
