@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET - Get session with chat history (no commits needed)
+// GET - Get session with chat history
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -16,7 +16,7 @@ export async function GET(
 
     console.log('📖 Fetching session:', sessionId);
 
-    // Get session details
+    // Get session details (now includes generation_status, generation_error, retry_count)
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select('*')
@@ -37,7 +37,7 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // Get chat messages (for AI context)
+    // Get chat messages
     const { data: messages } = await supabase
       .from('chat_messages')
       .select('*')
@@ -46,6 +46,7 @@ export async function GET(
 
     console.log('✅ Session loaded:', {
       sessionId,
+      generation_status: session.generation_status, // ✅ NEW: log status
       messagesCount: messages?.length || 0
     });
 
@@ -95,7 +96,7 @@ export async function PATCH(
   }
 }
 
-// DELETE - Delete session (usually handled by project deletion)
+// DELETE - Delete session
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

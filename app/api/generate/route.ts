@@ -39,6 +39,15 @@ export async function POST(request: Request) {
       const balance = wallet?.token_balance || 0;
 
       if (balance < 1000) {
+        // ✅ Update status to failed
+        await supabase
+          .from('sessions')
+          .update({ 
+            generation_status: 'failed',
+            generation_error: 'Insufficient tokens. You need at least 1,000 tokens to use Claude Sonnet 4.5.'
+          })
+          .eq('id', sessionId);
+
         return NextResponse.json({ 
           error: 'Insufficient tokens. You need at least 1,000 tokens to use Claude Sonnet 4.5.',
           success: false 
@@ -46,7 +55,16 @@ export async function POST(request: Request) {
       }
     }
 
-    // Get chat history (we keep this for context)
+    // ✅ Update status to 'generating'
+    await supabase
+      .from('sessions')
+      .update({ 
+        generation_status: 'generating',
+        generation_error: null
+      })
+      .eq('id', sessionId);
+
+    // Get chat history
     const { data: chatHistory } = await supabase
       .from('chat_messages')
       .select('role, content')
@@ -78,6 +96,16 @@ export async function POST(request: Request) {
           if (!agentResponse.ok) {
             const errorText = await agentResponse.text();
             console.error('Agent service error:', errorText);
+            
+            // ✅ Update status to failed
+            await supabase
+              .from('sessions')
+              .update({ 
+                generation_status: 'failed',
+                generation_error: 'AI service unavailable'
+              })
+              .eq('id', sessionId);
+
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'AI service unavailable' })}\n\n`));
             controller.close();
             return;
@@ -137,7 +165,7 @@ export async function POST(request: Request) {
               content: 'Generated updated code'
             });
 
-            // Update project's html_code directly (no commit creation)
+            // Update project's html_code
             await supabase
               .from('projects')
               .update({ 
@@ -147,6 +175,15 @@ export async function POST(request: Request) {
               .eq('session_id', sessionId);
 
             console.log('✅ Project html_code updated');
+
+            // ✅ Update status to 'completed'
+            await supabase
+              .from('sessions')
+              .update({ 
+                generation_status: 'completed',
+                generation_error: null
+              })
+              .eq('id', sessionId);
 
             // Deduct tokens if using Claude
             if (selectedModel === 'claude-sonnet-4.5') {
@@ -160,11 +197,39 @@ export async function POST(request: Request) {
                 console.error('Token deduction error:', tokenError);
               }
             }
+          } else {
+            // ✅ No HTML result = failed
+            await supabase
+              .from('sessions')
+              .update({ 
+                generation_status: 'failed',
+                generation_error: 'No code generated'
+              })
+              .eq('id', sessionId);
           }
 
           controller.close();
         } catch (error: any) {
           console.error('Stream error:', error);
+          
+          // ✅ Update status to failed on error
+          const { data: currentSession } = await supabase
+            .from('sessions')
+            .select('retry_count')
+            .eq('id', sessionId)
+            .single();
+
+          const retryCount = (currentSession?.retry_count || 0) + 1;
+
+          await supabase
+            .from('sessions')
+            .update({ 
+              generation_status: 'failed',
+              generation_error: error.message,
+              retry_count: retryCount
+            })
+            .eq('id', sessionId);
+
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`));
           controller.close();
         }

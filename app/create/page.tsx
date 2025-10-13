@@ -51,7 +51,7 @@ export default function CreatePage() {
     setCreating(true);
 
     try {
-      // Step 1: Create session
+      // Step 1: Create session (with generation_status = 'pending' automatically)
       const sessionResponse = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,10 +84,11 @@ export default function CreatePage() {
         throw new Error('Failed to create project');
       }
 
-      console.log('✅ Session + Project created, redirecting to studio');
+      console.log('✅ Session + Project created');
 
-      // Step 3: Redirect to studio (generation happens there)
-      router.push(`/studio/${sessionId}?firstGen=true`);
+      // ✅ CHANGED: Redirect immediately without generation
+      // Studio will detect 'pending' status and auto-start generation
+      router.push(`/studio/${sessionId}`);
       
     } catch (error: any) {
       setCreating(false);

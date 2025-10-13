@@ -14,14 +14,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Create session with generation_status = 'pending'
     const { data, error } = await supabase
       .from('sessions')
       .insert({
         user_id: userId,
         title: initialPrompt.substring(0, 50) + '...',
         initial_prompt: initialPrompt,
-        status: 'active',
-        selected_model: selectedModel || 'llama-3.3-70b'
+        generation_status: 'pending', // ✅ CHANGED: was 'status: active'
+        selected_model: selectedModel || 'llama-3.3-70b',
+        retry_count: 0 // ✅ NEW: initialize retry count
       })
       .select()
       .single();
@@ -30,6 +32,15 @@ export async function POST(request: Request) {
       console.error('Session creation error:', error);
       throw error;
     }
+
+    // ✅ NEW: Immediately save user prompt to chat_messages
+    await supabase
+      .from('chat_messages')
+      .insert({
+        session_id: data.id,
+        role: 'user',
+        content: initialPrompt
+      });
 
     return NextResponse.json({ session: data });
   } catch (error: any) {

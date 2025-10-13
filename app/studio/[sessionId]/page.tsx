@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw } from 'lucide-react';
 
@@ -20,68 +20,80 @@ interface Project {
   updated_at: string;
 }
 
+interface Session {
+  id: string;
+  title: string;
+  initial_prompt: string;
+  generation_status: 'pending' | 'generating' | 'completed' | 'failed';
+  generation_error: string | null;
+  retry_count: number;
+  selected_model: string;
+}
+
 export default function StudioPage() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
-  const isFirstGen = searchParams.get('firstGen') === 'true';
 
   const [user, setUser] = useState<{ id: string } | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentHtml, setCurrentHtml] = useState('');
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [sessionTitle, setSessionTitle] = useState('Untitled Session');
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishCaption, setPublishCaption] = useState('');
   const [promptVisible, setPromptVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('llama-3.3-70b');
   const [tokenBalance, setTokenBalance] = useState<number>(0);
   const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
-  const [generatingFirst, setGeneratingFirst] = useState(false);
-  const [initialPrompt, setInitialPrompt] = useState('');
-  
-  // NEW: Save project state
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const justSavedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [project, setProject] = useState<Project | null>(null);
-
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const retryCountRef = useRef(0);
+  const generationTriggeredRef = useRef(false);
 
   useEffect(() => {
     checkUser();
-    loadSession();
-    loadProject();
   }, [sessionId]);
 
   useEffect(() => {
     if (user) {
+      loadSession();
+      loadProject();
       fetchTokenBalance();
+      
+      // ✅ Setup realtime subscription
+      const unsubscribe = subscribeToSessionStatus();
+      return unsubscribe;
     }
-  }, [user]);
+  }, [user, sessionId]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  // ✅ Auto-trigger generation when status is 'pending'
   useEffect(() => {
-    if (isFirstGen && initialPrompt && !generatingFirst && !loading && user) {
-      handleFirstGeneration();
+    if (session && session.generation_status === 'pending' && !generationTriggeredRef.current && !loading && user) {
+      console.log('🚀 Auto-triggering generation for pending session');
+      generationTriggeredRef.current = true;
+      handleGeneration(session.initial_prompt);
     }
-  }, [isFirstGen, initialPrompt, user]);
+  }, [session, user, loading]);
 
-  useEffect(() => {
-    if (isFirstGen && generatingFirst) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('firstGen');
-      window.history.replaceState({}, '', url.toString());
+  // Cleanup timeout on unmount
+useEffect(() => {
+  return () => {
+    if (justSavedTimeoutRef.current) {
+      clearTimeout(justSavedTimeoutRef.current);
     }
-  }, [isFirstGen, generatingFirst]);
+  };
+}, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -108,6 +120,42 @@ export default function StudioPage() {
     setTokenBalance(data?.token_balance || 0);
   };
 
+  // ✅ FIXED: Realtime subscription with proper logging
+  const subscribeToSessionStatus = () => {
+    console.log('🔔 Subscribing to session updates:', sessionId);
+    
+    const channel = supabase
+      .channel(`session-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sessions',
+          filter: `id=eq.${sessionId}`
+        },
+        (payload) => {
+          console.log('🔄 Realtime session update received:', payload.new);
+          const updatedSession = payload.new as Session;
+          setSession(updatedSession);
+          
+          // ✅ If generation completed, reload project to get new HTML
+          if (updatedSession.generation_status === 'completed' && loading) {
+            console.log('✅ Generation completed via realtime, reloading project...');
+            loadProject();
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status);
+      });
+
+    return () => {
+      console.log('🔕 Unsubscribing from session updates');
+      supabase.removeChannel(channel);
+    };
+  };
+
   const loadProject = async () => {
     try {
       const { data } = await supabase
@@ -120,6 +168,7 @@ export default function StudioPage() {
         setProject(data);
         if (data.html_code && data.html_code !== '<html><body><h1>Generating...</h1></body></html>') {
           setCurrentHtml(data.html_code);
+          console.log('✅ Project HTML loaded');
         }
       }
     } catch (error) {
@@ -129,158 +178,42 @@ export default function StudioPage() {
 
   const loadSession = async () => {
     try {
-      console.log('Loading session:', sessionId);
+      console.log('📖 Loading session:', sessionId);
       const response = await fetch(`/api/sessions/${sessionId}`);
       const data = await response.json();
 
       if (data.session) {
-        console.log('Session data received:', data);
-        setSessionTitle(data.session.title);
-        setSelectedModel(data.session.selected_model || 'llama-3.3-70b');
-        setInitialPrompt(data.session.initial_prompt);
+        console.log('✅ Session loaded:', data.session);
+        setSession(data.session);
         setMessages(data.messages || []);
-        
         setInitialLoading(false);
-        retryCountRef.current = 0;
       } else {
-        console.warn('No session data received, retrying...');
-        if (retryCountRef.current < 5) {
-          retryCountRef.current += 1;
-          const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 5000);
-          setTimeout(() => loadSession(), delay);
-        } else {
-          console.error('Max retries reached');
-          setInitialLoading(false);
-          alert('Failed to load session. Please refresh the page.');
-        }
+        console.error('Session not found');
+        setInitialLoading(false);
+        alert('Session not found. Redirecting to feed.');
+        router.push('/feed');
       }
     } catch (error) {
       console.error('Failed to load session:', error);
-      if (retryCountRef.current < 5) {
-        retryCountRef.current += 1;
-        const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 5000);
-        setTimeout(() => loadSession(), delay);
-      } else {
-        setInitialLoading(false);
-        alert('Failed to load session. Please refresh the page.');
-      }
+      setInitialLoading(false);
+      alert('Failed to load session. Please try again.');
     }
   };
 
-  const handleFirstGeneration = async () => {
-    if (generatingFirst || !user || !initialPrompt) return;
+  // ✅ FIXED: Generation with proper status updates
+  const handleGeneration = async (userMessage: string) => {
+    if (!user || !session || loading) return;
 
-    setGeneratingFirst(true);
-    setLoading(true);
-
-    setMessages([{
-      id: Date.now().toString(),
-      role: 'user',
-      content: initialPrompt,
-      created_at: new Date().toISOString()
-    }]);
-
-    try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          message: initialPrompt,
-          userId: user.id,
-          model: selectedModel
-        })
-      });
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response stream');
-
-      const decoder = new TextDecoder();
-      let htmlResult = '';
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(value);
-        buffer += text;
-        
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const jsonStr = line.slice(6).trim();
-              if (!jsonStr) continue;
-              
-              const data = JSON.parse(jsonStr);
-
-              if (data.type === 'status') {
-                setMessages(prev => {
-                  const filtered = prev.filter(m => m.id !== 'status-msg');
-                  return [...filtered, {
-                    id: 'status-msg',
-                    role: 'assistant',
-                    content: data.message,
-                    created_at: new Date().toISOString()
-                  }];
-                });
-              } else if (data.type === 'complete') {
-                htmlResult = data.html;
-                setCurrentHtml(data.html);
-                setHasUnsavedChanges(false); // First generation auto-saved by backend
-                setMessages(prev => {
-                  const filtered = prev.filter(m => m.id !== 'status-msg');
-                  return [...filtered, {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: 'Generated initial code',
-                    created_at: new Date().toISOString()
-                  }];
-                });
-              } else if (data.type === 'error') {
-                throw new Error(data.message);
-              }
-            } catch (e) {
-              console.error('JSON parse error:', e);
-            }
-          }
-        }
-      }
-
-      await loadProject();
-      await fetchTokenBalance();
-
-    } catch (error: any) {
-      console.error('First generation failed:', error);
-      alert(error.message || 'Failed to generate. Please try again.');
-    }
-
-    setLoading(false);
-    setGeneratingFirst(false);
-  };
-
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || loading || !user) return;
-
-    if (selectedModel === 'claude-sonnet-4.5' && tokenBalance < 1000) {
+    if (session.selected_model === 'claude-sonnet-4.5' && tokenBalance < 1000) {
       setShowInsufficientTokens(true);
       setTimeout(() => setShowInsufficientTokens(false), 5000);
       return;
     }
 
-    const userMessage = inputMessage;
-    setInputMessage('');
     setLoading(true);
 
-    setMessages(prev => [...prev, {
-      id: Date.now().toString(),
-      role: 'user',
-      content: userMessage,
-      created_at: new Date().toISOString()
-    }]);
+    // ✅ Immediately update local state to 'generating'
+    setSession(prev => prev ? { ...prev, generation_status: 'generating' } : null);
 
     try {
       const response = await fetch('/api/generate', {
@@ -290,7 +223,7 @@ export default function StudioPage() {
           sessionId,
           message: userMessage,
           userId: user.id,
-          model: selectedModel
+          model: session.selected_model
         })
       });
 
@@ -299,6 +232,7 @@ export default function StudioPage() {
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let generationComplete = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -329,17 +263,27 @@ export default function StudioPage() {
                   }];
                 });
               } else if (data.type === 'complete') {
+                generationComplete = true;
                 setCurrentHtml(data.html);
-                setHasUnsavedChanges(true); // Mark as unsaved after generation
+                
                 setMessages(prev => {
                   const filtered = prev.filter(m => m.id !== 'status-msg');
                   return [...filtered, {
                     id: (Date.now() + 1).toString(),
                     role: 'assistant',
-                    content: 'Generated updated code',
+                    content: 'Generated code successfully',
                     created_at: new Date().toISOString()
                   }];
                 });
+
+                // ✅ Manually update local session status
+                setSession(prev => prev ? {
+                  ...prev,
+                  generation_status: 'completed',
+                  generation_error: null
+                } : null);
+
+                console.log('✅ Generation completed locally');
               } else if (data.type === 'error') {
                 throw new Error(data.message);
               }
@@ -350,48 +294,90 @@ export default function StudioPage() {
         }
       }
 
-      await loadProject();
+      // ✅ After stream ends, reload project if generation was successful
+      if (generationComplete) {
+        await loadProject();
+      }
+      
       await fetchTokenBalance();
 
     } catch (error: any) {
       console.error('Generation failed:', error);
-      alert(error.message || 'Failed to generate. Please try again.');
+      
+      // ✅ Update local session status to failed
+      setSession(prev => prev ? {
+        ...prev,
+        generation_status: 'failed',
+        generation_error: error.message,
+        retry_count: (prev.retry_count || 0) + 1
+      } : null);
+
+      alert(error.message || 'Generation failed. Please try again.');
     }
 
     setLoading(false);
   };
 
-  // NEW: Save project without creating post
-  const handleSaveProject = async () => {
-    if (!currentHtml || !user || !project || saving) return;
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || loading) return;
 
-    setSaving(true);
+    const userMessage = inputMessage;
+    setInputMessage('');
 
-    try {
-      const response = await fetch(`/api/projects/${project.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ htmlCode: currentHtml })
-      });
+    setMessages(prev => [...prev, {
+      id: Date.now().toString(),
+      role: 'user',
+      content: userMessage,
+      created_at: new Date().toISOString()
+    }]);
 
-      const { success, error } = await response.json();
-
-      if (!success || error) {
-        throw new Error(error || 'Failed to save');
-      }
-
-      setHasUnsavedChanges(false);
-      await loadProject();
-      console.log('✅ Project saved');
-    } catch (error: any) {
-      console.error('Save failed:', error);
-      alert(error.message || 'Failed to save project');
-    }
-
-    setSaving(false);
+    await handleGeneration(userMessage);
   };
 
-  // NEW: Update existing post with current code
+const handleSaveProject = async () => {
+  if (!currentHtml || !user || !project || saving || loading) return;
+
+  setSaving(true);
+
+  try {
+    const response = await fetch(`/api/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ htmlCode: currentHtml })
+    });
+
+    const { success, error, project: updatedProject } = await response.json();
+
+    if (!success || error) {
+      throw new Error(error || 'Failed to save');
+    }
+
+    if (updatedProject) {
+      setProject(updatedProject);
+    }
+    
+    setSaving(false);
+    setJustSaved(true);
+    
+    // ✅ Clear any existing timeout
+    if (justSavedTimeoutRef.current) {
+      clearTimeout(justSavedTimeoutRef.current);
+    }
+    
+    // ✅ Store timeout reference
+    justSavedTimeoutRef.current = setTimeout(() => {
+      setJustSaved(false);
+      justSavedTimeoutRef.current = null;
+    }, 2000);
+    
+    console.log('✅ Project saved');
+  } catch (error: any) {
+    console.error('Save failed:', error);
+    alert(error.message || 'Failed to save project');
+    setSaving(false);
+  }
+};
+
   const handleUpdatePost = async () => {
     if (!project?.post_id || !currentHtml || !user) return;
 
@@ -421,7 +407,6 @@ export default function StudioPage() {
     }
   };
 
-  // NEW: Share project to feed (first time)
   const handleShare = async () => {
     if (!publishCaption.trim() || publishing || !user || !project) return;
 
@@ -475,7 +460,7 @@ export default function StudioPage() {
     );
   }
 
-  if (!user) {
+  if (!user || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-6xl animate-bounce">🧄</div>
@@ -494,12 +479,25 @@ export default function StudioPage() {
           >
             <ArrowLeft size={24} />
             <span className="text-3xl">🧄</span>
-            <h1 className="text-xl font-black">{sessionTitle}</h1>
+            <h1 className="text-xl font-black">{session.title}</h1>
           </button>
 
           <div className="flex items-center gap-3">
+            {/* ✅ Generation Status Badge */}
+            <div className={`px-4 py-2 rounded-full border text-sm font-bold ${
+              session.generation_status === 'pending' ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400' :
+              session.generation_status === 'generating' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 animate-pulse' :
+              session.generation_status === 'completed' ? 'bg-green-500/20 border-green-500/30 text-green-400' :
+              'bg-red-500/20 border-red-500/30 text-red-400'
+            }`}>
+              {session.generation_status === 'pending' && '⏳ Pending'}
+              {session.generation_status === 'generating' && '🔄 Generating...'}
+              {session.generation_status === 'completed' && '✅ Ready'}
+              {session.generation_status === 'failed' && '❌ Failed'}
+            </div>
+
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
-              {selectedModel === 'claude-sonnet-4.5' ? (
+              {session.selected_model === 'claude-sonnet-4.5' ? (
                 <>
                   <Crown size={16} className="text-pink-400" />
                   <span className="text-sm font-mono text-pink-400">Claude</span>
@@ -512,34 +510,33 @@ export default function StudioPage() {
               )}
             </div>
 
-            {selectedModel === 'claude-sonnet-4.5' && (
+            {session.selected_model === 'claude-sonnet-4.5' && (
               <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
                 <Zap size={16} className="text-yellow-400" />
                 <span className="text-sm font-bold">{tokenBalance.toLocaleString()}</span>
               </div>
             )}
 
-            {/* NEW: Save Project Button */}
+            {/* ✅ FIXED: Save button always enabled when not loading */}
             <motion.button
-              onClick={handleSaveProject}
-              disabled={!hasUnsavedChanges || saving || loading}
-              whileHover={hasUnsavedChanges && !saving ? { scale: 1.05 } : {}}
-              whileTap={hasUnsavedChanges && !saving ? { scale: 0.95 } : {}}
-              className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-all ${
-                hasUnsavedChanges 
-                  ? 'bg-yellow-600 hover:bg-yellow-700' 
-                  : 'bg-green-600/30 text-green-400 cursor-default'
-              } disabled:opacity-30`}
-            >
-              <Save size={18} />
-              {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Project' : 'Saved ✓'}
-            </motion.button>
+  onClick={handleSaveProject}
+  disabled={!currentHtml || saving || loading || session.generation_status === 'generating' || justSaved}
+  whileHover={!saving && !loading && !justSaved ? { scale: 1.05 } : {}}
+  whileTap={!saving && !loading && !justSaved ? { scale: 0.95 } : {}}
+  className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-all ${
+    justSaved 
+      ? 'bg-green-600 cursor-default' 
+      : 'bg-yellow-600 hover:bg-yellow-700'
+  } disabled:opacity-30 disabled:cursor-not-allowed`}
+>
+  <Save size={18} />
+  {saving ? 'Saving...' : justSaved ? 'Saved ✓' : 'Save Project'}
+</motion.button>
 
-            {/* NEW: Update Post Button (only if post exists) */}
             {project?.post_id ? (
               <motion.button
                 onClick={handleUpdatePost}
-                disabled={loading || !currentHtml}
+                disabled={loading || !currentHtml || session.generation_status === 'generating'}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
@@ -550,7 +547,7 @@ export default function StudioPage() {
             ) : (
               <motion.button
                 onClick={() => setShowPublishModal(true)}
-                disabled={!project || !currentHtml}
+                disabled={!project || !currentHtml || session.generation_status !== 'completed' || loading}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
@@ -582,6 +579,19 @@ export default function StudioPage() {
               </motion.div>
             )}
 
+            {/* ✅ Show error if generation failed */}
+            {session.generation_status === 'failed' && session.generation_error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
+              >
+                <p className="text-red-400 text-sm font-bold mb-2">❌ Generation Failed</p>
+                <p className="text-gray-400 text-xs">{session.generation_error}</p>
+                <p className="text-gray-500 text-xs mt-2">Retry count: {session.retry_count}</p>
+              </motion.div>
+            )}
+
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -599,13 +609,11 @@ export default function StudioPage() {
               </div>
             ))}
 
-            {(loading || generatingFirst) && (
+            {loading && (
               <div className="flex justify-start">
                 <div className="bg-gray-800 px-4 py-3 rounded-2xl flex items-center gap-2">
                   <Loader2 className="animate-spin text-purple-400" size={20} />
-                  <span className="text-sm text-gray-400">
-                    {generatingFirst ? 'Creating your project...' : 'Generating...'}
-                  </span>
+                  <span className="text-sm text-gray-400">Generating...</span>
                 </div>
               </div>
             )}
@@ -627,11 +635,11 @@ export default function StudioPage() {
                 }}
                 placeholder="Describe your changes..."
                 className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none"
-                disabled={loading || generatingFirst}
+                disabled={loading}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || loading || generatingFirst}
+                disabled={!inputMessage.trim() || loading}
                 className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <Send size={20} />
@@ -646,15 +654,11 @@ export default function StudioPage() {
             <div className="flex items-center gap-2">
               <Eye size={16} className="text-purple-400" />
               <span className="text-sm font-mono text-gray-400">live-preview</span>
-              {hasUnsavedChanges && (
-                <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-full font-bold">
-                  Unsaved
-                </span>
-              )}
             </div>
             <button 
               onClick={() => setFullscreen(true)}
               className="p-2 hover:bg-gray-800 rounded transition-colors"
+              disabled={!currentHtml}
             >
               <Maximize2 size={18} className="text-gray-400" />
             </button>
@@ -671,8 +675,24 @@ export default function StudioPage() {
             ) : (
               <div className="flex items-center justify-center h-full text-gray-400">
                 <div className="text-center">
-                  <Loader2 className="animate-spin mx-auto mb-4" size={48} />
-                  <p>{generatingFirst ? 'Generating your first creation...' : 'Waiting for generation...'}</p>
+                  {session.generation_status === 'pending' && (
+                    <>
+                      <Loader2 className="animate-spin mx-auto mb-4" size={48} />
+                      <p>Waiting to start generation...</p>
+                    </>
+                  )}
+                  {session.generation_status === 'generating' && (
+                    <>
+                      <Loader2 className="animate-spin mx-auto mb-4" size={48} />
+                      <p>Generating your creation...</p>
+                    </>
+                  )}
+                  {session.generation_status === 'failed' && (
+                    <>
+                      <X className="mx-auto mb-4 text-red-400" size={48} />
+                      <p>Generation failed. Please try again.</p>
+                    </>
+                  )}
                 </div>
               </div>
             )}
