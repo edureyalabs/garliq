@@ -6,8 +6,6 @@ import crypto from 'crypto';
  * Must be called inside functions to ensure env vars are loaded
  */
 function createRazorpayClient() {
-  // Use NEXT_PUBLIC_ prefix for key_id (it's safe to expose)
-  // But keep secret without prefix (server-side only)
   const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
@@ -40,15 +38,16 @@ export async function createRazorpayOrder(
   try {
     const razorpay = createRazorpayClient();
 
+    // Amount in smallest currency unit (cents for USD)
     const amountInCents = Math.round(amountUSD * 100);
     const tokenAmount = Math.floor(amountUSD * tokensPerDollar);
 
     const options = {
       amount: amountInCents,
       currency: 'USD',
-      receipt: `rcpt_${Date.now()}`, // ✅ Short receipt (max 40 chars)
+      receipt: `rcpt_${Date.now()}`,
       notes: {
-        user_id: userId, // ✅ Store full user ID in notes instead
+        user_id: userId,
         amount_usd: amountUSD.toFixed(2),
         tokens_per_dollar: tokensPerDollar.toString(),
         token_amount: tokenAmount.toString(),

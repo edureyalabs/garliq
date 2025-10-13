@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       success: true,
       order: {
         id: razorpayOrder.id,
-        amount: razorpayOrder.amount, // Amount in paise/smallest unit
+        amount: razorpayOrder.amount, // Amount in smallest currency unit
         currency: razorpayOrder.currency,
         receipt: razorpayOrder.receipt,
       },
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
         tokenAmount,
         amountUSD: amount,
       },
-      razorpayKeyId: process.env.RAZORPAY_KEY_ID, // Frontend needs this
+      razorpayKeyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, // Frontend needs this
     });
 
   } catch (error: any) {

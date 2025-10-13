@@ -64,6 +64,13 @@ export default function TokenPurchaseModal({
         throw new Error(orderData.error || 'Failed to create order');
       }
 
+      // Check if key ID is present
+      if (!orderData.razorpayKeyId) {
+        throw new Error('Payment configuration error: Missing key ID');
+      }
+
+      console.log('Opening Razorpay with key:', orderData.razorpayKeyId);
+
       // Step 2: Open Razorpay checkout
       const options = {
         key: orderData.razorpayKeyId,
@@ -105,10 +112,16 @@ export default function TokenPurchaseModal({
         }
       };
 
+      // Check if Razorpay script is loaded
+      if (!(window as any).Razorpay) {
+        throw new Error('Razorpay SDK not loaded. Please refresh the page.');
+      }
+
       const razorpay = new (window as any).Razorpay(options);
       razorpay.open();
 
     } catch (err: any) {
+      console.error('Purchase error:', err);
       setError(err.message || 'Purchase failed');
       setLoading(false);
     }
