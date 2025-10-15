@@ -242,8 +242,8 @@ export default function Landing() {
               </h1>
               
               <p className="text-xl md:text-2xl text-gray-400 mb-8 max-w-3xl mx-auto leading-relaxed">
-                Turn your requirements and ideas into a fully-functional, interactive application through natural conversation. 
-                No coding required.
+                Turn your ideas and requirements into a fully-functional, interactive application through natural conversation. 
+                It's all just Vibe Coding.
               </p>
 
               {/* Primary CTAs */}
@@ -255,7 +255,7 @@ export default function Landing() {
                     className="group relative px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl font-bold text-lg overflow-hidden shadow-2xl"
                   >
                     <span className="relative z-10 flex items-center gap-3">
-                      Create Your First Micro-App
+                      Create Your First Micro-App — Free
                       <ArrowRight className="group-hover:translate-x-1 transition-transform" />
                     </span>
                     <motion.div 
@@ -280,15 +280,15 @@ export default function Landing() {
               <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  An app for all your utilities
+                  Powerful AI Agents
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Explore millions of other apps
+                  Advanced Agentic Orchestration
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Powerful Intelligence at your service
+                  Best LLM Models
                 </div>
               </div>
             </motion.div>
@@ -457,7 +457,7 @@ export default function Landing() {
             <div className="flex-1">
               <h3 className="text-3xl font-bold mb-4">Watch the Magic Happen</h3>
               <p className="text-gray-400 mb-6 leading-relaxed">
-                Garliq's AI Infra doesn't just generate code—it architects complete applications. From analyzing your intent to optimizing the user experience, every step happens in seconds.
+                Our AI doesn't just generate code—it architects complete applications. From analyzing your intent to optimizing the user experience, every step happens in seconds.
               </p>
               <ul className="space-y-3">
                 {[
@@ -562,7 +562,7 @@ export default function Landing() {
                 </li>
                 <li className="flex gap-3">
                   <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>Just Minutes from idea to live app</span>
+                  <span>Just seconds from idea to live app</span>
                 </li>
                 <li className="flex gap-3">
                   <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
@@ -580,8 +580,8 @@ export default function Landing() {
             className="mt-16 text-center max-w-4xl mx-auto"
           >
             <p className="text-xl text-gray-400 leading-relaxed">
-              Garliq's micro-apps deliver <span className="text-purple-400 font-bold">instant functionality</span> users need for specific tasks—
-              rivaling expensive SaaS tools but <span className="text-pink-400 font-bold">easy, affordable, and customizable</span>.
+              Our micro-apps deliver <span className="text-purple-400 font-bold">every functionality</span> users need for specific tasks—
+              rivaling expensive SaaS tools but <span className="text-pink-400 font-bold">instant, affordable, and customizable</span>.
             </p>
           </motion.div>
         </div>
@@ -793,7 +793,7 @@ export default function Landing() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Instant Generations
+                  No credit card
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
@@ -817,24 +817,27 @@ export default function Landing() {
               </div>
             </div>
             
-            <div className="flex gap-8 text-sm text-gray-500">
+            <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-500">
               <Link href="/auth" className="hover:text-purple-400 transition-colors">
                 Get Started
               </Link>
-              <a href="#" className="hover:text-purple-400 transition-colors">
-                Documentation
-              </a>
-              <a href="#" className="hover:text-purple-400 transition-colors">
-                Examples
-              </a>
-              <a href="#" className="hover:text-purple-400 transition-colors">
-                Support
-              </a>
+              <Link href="/contact" className="hover:text-purple-400 transition-colors">
+                Contact & Support
+              </Link>
+              <Link href="/privacy-policy" className="hover:text-purple-400 transition-colors">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="hover:text-purple-400 transition-colors">
+                Terms of Service
+              </Link>
             </div>
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-900 text-center text-gray-600 text-sm">
-            <p>© 2025 Garliq. Crafting the future of micro-applications.</p>
+            <p className="mb-2">© 2025 Garliq by ParaSync Technologies. Crafting the future of micro-applications.</p>
+            <p>
+              Need help? <a href="mailto:team@parasync.in" className="text-purple-400 hover:text-purple-300 underline">team@parasync.in</a>
+            </p>
           </div>
         </div>
       </div>
