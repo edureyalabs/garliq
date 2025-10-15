@@ -8,9 +8,9 @@ const supabase = createClient(
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:8000';
 
+export const maxDuration = 300; // Set max duration to 5 minutes for Vercel/Render
+
 export async function POST(request: Request) {
-  const encoder = new TextEncoder();
-  
   try {
     const { sessionId, message, userId, model } = await request.json();
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    console.log('Generating code for session:', sessionId, 'with model:', model);
+    console.log('🚀 Generation request received:', { sessionId, model });
 
     const { data: session } = await supabase
       .from('sessions')
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
           .from('sessions')
           .update({ 
             generation_status: 'failed',
-            generation_error: limitCheck.message || 'Daily free generation limit reached (50/day). Try again tomorrow or use Claude Sonnet 4.5.'
+            generation_error: limitCheck.message || 'Daily free generation limit reached (50/day).'
           })
           .eq('id', sessionId);
 
@@ -64,7 +64,6 @@ export async function POST(request: Request) {
 
       const balance = wallet?.token_balance || 0;
 
-      // Changed minimum from 1000 to 4000 tokens
       if (balance < 4000) {
         await supabase
           .from('sessions')
@@ -90,220 +89,45 @@ export async function POST(request: Request) {
       })
       .eq('id', sessionId);
 
-    // Get chat history
+    // Get chat history and current code
     const { data: chatHistory } = await supabase
       .from('chat_messages')
       .select('role, content')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
-    // Get current project code
     const { data: project } = await supabase
       .from('projects')
       .select('html_code')
       .eq('session_id', sessionId)
       .maybeSingle();
 
-    // ==================== STREAMING RESPONSE ====================
-    const stream = new ReadableStream({
-      async start(controller) {
-        let htmlResult = '';
-        let totalTokensUsed = 0;
-        let generationSuccess = false;
-
-        try {
-          const agentResponse = await fetch(`${AGENT_SERVICE_URL}/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              prompt: message,
-              model: selectedModel,
-              current_code: project?.html_code || null,
-              chat_history: chatHistory || [],
-              user_id: userId,
-              session_id: sessionId
-            })
-          });
-
-          if (!agentResponse.ok) {
-            const errorText = await agentResponse.text();
-            console.error('Agent service error:', errorText);
-            
-            await supabase
-              .from('sessions')
-              .update({ 
-                generation_status: 'failed',
-                generation_error: `Agent service error: ${errorText}`
-              })
-              .eq('id', sessionId);
-
-            // NETWORK FAILURE: Deduct 2000 tokens for Claude
-            if (selectedModel === 'claude-sonnet-4.5') {
-              await supabase.rpc('deduct_tokens_with_tracking', {
-                p_user_id: userId,
-                p_amount: 2000,
-                p_description: `Network failure penalty - ${selectedModel}`,
-                p_session_id: sessionId
-              });
-            }
-
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
-              type: 'error', 
-              message: 'Agent service unavailable' 
-            })}\n\n`));
-            controller.close();
-            return;
-          }
-
-          const reader = agentResponse.body?.getReader();
-          if (!reader) throw new Error('No reader available');
-
-          const decoder = new TextDecoder();
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                
-                try {
-                  const parsed = JSON.parse(data);
-                  
-                  // Capture HTML and token usage from backend
-                  if (parsed.type === 'complete') {
-                    htmlResult = parsed.html;
-                    totalTokensUsed = parsed.total_tokens || 0;
-                    generationSuccess = true;
-                  }
-                  
-                  // Forward to frontend
-                  controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-                } catch (e) {
-                  controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-                }
-              }
-            }
-          }
-
-          // ==================== SAVE TO DATABASE ====================
-          if (htmlResult && generationSuccess) {
-            // Save chat messages
-            await supabase.from('chat_messages').insert({
-              session_id: sessionId,
-              role: 'user',
-              content: message
-            });
-
-            await supabase.from('chat_messages').insert({
-              session_id: sessionId,
-              role: 'assistant',
-              content: 'Generated code successfully'
-            });
-
-            // Update project's html_code
-            await supabase
-              .from('projects')
-              .update({ 
-                html_code: htmlResult,
-                updated_at: new Date().toISOString()
-              })
-              .eq('session_id', sessionId);
-
-            console.log('✅ Project html_code updated');
-
-            // Update status to completed
-            await supabase
-              .from('sessions')
-              .update({ 
-                generation_status: 'completed',
-                generation_error: null
-              })
-              .eq('id', sessionId);
-
-            // ==================== DEDUCT ACTUAL TOKENS FOR CLAUDE ====================
-            if (selectedModel === 'claude-sonnet-4.5') {
-              // Use actual token usage, or fallback to 2000 if not available
-              const tokensToDeduct = totalTokensUsed > 0 ? totalTokensUsed : 2000;
-              
-              const { data: deductionResult, error: tokenError } = await supabase.rpc('deduct_tokens_with_tracking', {
-                p_user_id: userId,
-                p_amount: tokensToDeduct,
-                p_description: `Code generation with ${selectedModel} (${tokensToDeduct} tokens)`,
-                p_session_id: sessionId
-              });
-
-              if (tokenError) {
-                console.error('Token deduction error:', tokenError);
-              } else {
-                console.log(`✅ Deducted ${tokensToDeduct} tokens. New balance: ${deductionResult?.new_balance}`);
-              }
-            }
-
-            console.log(`✅ Generation complete. Tokens used: ${totalTokensUsed}`);
-          } else {
-            // Generation failed
-            await supabase
-              .from('sessions')
-              .update({ 
-                generation_status: 'failed',
-                generation_error: 'No HTML generated'
-              })
-              .eq('id', sessionId);
-
-            // FAILURE: Deduct 2000 tokens for Claude
-            if (selectedModel === 'claude-sonnet-4.5') {
-              await supabase.rpc('deduct_tokens_with_tracking', {
-                p_user_id: userId,
-                p_amount: 2000,
-                p_description: `Generation failure penalty - ${selectedModel}`,
-                p_session_id: sessionId
-              });
-            }
-          }
-
-          controller.close();
-
-        } catch (error: any) {
-          console.error('❌ Stream processing error:', error);
-
-          await supabase
-            .from('sessions')
-            .update({ 
-              generation_status: 'failed',
-              generation_error: error.message || 'Unknown error'
-            })
-            .eq('id', sessionId);
-
-          // ERROR: Deduct 2000 tokens for Claude
-          if (selectedModel === 'claude-sonnet-4.5') {
-            await supabase.rpc('deduct_tokens_with_tracking', {
-              p_user_id: userId,
-              p_amount: 2000,
-              p_description: `Error penalty - ${selectedModel}`,
-              p_session_id: sessionId
-            });
-          }
-
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
-            type: 'error', 
-            message: error.message || 'Generation failed' 
-          })}\n\n`));
-          controller.close();
-        }
-      }
+    // ==================== TRIGGER ASYNC GENERATION ====================
+    console.log('🔥 Triggering async generation...');
+    
+    // Fire and forget - don't wait for response
+    fetch(`${AGENT_SERVICE_URL}/generate-async`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: message,
+        model: selectedModel,
+        current_code: project?.html_code || null,
+        chat_history: chatHistory || [],
+        user_id: userId,
+        session_id: sessionId,
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY!
+      })
+    }).catch(err => {
+      console.error('Failed to trigger async generation:', err);
     });
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+    // Return immediately - frontend will listen via Supabase Realtime
+    return NextResponse.json({ 
+      success: true,
+      message: 'Generation started',
+      sessionId: sessionId
     });
 
   } catch (error: any) {
