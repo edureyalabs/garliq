@@ -28,7 +28,33 @@ export async function POST(request: Request) {
 
     const selectedModel = model || session?.selected_model || 'llama-3.3-70b';
 
-    // Check token balance for Claude
+    // ==================== LLAMA FREE TIER LIMIT CHECK ====================
+    if (selectedModel === 'llama-3.3-70b') {
+      const { data: limitCheck, error: limitError } = await supabase
+        .rpc('check_and_increment_daily_limit', {
+          p_user_id: userId,
+          p_max_limit: 50
+        });
+
+      if (limitError) {
+        console.error('Daily limit check error:', limitError);
+      } else if (limitCheck && !limitCheck.allowed) {
+        await supabase
+          .from('sessions')
+          .update({ 
+            generation_status: 'failed',
+            generation_error: limitCheck.message || 'Daily free generation limit reached (50/day). Try again tomorrow or use Claude Sonnet 4.5.'
+          })
+          .eq('id', sessionId);
+
+        return NextResponse.json({ 
+          error: limitCheck.message || 'Daily limit reached',
+          success: false 
+        }, { status: 429 });
+      }
+    }
+
+    // ==================== CLAUDE TOKEN BALANCE CHECK ====================
     if (selectedModel === 'claude-sonnet-4.5') {
       const { data: wallet } = await supabase
         .from('user_wallets')
@@ -38,24 +64,24 @@ export async function POST(request: Request) {
 
       const balance = wallet?.token_balance || 0;
 
-      if (balance < 1000) {
-        // ✅ Update status to failed
+      // Changed minimum from 1000 to 4000 tokens
+      if (balance < 4000) {
         await supabase
           .from('sessions')
           .update({ 
             generation_status: 'failed',
-            generation_error: 'Insufficient tokens. You need at least 1,000 tokens to use Claude Sonnet 4.5.'
+            generation_error: 'Insufficient tokens. You need at least 4,000 tokens to use Claude Sonnet 4.5.'
           })
           .eq('id', sessionId);
 
         return NextResponse.json({ 
-          error: 'Insufficient tokens. You need at least 1,000 tokens to use Claude Sonnet 4.5.',
+          error: 'Insufficient tokens. You need at least 4,000 tokens to use Claude Sonnet 4.5.',
           success: false 
         }, { status: 402 });
       }
     }
 
-    // ✅ Update status to 'generating'
+    // ==================== UPDATE STATUS TO GENERATING ====================
     await supabase
       .from('sessions')
       .update({ 
@@ -78,9 +104,13 @@ export async function POST(request: Request) {
       .eq('session_id', sessionId)
       .maybeSingle();
 
-    // Create streaming response
+    // ==================== STREAMING RESPONSE ====================
     const stream = new ReadableStream({
       async start(controller) {
+        let htmlResult = '';
+        let totalTokensUsed = 0;
+        let generationSuccess = false;
+
         try {
           const agentResponse = await fetch(`${AGENT_SERVICE_URL}/generate`, {
             method: 'POST',
@@ -89,7 +119,9 @@ export async function POST(request: Request) {
               prompt: message,
               model: selectedModel,
               current_code: project?.html_code || null,
-              chat_history: chatHistory || []
+              chat_history: chatHistory || [],
+              user_id: userId,
+              session_id: sessionId
             })
           });
 
@@ -97,61 +129,69 @@ export async function POST(request: Request) {
             const errorText = await agentResponse.text();
             console.error('Agent service error:', errorText);
             
-            // ✅ Update status to failed
             await supabase
               .from('sessions')
               .update({ 
                 generation_status: 'failed',
-                generation_error: 'AI service unavailable'
+                generation_error: `Agent service error: ${errorText}`
               })
               .eq('id', sessionId);
 
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'AI service unavailable' })}\n\n`));
+            // NETWORK FAILURE: Deduct 2000 tokens for Claude
+            if (selectedModel === 'claude-sonnet-4.5') {
+              await supabase.rpc('deduct_tokens_with_tracking', {
+                p_user_id: userId,
+                p_amount: 2000,
+                p_description: `Network failure penalty - ${selectedModel}`,
+                p_session_id: sessionId
+              });
+            }
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+              type: 'error', 
+              message: 'Agent service unavailable' 
+            })}\n\n`));
             controller.close();
             return;
           }
 
           const reader = agentResponse.body?.getReader();
-          if (!reader) {
-            throw new Error('No response body');
-          }
+          if (!reader) throw new Error('No reader available');
 
-          let htmlResult = '';
-          let buffer = '';
+          const decoder = new TextDecoder();
 
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const text = new TextDecoder().decode(value);
-            buffer += text;
-            
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
 
             for (const line of lines) {
               if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                
                 try {
-                  const jsonStr = line.slice(6).trim();
-                  if (!jsonStr) continue;
+                  const parsed = JSON.parse(data);
                   
-                  const data = JSON.parse(jsonStr);
-                  
-                  if (data.type === 'complete') {
-                    htmlResult = data.html;
+                  // Capture HTML and token usage from backend
+                  if (parsed.type === 'complete') {
+                    htmlResult = parsed.html;
+                    totalTokensUsed = parsed.total_tokens || 0;
+                    generationSuccess = true;
                   }
                   
-                  // Forward to client
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+                  // Forward to frontend
+                  controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                 } catch (e) {
-                  console.error('JSON parse error:', e);
+                  controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                 }
               }
             }
           }
 
-          // Save to database after generation
-          if (htmlResult) {
+          // ==================== SAVE TO DATABASE ====================
+          if (htmlResult && generationSuccess) {
             // Save chat messages
             await supabase.from('chat_messages').insert({
               session_id: sessionId,
@@ -162,7 +202,7 @@ export async function POST(request: Request) {
             await supabase.from('chat_messages').insert({
               session_id: sessionId,
               role: 'assistant',
-              content: 'Generated updated code'
+              content: 'Generated code successfully'
             });
 
             // Update project's html_code
@@ -176,7 +216,7 @@ export async function POST(request: Request) {
 
             console.log('✅ Project html_code updated');
 
-            // ✅ Update status to 'completed'
+            // Update status to completed
             await supabase
               .from('sessions')
               .update({ 
@@ -185,52 +225,74 @@ export async function POST(request: Request) {
               })
               .eq('id', sessionId);
 
-            // Deduct tokens if using Claude
+            // ==================== DEDUCT ACTUAL TOKENS FOR CLAUDE ====================
             if (selectedModel === 'claude-sonnet-4.5') {
-              const { error: tokenError } = await supabase.rpc('deduct_tokens', {
+              // Use actual token usage, or fallback to 2000 if not available
+              const tokensToDeduct = totalTokensUsed > 0 ? totalTokensUsed : 2000;
+              
+              const { data: deductionResult, error: tokenError } = await supabase.rpc('deduct_tokens_with_tracking', {
                 p_user_id: userId,
-                p_amount: 1000,
-                p_description: `Code generation with ${selectedModel}`
+                p_amount: tokensToDeduct,
+                p_description: `Code generation with ${selectedModel} (${tokensToDeduct} tokens)`,
+                p_session_id: sessionId
               });
 
               if (tokenError) {
                 console.error('Token deduction error:', tokenError);
+              } else {
+                console.log(`✅ Deducted ${tokensToDeduct} tokens. New balance: ${deductionResult?.new_balance}`);
               }
             }
+
+            console.log(`✅ Generation complete. Tokens used: ${totalTokensUsed}`);
           } else {
-            // ✅ No HTML result = failed
+            // Generation failed
             await supabase
               .from('sessions')
               .update({ 
                 generation_status: 'failed',
-                generation_error: 'No code generated'
+                generation_error: 'No HTML generated'
               })
               .eq('id', sessionId);
+
+            // FAILURE: Deduct 2000 tokens for Claude
+            if (selectedModel === 'claude-sonnet-4.5') {
+              await supabase.rpc('deduct_tokens_with_tracking', {
+                p_user_id: userId,
+                p_amount: 2000,
+                p_description: `Generation failure penalty - ${selectedModel}`,
+                p_session_id: sessionId
+              });
+            }
           }
 
           controller.close();
-        } catch (error: any) {
-          console.error('Stream error:', error);
-          
-          // ✅ Update status to failed on error
-          const { data: currentSession } = await supabase
-            .from('sessions')
-            .select('retry_count')
-            .eq('id', sessionId)
-            .single();
 
-          const retryCount = (currentSession?.retry_count || 0) + 1;
+        } catch (error: any) {
+          console.error('❌ Stream processing error:', error);
 
           await supabase
             .from('sessions')
             .update({ 
               generation_status: 'failed',
-              generation_error: error.message,
-              retry_count: retryCount
+              generation_error: error.message || 'Unknown error'
             })
             .eq('id', sessionId);
 
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`));
+          // ERROR: Deduct 2000 tokens for Claude
+          if (selectedModel === 'claude-sonnet-4.5') {
+            await supabase.rpc('deduct_tokens_with_tracking', {
+              p_user_id: userId,
+              p_amount: 2000,
+              p_description: `Error penalty - ${selectedModel}`,
+              p_session_id: sessionId
+            });
+          }
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+            type: 'error', 
+            message: error.message || 'Generation failed' 
+          })}\n\n`));
           controller.close();
         }
       }
@@ -245,9 +307,9 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('Generate error:', error);
+    console.error('❌ API Route Error:', error);
     return NextResponse.json({ 
-      error: error.message || 'Failed to generate code',
+      error: error.message || 'Server error',
       success: false 
     }, { status: 500 });
   }

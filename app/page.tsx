@@ -834,7 +834,7 @@ export default function Landing() {
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-900 text-center text-gray-600 text-sm">
-            <p className="mb-2">© 2025 Garliq by ParaSync Technologies. Crafting the future of micro-applications.</p>
+            <p className="mb-2">© 2025 Garliq by Parasync Technologies. Crafting the future of micro-applications.</p>
             <p>
               Need help? <a href="mailto:team@parasync.in" className="text-purple-400 hover:text-purple-300 underline">team@parasync.in</a>
             </p>

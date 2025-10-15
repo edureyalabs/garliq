@@ -43,7 +43,7 @@ export default function CreatePage() {
   const handleCreateSession = async () => {
     if (!prompt.trim() || !user || creating) return;
 
-    if (selectedModel === 'claude-sonnet-4.5' && tokenBalance < 1000) {
+    if (selectedModel === 'claude-sonnet-4.5' && tokenBalance < 4000) {
       setShowInsufficientTokens(true);
       return;
     }
@@ -173,7 +173,7 @@ export default function CreatePage() {
                   <span className="font-bold">Claude Sonnet 4.5</span>
                   <span className="ml-auto px-2 py-0.5 bg-pink-500/20 text-pink-400 text-xs rounded-full">PRO</span>
                 </div>
-                <p className="text-xs text-gray-500">Premium quality, 1000 tokens per gen</p>
+                <p className="text-xs text-gray-500">Premium quality, -10,000 tokens per gen</p>
               </button>
             </div>
           </div>
@@ -185,7 +185,7 @@ export default function CreatePage() {
               className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
             >
               <p className="text-red-400 text-sm">
-                ⚠️ Insufficient tokens! You need at least 1,000 tokens to use Claude Sonnet 4.5.
+                ⚠️ Insufficient tokens! You need at least 4,000 tokens to use Claude Sonnet 4.5.
                 <br />
                 <span className="text-gray-400">Current balance: {tokenBalance} tokens</span>
               </p>
