@@ -17,42 +17,35 @@ function ResetPasswordContent() {
 
   useEffect(() => {
     const validateRecoveryToken = async () => {
-      // PRIORITY 1: Check hash (Supabase's standard method)
+      // Check hash for recovery token (Supabase's standard method)
       const hash = window.location.hash;
+      
       if (hash) {
         const hashParams = new URLSearchParams(hash.substring(1));
-        const hashToken = hashParams.get('access_token');
-        const hashType = hashParams.get('type');
+        const accessToken = hashParams.get('access_token');
+        const type = hashParams.get('type');
         
-       if (hashToken && hashType === 'recovery') {
-  console.log('✅ Recovery token found in hash');
-  
-  // Exchange hash token for session
-  const { error: sessionError } = await supabase.auth.exchangeCodeForSession(hash.substring(1));
-  
-  if (sessionError) {
-    console.error('❌ Session exchange error:', sessionError);
-    setError('Invalid or expired reset link. Please request a new password reset.');
-  } else {
-    console.log('✅ Valid recovery session established');
-  }
-  
-  setValidating(false);
-  return;
-}
+        if (accessToken && type === 'recovery') {
+          // Verify the session was established
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError || !session) {
+            setError('Invalid or expired reset link. Please request a new password reset.');
+          }
+          
+          setValidating(false);
+          return;
+        }
       }
       
-      // PRIORITY 2: Check query params (backwards compatibility)
+      // Fallback: Check query params (backwards compatibility)
       const token = searchParams.get('token');
       const type = searchParams.get('type');
 
       if (token && type === 'recovery') {
-        console.log('⚠️ Recovery token found in query params (deprecated method)');
-        
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError || !session) {
-          console.error('❌ Session error:', sessionError);
           setError('Invalid or expired reset link. Please request a new password reset.');
         }
         
@@ -61,7 +54,6 @@ function ResetPasswordContent() {
       }
       
       // No valid token found
-      console.error('❌ No valid recovery token found');
       setError('Invalid or expired reset link. Please request a new password reset.');
       setValidating(false);
     };

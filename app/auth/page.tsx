@@ -12,13 +12,17 @@ function AuthContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for password reset
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const type = hashParams.get('type');
-    
-    if (type === 'recovery') {
-      router.push('/auth/reset-password');
-      return;
+    // Check for password reset in hash - preserve the complete hash for token validation
+    const hash = window.location.hash;
+    if (hash) {
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const type = hashParams.get('type');
+      
+      if (type === 'recovery') {
+        // Redirect to reset password page WITH the complete hash containing the token
+        router.push('/auth/reset-password' + hash);
+        return;
+      }
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -31,7 +35,8 @@ function AuthContent() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        router.push('/auth/reset-password');
+        const currentHash = window.location.hash;
+        router.push('/auth/reset-password' + currentHash);
       } else if (session) {
         router.push('/feed');
       }
