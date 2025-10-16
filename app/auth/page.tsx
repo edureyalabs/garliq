@@ -3,14 +3,30 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 
 function AuthContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // CRITICAL: Check for password reset token in URL hash and preserve it
+    const hash = window.location.hash;
+    if (hash) {
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const type = hashParams.get('type');
+      
+      if (type === 'recovery') {
+        // Redirect to reset password page WITH the complete hash containing all tokens
+        console.log('🔄 Recovery token detected, redirecting to reset-password with hash');
+        router.push('/auth/reset-password' + hash);
+        return;
+      }
+    }
+
+    // Check if user already has a session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         router.push('/feed');
@@ -19,8 +35,14 @@ function AuthContent() {
       }
     });
 
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (event === 'PASSWORD_RECOVERY') {
+        // Preserve the hash when redirecting for password recovery
+        const currentHash = window.location.hash;
+        console.log('🔄 PASSWORD_RECOVERY event, redirecting with hash');
+        router.push('/auth/reset-password' + currentHash);
+      } else if (session) {
         router.push('/feed');
       }
     });
