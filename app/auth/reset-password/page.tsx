@@ -16,12 +16,8 @@ function ResetPasswordContent() {
   const [validating, setValidating] = useState(true);
 
   useEffect(() => {
-    // Get token from URL params
-    const token = searchParams.get('token');
-    const type = searchParams.get('type');
-
-    if (!token || type !== 'recovery') {
-      // Also check hash (fallback)
+    const validateRecoveryToken = async () => {
+      // PRIORITY 1: Check hash (Supabase's standard method)
       const hash = window.location.hash;
       if (hash) {
         const hashParams = new URLSearchParams(hash.substring(1));
@@ -29,25 +25,48 @@ function ResetPasswordContent() {
         const hashType = hashParams.get('type');
         
         if (hashToken && hashType === 'recovery') {
-          // Valid from hash
+          console.log('✅ Recovery token found in hash');
+          
+          // Verify the session is established
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError || !session) {
+            console.error('❌ Session error:', sessionError);
+            setError('Invalid or expired reset link. Please request a new password reset.');
+          } else {
+            console.log('✅ Valid recovery session established');
+          }
+          
           setValidating(false);
           return;
         }
       }
       
+      // PRIORITY 2: Check query params (backwards compatibility)
+      const token = searchParams.get('token');
+      const type = searchParams.get('type');
+
+      if (token && type === 'recovery') {
+        console.log('⚠️ Recovery token found in query params (deprecated method)');
+        
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          console.error('❌ Session error:', sessionError);
+          setError('Invalid or expired reset link. Please request a new password reset.');
+        }
+        
+        setValidating(false);
+        return;
+      }
+      
       // No valid token found
+      console.error('❌ No valid recovery token found');
       setError('Invalid or expired reset link. Please request a new password reset.');
       setValidating(false);
-      return;
-    }
+    };
 
-    // Token found, verify session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        setError('Invalid or expired reset link. Please request a new password reset.');
-      }
-      setValidating(false);
-    });
+    validateRecoveryToken();
   }, [searchParams]);
 
   const handleReset = async (e: React.FormEvent) => {
