@@ -3,14 +3,24 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 
 export default function AuthPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for password reset
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const type = hashParams.get('type');
+    
+    if (type === 'recovery') {
+      router.push('/auth/reset-password');
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         router.push('/feed');
@@ -20,7 +30,9 @@ export default function AuthPage() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (event === 'PASSWORD_RECOVERY') {
+        router.push('/auth/reset-password');
+      } else if (session) {
         router.push('/feed');
       }
     });
@@ -72,6 +84,7 @@ export default function AuthPage() {
           providers={[]}
           view="sign_in"
           showLinks={true}
+          redirectTo={`${window.location.origin}/auth`}
         />
       </motion.div>
     </div>
