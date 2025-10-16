@@ -56,6 +56,8 @@ export default function StudioPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const generationTriggeredRef = useRef(false);
+  const previousStatusRef = useRef<string | null>(null);
+  const messagesLoadedRef = useRef(false); // ✅ NEW: Track if messages loaded
 
   useEffect(() => {
     checkUser();
@@ -67,7 +69,6 @@ export default function StudioPage() {
       loadProject();
       fetchTokenBalance();
       
-      // ✅ Setup realtime subscription
       const unsubscribe = subscribeToSessionStatus();
       return unsubscribe;
     }
@@ -77,7 +78,6 @@ export default function StudioPage() {
     scrollToBottom();
   }, [messages]);
 
-  // ✅ Auto-trigger generation when status is 'pending'
   useEffect(() => {
     if (session && session.generation_status === 'pending' && !generationTriggeredRef.current && !loading && user) {
       console.log('🚀 Auto-triggering generation for pending session');
@@ -86,14 +86,33 @@ export default function StudioPage() {
     }
   }, [session, user, loading]);
 
-  // Cleanup timeout on unmount
-useEffect(() => {
-  return () => {
-    if (justSavedTimeoutRef.current) {
-      clearTimeout(justSavedTimeoutRef.current);
+  // ✅ FIXED: Auto-reload when generation completes
+  useEffect(() => {
+    if (session && previousStatusRef.current === 'generating' && session.generation_status === 'completed') {
+      console.log('✅ Generation completed, reloading project and stopping loading...');
+      
+      // Stop loading state
+      setLoading(false);
+      
+      // Reload only the project (HTML code)
+      loadProject();
+      
+      // Load messages ONLY if they haven't been loaded yet
+      if (!messagesLoadedRef.current) {
+        loadMessages();
+      }
     }
-  };
-}, []);
+    
+    previousStatusRef.current = session?.generation_status || null;
+  }, [session?.generation_status]);
+
+  useEffect(() => {
+    return () => {
+      if (justSavedTimeoutRef.current) {
+        clearTimeout(justSavedTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -120,7 +139,6 @@ useEffect(() => {
     setTokenBalance(data?.token_balance || 0);
   };
 
-  // ✅ FIXED: Realtime subscription with proper logging
   const subscribeToSessionStatus = () => {
     console.log('🔔 Subscribing to session updates:', sessionId);
     
@@ -138,12 +156,6 @@ useEffect(() => {
           console.log('🔄 Realtime session update received:', payload.new);
           const updatedSession = payload.new as Session;
           setSession(updatedSession);
-          
-          // ✅ If generation completed, reload project to get new HTML
-          if (updatedSession.generation_status === 'completed' && loading) {
-            console.log('✅ Generation completed via realtime, reloading project...');
-            loadProject();
-          }
         }
       )
       .subscribe((status) => {
@@ -176,6 +188,25 @@ useEffect(() => {
     }
   };
 
+  // ✅ NEW: Separate function to load messages only
+  const loadMessages = async () => {
+    try {
+      const { data } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (data) {
+        setMessages(data);
+        messagesLoadedRef.current = true; // ✅ Mark as loaded
+        console.log('✅ Messages loaded');
+      }
+    } catch (error) {
+      console.error('Load messages error:', error);
+    }
+  };
+
   const loadSession = async () => {
     try {
       console.log('📖 Loading session:', sessionId);
@@ -185,7 +216,13 @@ useEffect(() => {
       if (data.session) {
         console.log('✅ Session loaded:', data.session);
         setSession(data.session);
-        setMessages(data.messages || []);
+        
+        // ✅ Only load messages on initial load
+        if (!messagesLoadedRef.current && data.messages) {
+          setMessages(data.messages);
+          messagesLoadedRef.current = true;
+        }
+        
         setInitialLoading(false);
       } else {
         console.error('Session not found');
@@ -200,7 +237,6 @@ useEffect(() => {
     }
   };
 
-  // ✅ FIXED: Generation with proper status updates
   const handleGeneration = async (userMessage: string) => {
     if (!user || !session || loading) return;
 
@@ -211,8 +247,6 @@ useEffect(() => {
     }
 
     setLoading(true);
-
-    // ✅ Immediately update local state to 'generating'
     setSession(prev => prev ? { ...prev, generation_status: 'generating' } : null);
 
     try {
@@ -227,84 +261,18 @@ useEffect(() => {
         })
       });
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response stream');
+      const result = await response.json();
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let generationComplete = false;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(value);
-        buffer += text;
-        
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const jsonStr = line.slice(6).trim();
-              if (!jsonStr) continue;
-              
-              const data = JSON.parse(jsonStr);
-
-              if (data.type === 'status') {
-                setMessages(prev => {
-                  const filtered = prev.filter(m => m.id !== 'status-msg');
-                  return [...filtered, {
-                    id: 'status-msg',
-                    role: 'assistant',
-                    content: data.message,
-                    created_at: new Date().toISOString()
-                  }];
-                });
-              } else if (data.type === 'complete') {
-                generationComplete = true;
-                setCurrentHtml(data.html);
-                
-                setMessages(prev => {
-                  const filtered = prev.filter(m => m.id !== 'status-msg');
-                  return [...filtered, {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: 'Generated code successfully',
-                    created_at: new Date().toISOString()
-                  }];
-                });
-
-                // ✅ Manually update local session status
-                setSession(prev => prev ? {
-                  ...prev,
-                  generation_status: 'completed',
-                  generation_error: null
-                } : null);
-
-                console.log('✅ Generation completed locally');
-              } else if (data.type === 'error') {
-                throw new Error(data.message);
-              }
-            } catch (e) {
-              console.error('JSON parse error:', e);
-            }
-          }
-        }
+      if (result.success) {
+        console.log('✅ Generation request accepted, backend will process');
+        // Don't set loading to false here - let the realtime update handle it
+      } else {
+        throw new Error(result.error || 'Generation failed');
       }
-
-      // ✅ After stream ends, reload project if generation was successful
-      if (generationComplete) {
-        await loadProject();
-      }
-      
-      await fetchTokenBalance();
 
     } catch (error: any) {
       console.error('Generation failed:', error);
       
-      // ✅ Update local session status to failed
       setSession(prev => prev ? {
         ...prev,
         generation_status: 'failed',
@@ -312,10 +280,9 @@ useEffect(() => {
         retry_count: (prev.retry_count || 0) + 1
       } : null);
 
+      setLoading(false);
       alert(error.message || 'Generation failed. Please try again.');
     }
-
-    setLoading(false);
   };
 
   const handleSendMessage = async () => {
@@ -324,59 +291,59 @@ useEffect(() => {
     const userMessage = inputMessage;
     setInputMessage('');
 
-    setMessages(prev => [...prev, {
+    // ✅ Add user message to UI immediately
+    const newUserMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: userMessage,
       created_at: new Date().toISOString()
-    }]);
+    };
+    setMessages(prev => [...prev, newUserMessage]);
 
     await handleGeneration(userMessage);
   };
 
-const handleSaveProject = async () => {
-  if (!currentHtml || !user || !project || saving || loading) return;
+  const handleSaveProject = async () => {
+    if (!currentHtml || !user || !project || saving || loading) return;
 
-  setSaving(true);
+    setSaving(true);
 
-  try {
-    const response = await fetch(`/api/projects/${project.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ htmlCode: currentHtml })
-    });
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ htmlCode: currentHtml })
+      });
 
-    const { success, error, project: updatedProject } = await response.json();
+      const { success, error, project: updatedProject } = await response.json();
 
-    if (!success || error) {
-      throw new Error(error || 'Failed to save');
+      if (!success || error) {
+        throw new Error(error || 'Failed to save');
+      }
+
+      if (updatedProject) {
+        setProject(updatedProject);
+      }
+      
+      setSaving(false);
+      setJustSaved(true);
+      
+      if (justSavedTimeoutRef.current) {
+        clearTimeout(justSavedTimeoutRef.current);
+      }
+      
+      justSavedTimeoutRef.current = setTimeout(() => {
+        setJustSaved(false);
+        justSavedTimeoutRef.current = null;
+      }, 2000);
+      
+      console.log('✅ Project saved');
+    } catch (error: any) {
+      console.error('Save failed:', error);
+      alert(error.message || 'Failed to save project');
+      setSaving(false);
     }
-
-    if (updatedProject) {
-      setProject(updatedProject);
-    }
-    
-    setSaving(false);
-    setJustSaved(true);
-    
-    // ✅ Clear any existing timeout
-    if (justSavedTimeoutRef.current) {
-      clearTimeout(justSavedTimeoutRef.current);
-    }
-    
-    // ✅ Store timeout reference
-    justSavedTimeoutRef.current = setTimeout(() => {
-      setJustSaved(false);
-      justSavedTimeoutRef.current = null;
-    }, 2000);
-    
-    console.log('✅ Project saved');
-  } catch (error: any) {
-    console.error('Save failed:', error);
-    alert(error.message || 'Failed to save project');
-    setSaving(false);
-  }
-};
+  };
 
   const handleUpdatePost = async () => {
     if (!project?.post_id || !currentHtml || !user) return;
@@ -483,7 +450,6 @@ const handleSaveProject = async () => {
           </button>
 
           <div className="flex items-center gap-3">
-            {/* ✅ Generation Status Badge */}
             <div className={`px-4 py-2 rounded-full border text-sm font-bold ${
               session.generation_status === 'pending' ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400' :
               session.generation_status === 'generating' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 animate-pulse' :
@@ -517,21 +483,20 @@ const handleSaveProject = async () => {
               </div>
             )}
 
-            {/* ✅ FIXED: Save button always enabled when not loading */}
             <motion.button
-  onClick={handleSaveProject}
-  disabled={!currentHtml || saving || loading || session.generation_status === 'generating' || justSaved}
-  whileHover={!saving && !loading && !justSaved ? { scale: 1.05 } : {}}
-  whileTap={!saving && !loading && !justSaved ? { scale: 0.95 } : {}}
-  className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-all ${
-    justSaved 
-      ? 'bg-green-600 cursor-default' 
-      : 'bg-yellow-600 hover:bg-yellow-700'
-  } disabled:opacity-30 disabled:cursor-not-allowed`}
->
-  <Save size={18} />
-  {saving ? 'Saving...' : justSaved ? 'Saved ✓' : 'Save Project'}
-</motion.button>
+              onClick={handleSaveProject}
+              disabled={!currentHtml || saving || loading || session.generation_status === 'generating' || justSaved}
+              whileHover={!saving && !loading && !justSaved ? { scale: 1.05 } : {}}
+              whileTap={!saving && !loading && !justSaved ? { scale: 0.95 } : {}}
+              className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-all ${
+                justSaved 
+                  ? 'bg-green-600 cursor-default' 
+                  : 'bg-yellow-600 hover:bg-yellow-700'
+              } disabled:opacity-30 disabled:cursor-not-allowed`}
+            >
+              <Save size={18} />
+              {saving ? 'Saving...' : justSaved ? 'Saved ✓' : 'Save Project'}
+            </motion.button>
 
             {project?.post_id ? (
               <motion.button
@@ -579,7 +544,6 @@ const handleSaveProject = async () => {
               </motion.div>
             )}
 
-            {/* ✅ Show error if generation failed */}
             {session.generation_status === 'failed' && session.generation_error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -609,11 +573,11 @@ const handleSaveProject = async () => {
               </div>
             ))}
 
-            {loading && (
+            {(loading || session.generation_status === 'generating') && (
               <div className="flex justify-start">
                 <div className="bg-gray-800 px-4 py-3 rounded-2xl flex items-center gap-2">
                   <Loader2 className="animate-spin text-purple-400" size={20} />
-                  <span className="text-sm text-gray-400">Generating...</span>
+                  <span className="text-sm text-gray-400">Generating your creation...</span>
                 </div>
               </div>
             )}
@@ -635,11 +599,11 @@ const handleSaveProject = async () => {
                 }}
                 placeholder="Describe your changes..."
                 className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none"
-                disabled={loading}
+                disabled={loading || session.generation_status === 'generating'}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || loading}
+                disabled={!inputMessage.trim() || loading || session.generation_status === 'generating'}
                 className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <Send size={20} />
@@ -667,6 +631,7 @@ const handleSaveProject = async () => {
           <div className="flex-1 bg-white min-h-0">
             {currentHtml ? (
               <iframe
+                key={currentHtml}
                 srcDoc={currentHtml}
                 className="w-full h-full"
                 sandbox="allow-scripts allow-same-origin"
@@ -675,16 +640,11 @@ const handleSaveProject = async () => {
             ) : (
               <div className="flex items-center justify-center h-full text-gray-400">
                 <div className="text-center">
-                  {session.generation_status === 'pending' && (
+                  {(session.generation_status === 'pending' || session.generation_status === 'generating' || loading) && (
                     <>
                       <Loader2 className="animate-spin mx-auto mb-4" size={48} />
-                      <p>Waiting to start generation...</p>
-                    </>
-                  )}
-                  {session.generation_status === 'generating' && (
-                    <>
-                      <Loader2 className="animate-spin mx-auto mb-4" size={48} />
-                      <p>Generating your creation...</p>
+                      <p className="text-lg font-semibold mb-2">Creating your micro-app...</p>
+                      <p className="text-sm text-gray-500">This usually takes 20-40 seconds</p>
                     </>
                   )}
                   {session.generation_status === 'failed' && (
