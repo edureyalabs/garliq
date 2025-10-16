@@ -24,22 +24,22 @@ function ResetPasswordContent() {
         const hashToken = hashParams.get('access_token');
         const hashType = hashParams.get('type');
         
-        if (hashToken && hashType === 'recovery') {
-          console.log('✅ Recovery token found in hash');
-          
-          // Verify the session is established
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-          
-          if (sessionError || !session) {
-            console.error('❌ Session error:', sessionError);
-            setError('Invalid or expired reset link. Please request a new password reset.');
-          } else {
-            console.log('✅ Valid recovery session established');
-          }
-          
-          setValidating(false);
-          return;
-        }
+       if (hashToken && hashType === 'recovery') {
+  console.log('✅ Recovery token found in hash');
+  
+  // Exchange hash token for session
+  const { error: sessionError } = await supabase.auth.exchangeCodeForSession(hash.substring(1));
+  
+  if (sessionError) {
+    console.error('❌ Session exchange error:', sessionError);
+    setError('Invalid or expired reset link. Please request a new password reset.');
+  } else {
+    console.log('✅ Valid recovery session established');
+  }
+  
+  setValidating(false);
+  return;
+}
       }
       
       // PRIORITY 2: Check query params (backwards compatibility)
