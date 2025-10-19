@@ -467,9 +467,17 @@ export default function PostDetailPage() {
             <div className="lg:w-[30%] flex flex-col bg-black">
               <div className="p-4 sm:p-6 border-b border-gray-800">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0">
-                    {profile?.display_name?.[0]?.toUpperCase() || '?'}
-                  </div>
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0 overflow-hidden">
+  {profile?.avatar_url ? (
+    <img 
+      src={profile.avatar_url} 
+      alt={profile.display_name || 'User'}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <span>{profile?.display_name?.[0]?.toUpperCase() || '?'}</span>
+  )}
+</div>
                   <div>
                     <p className="font-bold">{profile?.display_name || 'Anonymous'}</p>
                     <p className="text-sm text-gray-500">@{profile?.username || 'unknown'}</p>
@@ -590,9 +598,17 @@ export default function PostDetailPage() {
           <div className="lg:w-[30%] flex flex-col bg-black">
             <div className="p-4 sm:p-6 border-b border-gray-800">
               <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-3 mb-4 hover:opacity-70 transition-opacity">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0">
-                  {profile?.display_name?.[0]?.toUpperCase() || '?'}
-                </div>
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0 overflow-hidden">
+  {profile?.avatar_url ? (
+    <img 
+      src={profile.avatar_url} 
+      alt={profile.display_name || 'User'}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <span>{profile?.display_name?.[0]?.toUpperCase() || '?'}</span>
+  )}
+</div>
                 <div>
                   <p className="font-bold">{profile?.display_name || 'Anonymous'}</p>
                   <p className="text-sm text-gray-500">@{profile?.username || 'unknown'}</p>
@@ -644,9 +660,17 @@ export default function PostDetailPage() {
                   {comments.map((comment) => (
                     <div key={comment.id} className="flex gap-3">
                       <Link href={`/profiles/${comment.user_id}`} className="flex-shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold">
-                          {comment.profiles?.display_name?.[0]?.toUpperCase() || '?'}
-                        </div>
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold overflow-hidden">
+  {comment.profiles?.avatar_url ? (
+    <img 
+      src={comment.profiles.avatar_url} 
+      alt={comment.profiles.display_name || 'User'}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <span>{comment.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
+  )}
+</div>
                       </Link>
                       <div className="flex-1">
                         <Link href={`/profiles/${comment.user_id}`} className="hover:underline">

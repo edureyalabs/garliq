@@ -491,9 +491,17 @@ export default function ProfilePage() {
         {/* Profile Header */}
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="flex flex-col md:flex-row gap-8 items-start mb-8">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-6xl font-black flex-shrink-0">
-              {profile.display_name[0].toUpperCase()}
-            </div>
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-6xl font-black flex-shrink-0 overflow-hidden">
+  {profile.avatar_url ? (
+    <img 
+      src={profile.avatar_url} 
+      alt={profile.display_name}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <span>{profile.display_name[0].toUpperCase()}</span>
+  )}
+</div>
 
             <div className="flex-1">
               <h1 className="text-4xl font-black mb-2">{profile.display_name}</h1>
@@ -685,9 +693,17 @@ export default function ProfilePage() {
       {/* Profile Header */}
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex flex-col md:flex-row gap-8 items-start mb-8">
-          <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-6xl font-black flex-shrink-0">
-            {profile.display_name[0].toUpperCase()}
-          </div>
+          <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-6xl font-black flex-shrink-0 overflow-hidden">
+  {profile.avatar_url ? (
+    <img 
+      src={profile.avatar_url} 
+      alt={profile.display_name}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <span>{profile.display_name[0].toUpperCase()}</span>
+  )}
+</div>
 
           <div className="flex-1">
             <h1 className="text-4xl font-black mb-2">{profile.display_name}</h1>

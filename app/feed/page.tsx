@@ -430,9 +430,17 @@ export default function FeedPage() {
                   {/* User Info Header */}
                   <div className="p-3 sm:p-4 border-b border-gray-800/50 bg-black/40 backdrop-blur-sm">
                     <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 sm:gap-3 hover:opacity-70 transition-opacity">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0">
-                        {post.profiles?.display_name?.[0]?.toUpperCase() || '?'}
-                      </div>
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0 overflow-hidden">
+  {post.profiles?.avatar_url ? (
+    <img 
+      src={post.profiles.avatar_url} 
+      alt={post.profiles.display_name || 'User'}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
+  )}
+</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs sm:text-sm font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
                         <p className="text-[10px] sm:text-xs text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
