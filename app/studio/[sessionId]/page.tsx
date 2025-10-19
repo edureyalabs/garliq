@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw, CheckCircle } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -51,6 +51,7 @@ export default function StudioPage() {
   const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const justSavedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   
@@ -85,18 +86,12 @@ export default function StudioPage() {
     }
   }, [session, user, loading]);
 
-  // ✅ FIXED: Always reload messages when generation completes
   useEffect(() => {
     if (session && previousStatusRef.current === 'generating' && session.generation_status === 'completed') {
       console.log('✅ Generation completed, reloading project and messages...');
       
-      // Stop loading state
       setLoading(false);
-      
-      // Reload project HTML
       loadProject();
-      
-      // ✅ ALWAYS reload messages (removed guard)
       loadMessages();
     }
     
@@ -185,7 +180,6 @@ export default function StudioPage() {
     }
   };
 
-  // ✅ Separate function to load messages
   const loadMessages = async () => {
     try {
       console.log('📨 Loading chat messages...');
@@ -214,7 +208,6 @@ export default function StudioPage() {
         console.log('✅ Session loaded:', data.session);
         setSession(data.session);
         
-        // Load messages from API response
         if (data.messages) {
           setMessages(data.messages);
         }
@@ -261,7 +254,6 @@ export default function StudioPage() {
 
       if (result.success) {
         console.log('✅ Generation request accepted, backend will process');
-        // Don't set loading to false here - let the realtime update handle it
       } else {
         throw new Error(result.error || 'Generation failed');
       }
@@ -287,7 +279,6 @@ export default function StudioPage() {
     const userMessage = inputMessage;
     setInputMessage('');
 
-    // ✅ FIXED: Add user message to UI AND database
     const newUserMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -295,10 +286,8 @@ export default function StudioPage() {
       created_at: new Date().toISOString()
     };
     
-    // Add to UI immediately for instant feedback
     setMessages(prev => [...prev, newUserMessage]);
 
-    // ✅ Save to database so it persists when loadMessages() is called
     try {
       await supabase
         .from('chat_messages')
@@ -413,8 +402,13 @@ export default function StudioPage() {
       setShowPublishModal(false);
       setPublishCaption('');
       await loadProject();
-      alert('✅ Published to feed!');
-      router.push('/feed');
+      
+      // Show success notification instead of navigating away
+      setShowSuccessNotification(true);
+      setTimeout(() => {
+        setShowSuccessNotification(false);
+      }, 5000);
+      
     } catch (error: any) {
       console.error('Publish failed:', error);
       alert(error.message || 'Failed to publish');
@@ -537,6 +531,28 @@ export default function StudioPage() {
           </div>
         </div>
       </div>
+
+      {/* Success Notification */}
+      <AnimatePresence>
+        {showSuccessNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50"
+          >
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 rounded-2xl shadow-2xl border border-green-500/50 flex items-center gap-3 min-w-[400px]">
+              <CheckCircle size={24} className="text-white flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-white font-bold text-lg mb-1">Post Created Successfully! 🎉</p>
+                <p className="text-green-100 text-sm">
+                  Your post is now available in the "My Posts" section of your profile and can be shared with others.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -674,7 +690,7 @@ export default function StudioPage() {
         </div>
       </div>
 
-      {/* Share Modal */}
+      {/* Share Modal - Improved Design */}
       <AnimatePresence>
         {showPublishModal && (
           <motion.div
@@ -685,64 +701,100 @@ export default function StudioPage() {
             onClick={() => !publishing && setShowPublishModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md"
+              className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-3xl p-8 w-full max-w-2xl shadow-2xl"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold">Share to Feed</h3>
-                <button onClick={() => !publishing && setShowPublishModal(false)} disabled={publishing}>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center">
+                    <Share2 size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">Share to Feed</h3>
+                    <p className="text-sm text-gray-400">Let others see your creation</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => !publishing && setShowPublishModal(false)} 
+                  disabled={publishing}
+                  className="p-2 hover:bg-gray-700 rounded-xl transition-colors"
+                >
                   <X size={24} className="text-gray-400 hover:text-white" />
                 </button>
               </div>
 
-              <input
-                type="text"
-                value={publishCaption}
-                onChange={(e) => setPublishCaption(e.target.value)}
-                placeholder="Add a caption..."
-                className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4"
-                disabled={publishing}
-                maxLength={200}
-              />
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-3">
+                    Caption
+                  </label>
+                  <textarea
+                    value={publishCaption}
+                    onChange={(e) => setPublishCaption(e.target.value)}
+                    placeholder="Write a caption for your post... (e.g., 'Check out my interactive game!' or 'Built a cool calculator app')"
+                    className="w-full px-5 py-4 bg-black/50 rounded-2xl border border-gray-700 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all resize-none text-gray-100 placeholder-gray-500"
+                    disabled={publishing}
+                    maxLength={200}
+                    rows={4}
+                  />
+                  <div className="flex justify-between items-center mt-2">
+                    <p className="text-xs text-gray-500">
+                      Make it descriptive so others know what your creation does!
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {publishCaption.length}/200
+                    </p>
+                  </div>
+                </div>
 
-              <label className="flex items-center gap-3 mb-6 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={promptVisible}
-                  onChange={(e) => setPromptVisible(e.target.checked)}
-                  className="w-5 h-5"
-                  disabled={publishing}
-                />
-                <span className="text-sm text-gray-400">Share prompt publicly</span>
-              </label>
+                <div className="bg-black/30 rounded-2xl p-5 border border-gray-700">
+                  <label className="flex items-start gap-4 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={promptVisible}
+                      onChange={(e) => setPromptVisible(e.target.checked)}
+                      className="w-5 h-5 mt-0.5 rounded border-gray-600 text-purple-600 focus:ring-purple-500 focus:ring-offset-gray-900"
+                      disabled={publishing}
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-semibold text-gray-200 group-hover:text-white transition-colors">
+                        Share prompt publicly
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Allow others to see the prompt you used to create this project
+                      </p>
+                    </div>
+                  </label>
+                </div>
 
-              <motion.button
-                onClick={handleShare}
-                disabled={!publishCaption.trim() || publishing}
-                whileHover={!publishing ? { scale: 1.02 } : {}}
-                whileTap={!publishing ? { scale: 0.98 } : {}}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {publishing ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    >
-                      🧄
-                    </motion.div>
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    <Share2 size={18} />
-                    Publish
-                  </>
-                )}
-              </motion.button>
+                <motion.button
+                  onClick={handleShare}
+                  disabled={!publishCaption.trim() || publishing}
+                  whileHover={!publishing ? { scale: 1.02 } : {}}
+                  whileTap={!publishing ? { scale: 0.98 } : {}}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 py-4 rounded-2xl font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-purple-500/25 transition-all"
+                >
+                  {publishing ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      >
+                        🧄
+                      </motion.div>
+                      <span>Publishing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 size={20} />
+                      <span>Publish to Feed</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
             </motion.div>
           </motion.div>
         )}
