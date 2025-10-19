@@ -105,7 +105,8 @@ export async function POST(request: Request) {
     // ==================== TRIGGER ASYNC GENERATION ====================
     console.log('🔥 Triggering async generation...');
     
-    // Fire and forget - don't wait for response
+    // Security: NO LONGER PASSING SUPABASE CREDENTIALS
+    // Backend service uses its own credentials from environment variables
     fetch(`${AGENT_SERVICE_URL}/generate-async`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -115,9 +116,8 @@ export async function POST(request: Request) {
         current_code: project?.html_code || null,
         chat_history: chatHistory || [],
         user_id: userId,
-        session_id: sessionId,
-        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY!
+        session_id: sessionId
+        // SECURITY FIX: Removed supabase_url and supabase_key
       })
     }).catch(err => {
       console.error('Failed to trigger async generation:', err);

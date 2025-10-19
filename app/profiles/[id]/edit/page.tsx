@@ -703,7 +703,7 @@ export default function EditProfilePage() {
                   </div>
                   <div className="bg-gray-900/50 rounded-lg p-3 text-center">
                     <div className="text-xl font-black text-pink-400">0</div>
-                    <div className="text-xs text-gray-500">Garlics</div>
+                    <div className="text-xs text-gray-500">Garliqs</div>
                   </div>
                 </div>
 
