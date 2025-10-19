@@ -613,6 +613,7 @@ export default function StudioPage() {
                 placeholder="Describe your changes..."
                 className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none"
                 disabled={loading || session.generation_status === 'generating'}
+                maxLength={10000}
               />
               <button
                 onClick={handleSendMessage}
@@ -704,6 +705,7 @@ export default function StudioPage() {
                 placeholder="Add a caption..."
                 className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4"
                 disabled={publishing}
+                maxLength={200}
               />
 
               <label className="flex items-center gap-3 mb-6 cursor-pointer">

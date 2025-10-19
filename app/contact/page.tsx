@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { Mail, MessageCircle, FileQuestion, Clock, MapPin, Send, CheckCircle } from 'lucide-react';
+import { Mail, MessageCircle, FileQuestion, Clock, MapPin, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -12,12 +12,38 @@ export default function Contact() {
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, this would send to your backend
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 5000);
+    setIsSubmitting(true);
+    setError('');
+    
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setSubmitted(true);
+        setFormData({ name: '', email: '', subject: '', message: '' }); // Clear form
+        setTimeout(() => setSubmitted(false), 5000);
+      } else {
+        setError(result.error || 'Failed to submit. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to submit. Please try emailing us directly at team@parasync.in');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -146,11 +172,12 @@ export default function Contact() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-400 mb-2">
-                      Your Name *
+                      Your Name * <span className="text-xs text-gray-600">({formData.name.length}/100)</span>
                     </label>
                     <input
                       type="text"
                       required
+                      maxLength={100}
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-4 py-3 bg-black border border-gray-800 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-white"
@@ -160,11 +187,12 @@ export default function Contact() {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-400 mb-2">
-                      Email Address *
+                      Email Address * <span className="text-xs text-gray-600">({formData.email.length}/200)</span>
                     </label>
                     <input
                       type="email"
                       required
+                      maxLength={200}
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className="w-full px-4 py-3 bg-black border border-gray-800 rounded-xl focus:border-purple-500 focus:outline-none transition-colors text-white"
@@ -194,10 +222,11 @@ export default function Contact() {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-400 mb-2">
-                      Message *
+                      Message * <span className="text-xs text-gray-600">({formData.message.length}/1000)</span>
                     </label>
                     <textarea
                       required
+                      maxLength={1000}
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                       rows={6}
@@ -205,6 +234,17 @@ export default function Contact() {
                       placeholder="Tell us how we can help..."
                     />
                   </div>
+
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
+                    >
+                      <AlertCircle className="w-5 h-5 text-red-400" />
+                      <p className="text-red-400 font-semibold">{error}</p>
+                    </motion.div>
+                  )}
 
                   {submitted ? (
                     <motion.div
@@ -218,11 +258,12 @@ export default function Contact() {
                   ) : (
                     <motion.button
                       type="submit"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                      disabled={isSubmitting}
+                      whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+                      whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+                      className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Send Message
+                      {isSubmitting ? 'Sending...' : 'Send Message'}
                     </motion.button>
                   )}
 

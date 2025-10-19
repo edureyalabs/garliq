@@ -219,6 +219,7 @@ export default function CreatePage() {
                     handleCreateSession();
                   }
                 }}
+                maxLength={10000}
               />
 
               <div className="mt-4 flex items-center justify-between">

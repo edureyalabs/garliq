@@ -501,6 +501,7 @@ export default function PostDetailPage() {
                     placeholder="Add a comment..."
                     className="flex-1 px-4 py-2 bg-gray-900 rounded-full border border-gray-800 focus:border-purple-500 focus:outline-none text-sm"
                     disabled={submittingComment}
+                    maxLength={120}
                   />
                   <button
                     onClick={handleSubmitComment}
