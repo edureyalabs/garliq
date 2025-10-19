@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -42,6 +42,8 @@ interface Project {
 
 type TabType = 'posts' | 'projects' | 'saved';
 
+const ITEMS_PER_PAGE = 12;
+
 export default function ProfilePage() {
   const router = useRouter();
   const params = useParams();
@@ -53,6 +55,9 @@ export default function ProfilePage() {
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('posts');
   const [selectedItem, setSelectedItem] = useState<Post | Project | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -69,19 +74,56 @@ export default function ProfilePage() {
     saves: 0
   });
 
+  const observerTarget = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     checkUser();
     fetchProfile();
-    fetchUserPosts();
-    fetchUserProjects();
   }, [userId]);
 
   useEffect(() => {
+    setPosts([]);
+    setProjects([]);
+    setSavedPosts([]);
+    setPage(0);
+    setHasMore(true);
+    setLoading(true);
+    
+    if (activeTab === 'posts') {
+      fetchUserPosts(0);
+    } else if (activeTab === 'projects') {
+      fetchUserProjects(0);
+    } else if (activeTab === 'saved') {
+      fetchSavedPosts(0);
+    }
+  }, [activeTab, userId]);
+
+  useEffect(() => {
     if (currentUser?.id === userId) {
-      fetchSavedPosts();
       fetchTokenBalance();
     }
   }, [currentUser, userId]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [hasMore, loadingMore, loading, page, activeTab]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -111,56 +153,147 @@ export default function ProfilePage() {
     setLoading(false);
   };
 
-  const fetchUserPosts = async () => {
-    const { data } = await supabase
+  const fetchUserPosts = async (pageNum: number) => {
+    const from = pageNum * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    const { data, error, count } = await supabase
       .from('posts')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('Fetch posts error:', error);
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
 
     if (data) {
-      setPosts(data);
-      const totalLikes = data.reduce((sum, post) => sum + (post.likes_count || 0), 0);
-      setStats(prev => ({ 
-        ...prev, 
-        posts: data.length, 
-        totalLikes 
-      }));
+      if (pageNum === 0) {
+        setPosts(data);
+        const totalLikes = data.reduce((sum, post) => sum + (post.likes_count || 0), 0);
+        setStats(prev => ({ 
+          ...prev, 
+          posts: count || data.length, 
+          totalLikes 
+        }));
+      } else {
+        setPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPosts = data.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPosts];
+        });
+      }
+
+      setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
+    
+    setLoading(false);
+    setLoadingMore(false);
   };
 
-  const fetchUserProjects = async () => {
-    const { data } = await supabase
+  const fetchUserProjects = async (pageNum: number) => {
+    const from = pageNum * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    const { data, error, count } = await supabase
       .from('projects')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('Fetch projects error:', error);
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
 
     if (data) {
-      setProjects(data);
-      setStats(prev => ({ ...prev, projects: data.length }));
+      if (pageNum === 0) {
+        setProjects(data);
+        setStats(prev => ({ ...prev, projects: count || data.length }));
+      } else {
+        setProjects(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newProjects = data.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newProjects];
+        });
+      }
+
+      setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
+    
+    setLoading(false);
+    setLoadingMore(false);
   };
 
-  const fetchSavedPosts = async () => {
+  const fetchSavedPosts = async (pageNum: number) => {
     if (!currentUser) return;
 
-    const { data: saves } = await supabase
+    const from = pageNum * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    const { data: saves, error: savesError, count } = await supabase
       .from('saves')
-      .select('post_id')
-      .eq('user_id', currentUser.id);
+      .select('post_id', { count: 'exact' })
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
-    if (saves && saves.length > 0) {
-      const postIds = saves.map(s => s.post_id);
-      const { data: posts } = await supabase
-        .from('posts')
-        .select('*')
-        .in('id', postIds)
-        .order('created_at', { ascending: false });
+    if (savesError || !saves || saves.length === 0) {
+      if (pageNum === 0) {
+        setSavedPosts([]);
+        setStats(prev => ({ ...prev, saves: 0 }));
+      }
+      setHasMore(false);
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
 
-      if (posts) {
+    const postIds = saves.map(s => s.post_id);
+    const { data: posts } = await supabase
+      .from('posts')
+      .select('*')
+      .in('id', postIds)
+      .order('created_at', { ascending: false });
+
+    if (posts) {
+      if (pageNum === 0) {
         setSavedPosts(posts);
-        setStats(prev => ({ ...prev, saves: posts.length }));
+        setStats(prev => ({ ...prev, saves: count || posts.length }));
+      } else {
+        setSavedPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPosts = posts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPosts];
+        });
+      }
+
+      setHasMore(saves.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
+    }
+    
+    setLoading(false);
+    setLoadingMore(false);
+  };
+
+  const loadMore = () => {
+    if (!loadingMore && hasMore && !loading) {
+      setLoadingMore(true);
+      const nextPage = page + 1;
+      setPage(nextPage);
+      
+      if (activeTab === 'posts') {
+        fetchUserPosts(nextPage);
+      } else if (activeTab === 'projects') {
+        fetchUserProjects(nextPage);
+      } else if (activeTab === 'saved') {
+        fetchSavedPosts(nextPage);
       }
     }
   };
@@ -205,7 +338,10 @@ export default function ProfilePage() {
       setShareCaption('');
       setShareProject(null);
       
-      await fetchUserProjects();
+      setProjects([]);
+      setPage(0);
+      setHasMore(true);
+      await fetchUserProjects(0);
       
       alert('✅ Project published to feed!');
     } catch (error: any) {
@@ -236,7 +372,10 @@ export default function ProfilePage() {
       }
       
       alert('✅ Project deleted successfully');
-      await fetchUserProjects();
+      setProjects([]);
+      setPage(0);
+      setHasMore(true);
+      await fetchUserProjects(0);
     } catch (error: any) {
       console.error('Delete error:', error);
       alert('❌ ' + error.message);
@@ -264,15 +403,18 @@ export default function ProfilePage() {
       }
       
       alert('✅ Post deleted successfully');
-      await fetchUserPosts();
-      await fetchUserProjects();
+      setPosts([]);
+      setProjects([]);
+      setPage(0);
+      setHasMore(true);
+      await Promise.all([fetchUserPosts(0), fetchUserProjects(0)]);
     } catch (error: any) {
       console.error('Delete post error:', error);
       alert('❌ ' + error.message);
     }
   };
 
-  if (loading) {
+  if (loading && page === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <motion.div
@@ -360,7 +502,7 @@ export default function ProfilePage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
                   { label: 'Garlics', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' }
@@ -380,77 +522,98 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Posts Tab */}
           <div className="flex items-center gap-2 mb-8 border-b border-gray-800">
-          <button
-            className="flex items-center gap-2 px-6 py-3 font-semibold transition-all border-b-2 border-purple-500 text-white"
-          >
-            <Code2 size={18} />
-            Posts
-          </button>
-        </div>
+            <button className="flex items-center gap-2 px-6 py-3 font-semibold transition-all border-b-2 border-purple-500 text-white">
+              <Code2 size={18} />
+              Posts
+            </button>
+          </div>
 
           {/* Posts Grid */}
-          {posts.length === 0 ? (
+          {posts.length === 0 && !loading ? (
             <div className="text-center py-20 bg-gray-900/30 rounded-2xl border border-gray-800">
               <Code2 size={48} className="mx-auto mb-4 text-gray-700" />
               <p className="text-gray-500">No posts yet</p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {posts.map((post, i) => (
-                <motion.div
-                  key={post.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
-                >
-                  <Link href={`/post/${post.id}`}>
-                    <div className="aspect-square bg-white cursor-pointer relative overflow-hidden">
-                      <iframe
-                        srcDoc={`
-                          <!DOCTYPE html>
-                          <html>
-                            <head>
-                              <style>
-                                * { margin: 0; padding: 0; }
-                                body { overflow: hidden; transform: scale(0.5); transform-origin: top left; width: 200%; height: 200%; }
-                                audio, video { display: none !important; }
-                              </style>
-                            </head>
-                            <body>
-                              ${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}
-                            </body>
-                          </html>
-                        `}
-                        className="w-full h-full pointer-events-none"
-                        sandbox=""
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Eye className="text-white drop-shadow-lg" size={32} />
+            <>
+              <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {posts.map((post, i) => (
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i % 12, 11) * 0.05 }}
+                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                  >
+                    <Link href={`/post/${post.id}`}>
+                      <div className="aspect-square bg-white cursor-pointer relative overflow-hidden">
+                        <iframe
+                          srcDoc={`
+                            <!DOCTYPE html>
+                            <html>
+                              <head>
+                                <style>
+                                  * { margin: 0; padding: 0; }
+                                  body { overflow: hidden; transform: scale(0.5); transform-origin: top left; width: 200%; height: 200%; }
+                                  audio, video { display: none !important; }
+                                </style>
+                              </head>
+                              <body>
+                                ${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}
+                              </body>
+                            </html>
+                          `}
+                          className="w-full h-full pointer-events-none"
+                          sandbox=""
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye className="text-white drop-shadow-lg" size={32} />
+                        </div>
+                      </div>
+                    </Link>
+
+                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-sm font-semibold line-clamp-2 mb-2">
+                        {post.caption || 'Untitled'}
+                      </p>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="flex items-center gap-1">
+                          <Heart size={14} />
+                          {post.likes_count || 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Code2 size={14} />
+                          {post.comments_count || 0}
+                        </span>
                       </div>
                     </div>
-                  </Link>
+                  </motion.div>
+                ))}
+              </div>
 
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-sm font-semibold line-clamp-2 mb-2">
-                      {post.caption || 'Untitled'}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="flex items-center gap-1">
-                        <Heart size={14} />
-                        {post.likes_count || 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Code2 size={14} />
-                        {post.comments_count || 0}
-                      </span>
-                    </div>
+              {/* Infinite Scroll Trigger */}
+              <div ref={observerTarget} className="py-8 flex justify-center">
+                {loadingMore && (
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      className="text-2xl"
+                    >
+                      🧄
+                    </motion.div>
+                    <span className="text-sm">Loading more...</span>
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                )}
+                {!hasMore && posts.length > 0 && (
+                  <p className="text-gray-500 text-sm">You've reached the end!</p>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -581,7 +744,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Content Grid */}
-        {displayItems.length === 0 ? (
+        {displayItems.length === 0 && !loading ? (
           <div className="text-center py-20 bg-gray-900/30 rounded-2xl border border-gray-800">
             <Code2 size={48} className="mx-auto mb-4 text-gray-700" />
             <p className="text-gray-500">
@@ -589,151 +752,172 @@ export default function ProfilePage() {
             </p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {displayItems.map((item, i) => {
-              const isProject = activeTab === 'projects';
-              const post = !isProject ? (item as Post) : null;
-              const project = isProject ? (item as Project) : null;
-              
-              return (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
-                >
-                  {/* Preview */}
-                  <div 
-                    className="aspect-square bg-white cursor-pointer relative overflow-hidden"
-                    onClick={() => setSelectedItem(item)}
+          <>
+            <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {displayItems.map((item, i) => {
+                const isProject = activeTab === 'projects';
+                const post = !isProject ? (item as Post) : null;
+                const project = isProject ? (item as Project) : null;
+                
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i % 12, 11) * 0.05 }}
+                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
                   >
-                    <iframe
-                      srcDoc={`
-                        <!DOCTYPE html>
-                        <html>
-                          <head>
-                            <style>
-                              * { margin: 0; padding: 0; }
-                              body { overflow: hidden; transform: scale(0.5); transform-origin: top left; width: 200%; height: 200%; }
-                              audio, video { display: none !important; }
-                            </style>
-                          </head>
-                          <body>
-                            ${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}
-                          </body>
-                        </html>
-                      `}
-                      className="w-full h-full pointer-events-none"
-                      sandbox=""
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Eye className="text-white drop-shadow-lg" size={32} />
-                    </div>
-                  </div>
-
-                  {/* Info Overlay for Projects */}
-                  {isProject && project && isOwnProfile && (
-                    <div className="absolute top-2 right-2 z-10 flex gap-1">
-                      <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                        project.is_draft 
-                          ? 'bg-yellow-500/90 text-black' 
-                          : 'bg-green-500/90 text-black'
-                      }`}>
-                        {project.is_draft ? 'Draft' : 'Live'}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Hover Actions for Projects */}
-                  {isProject && project && isOwnProfile && (
-                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity space-y-2">
-                      <p className="text-sm font-bold line-clamp-1 mb-2">
-                        {project.title || 'Untitled'}
-                      </p>
-                      
-                      <div className="flex gap-2">
-                        {project.session_id && (
-                          <Link href={`/studio/${project.session_id}`} className="flex-1">
-                            <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold">
-                              <Edit size={14} />
-                              Edit
-                            </button>
-                          </Link>
-                        )}
-                        
-                        {project.is_draft && project.session_id && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleShareClick(project);
-                            }}
-                            className="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg"
-                            title="Share"
-                          >
-                            <Share2 size={14} />
-                          </button>
-                        )}
-                        
-                        {!project.is_draft && project.post_id && (
-                          <Link href={`/post/${project.post_id}`} onClick={(e) => e.stopPropagation()}>
-                            <button className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg" title="View Post">
-                              <ExternalLink size={14} />
-                            </button>
-                          </Link>
-                        )}
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteProject(project);
-                          }}
-                          className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                    {/* Preview */}
+                    <div 
+                      className="aspect-square bg-white cursor-pointer relative overflow-hidden"
+                      onClick={() => setSelectedItem(item)}
+                    >
+                      <iframe
+                        srcDoc={`
+                          <!DOCTYPE html>
+                          <html>
+                            <head>
+                              <style>
+                                * { margin: 0; padding: 0; }
+                                body { overflow: hidden; transform: scale(0.5); transform-origin: top left; width: 200%; height: 200%; }
+                                audio, video { display: none !important; }
+                              </style>
+                            </head>
+                            <body>
+                              ${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}
+                            </body>
+                          </html>
+                        `}
+                        className="w-full h-full pointer-events-none"
+                        sandbox=""
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Eye className="text-white drop-shadow-lg" size={32} />
                       </div>
                     </div>
-                  )}
 
-                  {/* Post Stats */}
-                  {!isProject && post && (
-                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                      <p className="text-sm font-semibold line-clamp-2 mb-2">
-                        {post.caption || 'Untitled'}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-xs">
-                          <span className="flex items-center gap-1">
-                            <Heart size={14} />
-                            {post.likes_count || 0}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Code2 size={14} />
-                            {post.comments_count || 0}
-                          </span>
-                        </div>
-                        {isOwnProfile && (
+                    {/* Info Overlay for Projects */}
+                    {isProject && project && isOwnProfile && (
+                      <div className="absolute top-2 right-2 z-10 flex gap-1">
+                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                          project.is_draft 
+                            ? 'bg-yellow-500/90 text-black' 
+                            : 'bg-green-500/90 text-black'
+                        }`}>
+                          {project.is_draft ? 'Draft' : 'Live'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Hover Actions for Projects */}
+                    {isProject && project && isOwnProfile && (
+                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity space-y-2">
+                        <p className="text-sm font-bold line-clamp-1 mb-2">
+                          {project.title || 'Untitled'}
+                        </p>
+                        
+                        <div className="flex gap-2">
+                          {project.session_id && (
+                            <Link href={`/studio/${project.session_id}`} className="flex-1">
+                              <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold">
+                                <Edit size={14} />
+                                Edit
+                              </button>
+                            </Link>
+                          )}
+                          
+                          {project.is_draft && project.session_id && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareClick(project);
+                              }}
+                              className="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg"
+                              title="Share"
+                            >
+                              <Share2 size={14} />
+                            </button>
+                          )}
+                          
+                          {!project.is_draft && project.post_id && (
+                            <Link href={`/post/${project.post_id}`} onClick={(e) => e.stopPropagation()}>
+                              <button className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg" title="View Post">
+                                <ExternalLink size={14} />
+                              </button>
+                            </Link>
+                          )}
+                          
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDeletePost(post.id);
+                              handleDeleteProject(project);
                             }}
                             className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
-                            title="Delete Post"
+                            title="Delete"
                           >
                             <Trash2 size={14} />
                           </button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
+                    )}
+
+                    {/* Post Stats */}
+                    {!isProject && post && (
+                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                        <p className="text-sm font-semibold line-clamp-2 mb-2">
+                          {post.caption || 'Untitled'}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-xs">
+                            <span className="flex items-center gap-1">
+                              <Heart size={14} />
+                              {post.likes_count || 0}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Code2 size={14} />
+                              {post.comments_count || 0}
+                            </span>
+                          </div>
+                          {isOwnProfile && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePost(post.id);
+                              }}
+                              className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
+                              title="Delete Post"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Infinite Scroll Trigger */}
+            <div ref={observerTarget} className="py-8 flex justify-center">
+              {loadingMore && (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    className="text-2xl"
+                  >
+                    🧄
+                  </motion.div>
+                  <span className="text-sm">Loading more...</span>
+                </div>
+              )}
+              {!hasMore && displayItems.length > 0 && (
+                <p className="text-gray-500 text-sm">You've reached the end!</p>
+              )}
+            </div>
+          </>
         )}
       </div>
 
