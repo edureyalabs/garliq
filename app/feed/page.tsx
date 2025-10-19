@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Plus, Heart, MessageCircle, Share2, LogOut, User, TrendingUp, Clock, Users, Search, Code2, Bookmark, Trash2 } from 'lucide-react';
+import { Plus, Heart, MessageCircle, Share2, LogOut, User, TrendingUp, Clock, Code2, Bookmark, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface Post {
@@ -25,7 +25,7 @@ interface Post {
   };
 }
 
-type FeedFilter = 'trending' | 'new' | 'following';
+type FeedFilter = 'trending' | 'new';
 const POSTS_PER_PAGE = 12;
 
 export default function FeedPage() {
@@ -37,7 +37,6 @@ export default function FeedPage() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [page, setPage] = useState(0);
   const [activeFilter, setActiveFilter] = useState<FeedFilter>('trending');
-  const [searchQuery, setSearchQuery] = useState('');
   
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -376,12 +375,11 @@ export default function FeedPage() {
           </div>
 
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex items-center justify-center">
             <div className="flex items-center gap-2 bg-gray-900 rounded-full p-1">
               {[
                 { id: 'trending', icon: TrendingUp, label: 'Trending' },
-                { id: 'new', icon: Clock, label: 'New' },
-                { id: 'following', icon: Users, label: 'Following' }
+                { id: 'new', icon: Clock, label: 'New' }
               ].map((filter) => (
                 <button
                   key={filter.id}
@@ -393,20 +391,9 @@ export default function FeedPage() {
                   }`}
                 >
                   <filter.icon size={16} />
-                  <span className="hidden sm:inline">{filter.label}</span>
+                  <span>{filter.label}</span>
                 </button>
               ))}
-            </div>
-
-            <div className="flex-1 max-w-full sm:max-w-md relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search projects..."
-                className="w-full pl-10 pr-4 py-2 bg-gray-900 rounded-full border border-gray-800 focus:border-purple-500 focus:outline-none text-sm"
-              />
             </div>
           </div>
         </div>
