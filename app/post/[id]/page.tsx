@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -54,7 +54,7 @@ export default function PostDetailPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const commentsEndRef = useRef<HTMLDivElement>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     checkUser();
@@ -70,28 +70,28 @@ export default function PostDetailPage() {
     }
   }, []);
 
-  // Infinite scroll observer
+  // ✅ FIXED: Infinite scroll observer (similar to feed page pattern)
   useEffect(() => {
-    const currentRef = loadMoreRef.current;
-    
-    if (!currentRef || !hasMore || loadingMore) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
-          console.log('🔄 Loading more comments...');
-          loadMoreComments();
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          console.log('🔄 Intersection detected, loading more comments...');
+          loadMore();
         }
       },
-      { threshold: 0.5, rootMargin: '50px' }
+      { threshold: 0.5 }
     );
 
-    observer.observe(currentRef);
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
 
     return () => {
-      observer.disconnect();
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
     };
-  }, [hasMore, loadingMore, page, comments.length]);
+  }, [hasMore, loadingMore, loading, page]); // ✅ Added all dependencies
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -162,17 +162,23 @@ export default function PostDetailPage() {
     }
   };
 
+  // ✅ FIXED: Updated fetchComments to properly handle pagination
   const fetchComments = async (pageNum: number, append: boolean = false) => {
-    if (loadingMore) return;
+    if (loadingMore && append) {
+      console.log('⏸️ Already loading, skipping...');
+      return;
+    }
     
     if (append) setLoadingMore(true);
 
     const from = pageNum * COMMENTS_PER_PAGE;
     const to = from + COMMENTS_PER_PAGE - 1;
 
-    const { data: commentsData, error } = await supabase
+    console.log(`📥 Fetching comments page ${pageNum} (${from}-${to})`);
+
+    const { data: commentsData, error, count } = await supabase
       .from('comments')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('post_id', postId)
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -184,10 +190,12 @@ export default function PostDetailPage() {
     }
 
     if (commentsData) {
-      // Check if we have more comments
-      if (commentsData.length < COMMENTS_PER_PAGE) {
-        setHasMore(false);
-      }
+      console.log(`✅ Fetched ${commentsData.length} comments`);
+      
+      // ✅ Check if we have more comments (similar to feed page)
+      const hasMoreComments = commentsData.length === COMMENTS_PER_PAGE && (count || 0) > to + 1;
+      setHasMore(hasMoreComments);
+      console.log(`📊 Has more: ${hasMoreComments}, Total count: ${count}`);
 
       const userIds = [...new Set(commentsData.map(c => c.user_id))];
       const { data: profilesData } = await supabase
@@ -202,7 +210,13 @@ export default function PostDetailPage() {
       }));
 
       if (append) {
-        setComments(prev => [...prev, ...commentsWithProfiles]);
+        // ✅ Prevent duplicates when appending (similar to feed page)
+        setComments(prev => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const newComments = commentsWithProfiles.filter(c => !existingIds.has(c.id));
+          console.log(`➕ Adding ${newComments.length} new comments`);
+          return [...prev, ...newComments];
+        });
       } else {
         setComments(commentsWithProfiles);
       }
@@ -211,14 +225,16 @@ export default function PostDetailPage() {
     setLoadingMore(false);
   };
 
-  const loadMoreComments = useCallback(() => {
-    if (loadingMore || !hasMore) return;
-    
-    const nextPage = page + 1;
-    console.log(`📄 Loading page ${nextPage}`);
-    setPage(nextPage);
-    fetchComments(nextPage, true);
-  }, [page, postId, loadingMore, hasMore]);
+  // ✅ FIXED: Simplified loadMore function (similar to feed page pattern)
+  const loadMore = () => {
+    if (!loadingMore && hasMore && !loading) {
+      console.log(`🔄 Loading more comments from page ${page} to ${page + 1}`);
+      setLoadingMore(true);
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchComments(nextPage, true);
+    }
+  };
 
   const handleLike = async () => {
     if (!user || !post) return;
@@ -552,7 +568,7 @@ export default function PostDetailPage() {
     );
   }
 
-  // ✅ LOGGED-IN VIEW WITH INFINITE SCROLLING
+  // ✅ LOGGED-IN VIEW WITH FIXED INFINITE SCROLLING
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
@@ -665,7 +681,7 @@ export default function PostDetailPage() {
               </div>
             </div>
 
-            {/* Comments Section with Infinite Scroll */}
+            {/* ✅ FIXED: Comments Section with Working Infinite Scroll */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4" id="comments">
               {comments.length === 0 && !loadingMore ? (
                 <div className="text-center py-12">
@@ -699,28 +715,24 @@ export default function PostDetailPage() {
                     </div>
                   ))}
 
-                  {/* Infinite Scroll Trigger */}
-                  {hasMore && (
-                    <div ref={loadMoreRef} className="py-4 text-center">
-                      {loadingMore ? (
+                  {/* ✅ FIXED: Infinite Scroll Trigger (similar to feed page) */}
+                  <div ref={observerTarget} className="py-4 flex justify-center">
+                    {loadingMore && (
+                      <div className="flex items-center gap-2 text-gray-400">
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                          className="inline-block text-2xl"
+                          className="text-2xl"
                         >
                           🧄
                         </motion.div>
-                      ) : (
-                        <p className="text-xs text-gray-600">Scroll for more comments...</p>
-                      )}
-                    </div>
-                  )}
-
-                  {!hasMore && comments.length > 0 && (
-                    <div className="text-center py-4">
-                      <p className="text-xs text-gray-600">No more comments</p>
-                    </div>
-                  )}
+                        <span className="text-sm">Loading more...</span>
+                      </div>
+                    )}
+                    {!hasMore && comments.length > 0 && (
+                      <p className="text-gray-500 text-sm">You've reached the end!</p>
+                    )}
+                  </div>
                 </>
               )}
               <div ref={commentsEndRef} />
