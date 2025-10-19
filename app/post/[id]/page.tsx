@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -35,6 +35,8 @@ interface Comment {
   profiles?: Profile;
 }
 
+const COMMENTS_PER_PAGE = 10;
+
 export default function PostDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -48,12 +50,16 @@ export default function PostDetailPage() {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
   const commentsEndRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     checkUser();
     fetchPost();
-    fetchComments();
+    fetchComments(0); // Load first page
   }, [postId]);
 
   useEffect(() => {
@@ -62,12 +68,34 @@ export default function PostDetailPage() {
         commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 500);
     }
-  }, [comments]);
+  }, []);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const currentRef = loadMoreRef.current;
+    
+    if (!currentRef || !hasMore || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          console.log('🔄 Loading more comments...');
+          loadMoreComments();
+        }
+      },
+      { threshold: 0.5, rootMargin: '50px' }
+    );
+
+    observer.observe(currentRef);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, loadingMore, page, comments.length]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) setUser(session.user);
-    // ✅ No redirect - allow logged-out users to view
   };
 
   const fetchPost = async () => {
@@ -134,14 +162,33 @@ export default function PostDetailPage() {
     }
   };
 
-  const fetchComments = async () => {
-    const { data: commentsData } = await supabase
+  const fetchComments = async (pageNum: number, append: boolean = false) => {
+    if (loadingMore) return;
+    
+    if (append) setLoadingMore(true);
+
+    const from = pageNum * COMMENTS_PER_PAGE;
+    const to = from + COMMENTS_PER_PAGE - 1;
+
+    const { data: commentsData, error } = await supabase
       .from('comments')
       .select('*')
       .eq('post_id', postId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('Error fetching comments:', error);
+      setLoadingMore(false);
+      return;
+    }
 
     if (commentsData) {
+      // Check if we have more comments
+      if (commentsData.length < COMMENTS_PER_PAGE) {
+        setHasMore(false);
+      }
+
       const userIds = [...new Set(commentsData.map(c => c.user_id))];
       const { data: profilesData } = await supabase
         .from('profiles')
@@ -154,9 +201,24 @@ export default function PostDetailPage() {
         profiles: profilesMap.get(comment.user_id)
       }));
 
-      setComments(commentsWithProfiles);
+      if (append) {
+        setComments(prev => [...prev, ...commentsWithProfiles]);
+      } else {
+        setComments(commentsWithProfiles);
+      }
     }
+
+    setLoadingMore(false);
   };
+
+  const loadMoreComments = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    
+    const nextPage = page + 1;
+    console.log(`📄 Loading page ${nextPage}`);
+    setPage(nextPage);
+    fetchComments(nextPage, true);
+  }, [page, postId, loadingMore, hasMore]);
 
   const handleLike = async () => {
     if (!user || !post) return;
@@ -295,10 +357,19 @@ export default function PostDetailPage() {
       
       await new Promise(resolve => setTimeout(resolve, 100));
       
+      // Reset pagination and reload comments
+      setPage(0);
+      setHasMore(true);
       await Promise.all([
         fetchPost(),
-        fetchComments()
+        fetchComments(0, false)
       ]);
+
+      // Scroll to top of comments to show new comment
+      const commentsSection = document.getElementById('comments');
+      if (commentsSection) {
+        commentsSection.scrollTop = 0;
+      }
 
       console.log('Comment submitted, post refetched');
       
@@ -481,7 +552,7 @@ export default function PostDetailPage() {
     );
   }
 
-  // ✅ LOGGED-IN VIEW (Keep exactly as before)
+  // ✅ LOGGED-IN VIEW WITH INFINITE SCROLLING
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
@@ -594,38 +665,63 @@ export default function PostDetailPage() {
               </div>
             </div>
 
-            {/* Comments Section */}
+            {/* Comments Section with Infinite Scroll */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4" id="comments">
-              {comments.length === 0 ? (
+              {comments.length === 0 && !loadingMore ? (
                 <div className="text-center py-12">
                   <MessageCircle size={48} className="mx-auto mb-3 text-gray-700" />
                   <p className="text-gray-500 text-sm">No comments yet</p>
                   <p className="text-gray-600 text-xs mt-1">Be the first to comment!</p>
                 </div>
               ) : (
-                comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3">
-                    <Link href={`/profiles/${comment.user_id}`} className="flex-shrink-0">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold">
-                        {comment.profiles?.display_name?.[0]?.toUpperCase() || '?'}
-                      </div>
-                    </Link>
-                    <div className="flex-1">
-                      <Link href={`/profiles/${comment.user_id}`} className="hover:underline">
-                        <p className="text-sm font-semibold">{comment.profiles?.display_name || 'Anonymous'}</p>
+                <>
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="flex gap-3">
+                      <Link href={`/profiles/${comment.user_id}`} className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold">
+                          {comment.profiles?.display_name?.[0]?.toUpperCase() || '?'}
+                        </div>
                       </Link>
-                      <p className="text-sm text-gray-300 mt-1 leading-relaxed">{comment.content}</p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {new Date(comment.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
+                      <div className="flex-1">
+                        <Link href={`/profiles/${comment.user_id}`} className="hover:underline">
+                          <p className="text-sm font-semibold">{comment.profiles?.display_name || 'Anonymous'}</p>
+                        </Link>
+                        <p className="text-sm text-gray-300 mt-1 leading-relaxed">{comment.content}</p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {new Date(comment.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+
+                  {/* Infinite Scroll Trigger */}
+                  {hasMore && (
+                    <div ref={loadMoreRef} className="py-4 text-center">
+                      {loadingMore ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                          className="inline-block text-2xl"
+                        >
+                          🧄
+                        </motion.div>
+                      ) : (
+                        <p className="text-xs text-gray-600">Scroll for more comments...</p>
+                      )}
+                    </div>
+                  )}
+
+                  {!hasMore && comments.length > 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-xs text-gray-600">No more comments</p>
+                    </div>
+                  )}
+                </>
               )}
               <div ref={commentsEndRef} />
             </div>
