@@ -634,7 +634,7 @@ export default function ProfilePage() {
       {/* Header */}
       <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <button onClick={() => router.back()} className="flex items-center gap-3 hover:opacity-70 transition-opacity">
+          <button onClick={() => router.push('/feed')} className="flex items-center gap-3 hover:opacity-70 transition-opacity">
             <ArrowLeft size={24} />
             <span className="text-3xl">🧄</span>
           </button>
@@ -660,7 +660,7 @@ export default function ProfilePage() {
             )}
 
             {isOwnProfile && (
-              <Link href="/profiles/edit">
+              <Link href={`/profiles/${userId}/edit`}>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
