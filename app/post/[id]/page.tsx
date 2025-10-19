@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Maximize2, X, Code2, Trash2, Sparkles } from 'lucide-react';
+import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Trash2, Sparkles, Code2 } from 'lucide-react';
 import Link from 'next/link';
+import GarliqWebContainer from '@/components/GarliqWebContainer';
 
 interface Post {
   id: string;
@@ -49,17 +50,24 @@ export default function PostDetailPage() {
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
+  // Memoize container props to prevent re-renders when comments change
+  const containerProps = useMemo(() => ({
+    htmlCode: post?.html_code || '',
+    username: profile?.username || 'unknown',
+    displayName: profile?.display_name || 'Anonymous',
+    timestamp: post?.created_at || new Date().toISOString()
+  }), [post?.html_code, post?.created_at, profile?.username, profile?.display_name]);
+
   useEffect(() => {
     checkUser();
     fetchPost();
-    fetchComments(0); // Load first page
+    fetchComments(0);
   }, [postId]);
 
   useEffect(() => {
@@ -70,7 +78,6 @@ export default function PostDetailPage() {
     }
   }, []);
 
-  // ✅ FIXED: Infinite scroll observer (similar to feed page pattern)
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -91,7 +98,7 @@ export default function PostDetailPage() {
         observer.unobserve(observerTarget.current);
       }
     };
-  }, [hasMore, loadingMore, loading, page]); // ✅ Added all dependencies
+  }, [hasMore, loadingMore, loading, page]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -111,7 +118,6 @@ export default function PostDetailPage() {
       if (postData) {
         console.log('Fetched post data:', postData);
 
-        // ✅ Load HTML from latest commit if available
         if (postData.current_commit_id) {
           const { data: latestCommit } = await supabase
             .from('commits')
@@ -162,7 +168,6 @@ export default function PostDetailPage() {
     }
   };
 
-  // ✅ FIXED: Updated fetchComments to properly handle pagination
   const fetchComments = async (pageNum: number, append: boolean = false) => {
     if (loadingMore && append) {
       console.log('⏸️ Already loading, skipping...');
@@ -192,7 +197,6 @@ export default function PostDetailPage() {
     if (commentsData) {
       console.log(`✅ Fetched ${commentsData.length} comments`);
       
-      // ✅ Check if we have more comments (similar to feed page)
       const hasMoreComments = commentsData.length === COMMENTS_PER_PAGE && (count || 0) > to + 1;
       setHasMore(hasMoreComments);
       console.log(`📊 Has more: ${hasMoreComments}, Total count: ${count}`);
@@ -210,7 +214,6 @@ export default function PostDetailPage() {
       }));
 
       if (append) {
-        // ✅ Prevent duplicates when appending (similar to feed page)
         setComments(prev => {
           const existingIds = new Set(prev.map(c => c.id));
           const newComments = commentsWithProfiles.filter(c => !existingIds.has(c.id));
@@ -225,7 +228,6 @@ export default function PostDetailPage() {
     setLoadingMore(false);
   };
 
-  // ✅ FIXED: Simplified loadMore function (similar to feed page pattern)
   const loadMore = () => {
     if (!loadingMore && hasMore && !loading) {
       console.log(`🔄 Loading more comments from page ${page} to ${page + 1}`);
@@ -373,7 +375,6 @@ export default function PostDetailPage() {
       
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Reset pagination and reload comments
       setPage(0);
       setHasMore(true);
       await Promise.all([
@@ -381,7 +382,6 @@ export default function PostDetailPage() {
         fetchComments(0, false)
       ]);
 
-      // Scroll to top of comments to show new comment
       const commentsSection = document.getElementById('comments');
       if (commentsSection) {
         commentsSection.scrollTop = 0;
@@ -424,11 +424,10 @@ export default function PostDetailPage() {
     );
   }
 
-  // ✅ LOGGED-OUT VIEW
+  // LOGGED-OUT VIEW
   if (!user) {
     return (
       <div className="min-h-screen bg-black text-white">
-        {/* Header */}
         <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3 hover:opacity-70 transition-opacity">
@@ -451,32 +450,21 @@ export default function PostDetailPage() {
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row h-[calc(100vh-73px)]">
-            {/* Left: Preview (70%) */}
-            <div className="lg:w-[70%] h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800 bg-gray-900 relative">
-              <div className="absolute top-4 right-4 z-10">
-                <button
-                  onClick={() => setFullscreen(true)}
-                  className="p-2 bg-black/80 hover:bg-black rounded-full backdrop-blur-sm transition-colors"
-                >
-                  <Maximize2 size={20} className="text-gray-400" />
-                </button>
-              </div>
-
-              <iframe
-                srcDoc={post.html_code}
-                className="w-full h-full bg-white"
-                sandbox="allow-scripts allow-same-origin allow-forms"
-                allow="autoplay"
-                title="post-preview"
+            {/* Left: Preview with Garliq Container (70%) */}
+            <div className="lg:w-[70%] h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800">
+              <GarliqWebContainer
+                htmlCode={containerProps.htmlCode}
+                username={containerProps.username}
+                displayName={containerProps.displayName}
+                timestamp={containerProps.timestamp}
+                className="h-full"
               />
             </div>
 
             {/* Right: Info & CTA (30%) */}
             <div className="lg:w-[30%] flex flex-col bg-black">
-              {/* Post Info */}
               <div className="p-4 sm:p-6 border-b border-gray-800">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0">
@@ -500,7 +488,6 @@ export default function PostDetailPage() {
                   </div>
                 )}
 
-                {/* Engagement Stats (Read-only) */}
                 <div className="flex items-center gap-4 pb-4 border-b border-gray-800">
                   <div className="flex items-center gap-2 text-gray-500">
                     <Heart size={24} />
@@ -514,7 +501,6 @@ export default function PostDetailPage() {
                 </div>
               </div>
 
-              {/* CTA Section */}
               <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                 <div className="mb-6">
                   <div className="text-6xl mb-4">🧄</div>
@@ -542,36 +528,13 @@ export default function PostDetailPage() {
             </div>
           </div>
         </div>
-
-        {/* Fullscreen Modal */}
-        {fullscreen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black z-50 flex flex-col"
-          >
-            <div className="p-4 flex justify-between items-center border-b border-gray-800">
-              <span className="font-mono text-sm text-gray-400">Fullscreen Preview</span>
-              <button onClick={() => setFullscreen(false)} className="text-gray-400 hover:text-white">
-                <X size={24} />
-              </button>
-            </div>
-            <iframe
-              srcDoc={post.html_code}
-              className="flex-1 w-full bg-white"
-              sandbox="allow-scripts allow-same-origin allow-forms"
-              allow="autoplay; fullscreen"
-            />
-          </motion.div>
-        )}
       </div>
     );
   }
 
-  // ✅ LOGGED-IN VIEW WITH FIXED INFINITE SCROLLING
+  // LOGGED-IN VIEW
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
       <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <button 
@@ -610,32 +573,21 @@ export default function PostDetailPage() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row h-[calc(100vh-73px)]">
-          {/* Left: Preview (70%) */}
-          <div className="lg:w-[70%] h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800 bg-gray-900 relative">
-            <div className="absolute top-4 right-4 z-10">
-              <button
-                onClick={() => setFullscreen(true)}
-                className="p-2 bg-black/80 hover:bg-black rounded-full backdrop-blur-sm transition-colors"
-              >
-                <Maximize2 size={20} className="text-gray-400" />
-              </button>
-            </div>
-
-            <iframe
-              srcDoc={post.html_code}
-              className="w-full h-full bg-white"
-              sandbox="allow-scripts allow-same-origin allow-forms"
-              allow="autoplay"
-              title="post-preview"
+          {/* Left: Preview with Garliq Container (70%) */}
+          <div className="lg:w-[70%] h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800">
+            <GarliqWebContainer
+              htmlCode={containerProps.htmlCode}
+              username={containerProps.username}
+              displayName={containerProps.displayName}
+              timestamp={containerProps.timestamp}
+              className="h-full"
             />
           </div>
 
           {/* Right: Comments & Actions (30%) */}
           <div className="lg:w-[30%] flex flex-col bg-black">
-            {/* Post Info */}
             <div className="p-4 sm:p-6 border-b border-gray-800">
               <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-3 mb-4 hover:opacity-70 transition-opacity">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0">
@@ -659,7 +611,6 @@ export default function PostDetailPage() {
                 </div>
               )}
 
-              {/* Action Buttons */}
               <div className="flex items-center gap-4">
                 <button
                   onClick={handleLike}
@@ -681,7 +632,6 @@ export default function PostDetailPage() {
               </div>
             </div>
 
-            {/* ✅ FIXED: Comments Section with Working Infinite Scroll */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4" id="comments">
               {comments.length === 0 && !loadingMore ? (
                 <div className="text-center py-12">
@@ -715,7 +665,6 @@ export default function PostDetailPage() {
                     </div>
                   ))}
 
-                  {/* ✅ FIXED: Infinite Scroll Trigger (similar to feed page) */}
                   <div ref={observerTarget} className="py-4 flex justify-center">
                     {loadingMore && (
                       <div className="flex items-center gap-2 text-gray-400">
@@ -738,7 +687,6 @@ export default function PostDetailPage() {
               <div ref={commentsEndRef} />
             </div>
 
-            {/* Comment Input */}
             <div className="p-4 border-t border-gray-800">
               <div className="flex gap-2">
                 <input
@@ -768,28 +716,6 @@ export default function PostDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* Fullscreen Modal */}
-      {fullscreen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black z-50 flex flex-col"
-        >
-          <div className="p-4 flex justify-between items-center border-b border-gray-800">
-            <span className="font-mono text-sm text-gray-400">Fullscreen Preview</span>
-            <button onClick={() => setFullscreen(false)} className="text-gray-400 hover:text-white">
-              <X size={24} />
-            </button>
-          </div>
-          <iframe
-            srcDoc={post.html_code}
-            className="flex-1 w-full bg-white"
-            sandbox="allow-scripts allow-same-origin allow-forms"
-            allow="autoplay; fullscreen"
-          />
-        </motion.div>
-      )}
     </div>
   );
 }
