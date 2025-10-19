@@ -57,7 +57,6 @@ export default function StudioPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const generationTriggeredRef = useRef(false);
   const previousStatusRef = useRef<string | null>(null);
-  const messagesLoadedRef = useRef(false); // ✅ NEW: Track if messages loaded
 
   useEffect(() => {
     checkUser();
@@ -86,21 +85,19 @@ export default function StudioPage() {
     }
   }, [session, user, loading]);
 
-  // ✅ FIXED: Auto-reload when generation completes
+  // ✅ FIXED: Always reload messages when generation completes
   useEffect(() => {
     if (session && previousStatusRef.current === 'generating' && session.generation_status === 'completed') {
-      console.log('✅ Generation completed, reloading project and stopping loading...');
+      console.log('✅ Generation completed, reloading project and messages...');
       
       // Stop loading state
       setLoading(false);
       
-      // Reload only the project (HTML code)
+      // Reload project HTML
       loadProject();
       
-      // Load messages ONLY if they haven't been loaded yet
-      if (!messagesLoadedRef.current) {
-        loadMessages();
-      }
+      // ✅ ALWAYS reload messages (removed guard)
+      loadMessages();
     }
     
     previousStatusRef.current = session?.generation_status || null;
@@ -188,9 +185,10 @@ export default function StudioPage() {
     }
   };
 
-  // ✅ NEW: Separate function to load messages only
+  // ✅ Separate function to load messages
   const loadMessages = async () => {
     try {
+      console.log('📨 Loading chat messages...');
       const { data } = await supabase
         .from('chat_messages')
         .select('*')
@@ -199,8 +197,7 @@ export default function StudioPage() {
 
       if (data) {
         setMessages(data);
-        messagesLoadedRef.current = true; // ✅ Mark as loaded
-        console.log('✅ Messages loaded');
+        console.log(`✅ Loaded ${data.length} messages`);
       }
     } catch (error) {
       console.error('Load messages error:', error);
@@ -217,10 +214,9 @@ export default function StudioPage() {
         console.log('✅ Session loaded:', data.session);
         setSession(data.session);
         
-        // ✅ Only load messages on initial load
-        if (!messagesLoadedRef.current && data.messages) {
+        // Load messages from API response
+        if (data.messages) {
           setMessages(data.messages);
-          messagesLoadedRef.current = true;
         }
         
         setInitialLoading(false);
@@ -291,14 +287,31 @@ export default function StudioPage() {
     const userMessage = inputMessage;
     setInputMessage('');
 
-    // ✅ Add user message to UI immediately
+    // ✅ FIXED: Add user message to UI AND database
     const newUserMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: userMessage,
       created_at: new Date().toISOString()
     };
+    
+    // Add to UI immediately for instant feedback
     setMessages(prev => [...prev, newUserMessage]);
+
+    // ✅ Save to database so it persists when loadMessages() is called
+    try {
+      await supabase
+        .from('chat_messages')
+        .insert({
+          session_id: sessionId,
+          role: 'user',
+          content: userMessage
+        });
+      
+      console.log('✅ User message saved to database');
+    } catch (error) {
+      console.error('Failed to save user message:', error);
+    }
 
     await handleGeneration(userMessage);
   };
