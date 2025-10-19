@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Maximize2, X, Code2, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Maximize2, X, Code2, Trash2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface Post {
@@ -67,6 +67,7 @@ export default function PostDetailPage() {
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) setUser(session.user);
+    // ✅ No redirect - allow logged-out users to view
   };
 
   const fetchPost = async () => {
@@ -336,6 +337,151 @@ export default function PostDetailPage() {
     );
   }
 
+  // ✅ LOGGED-OUT VIEW
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        {/* Header */}
+        <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3 hover:opacity-70 transition-opacity">
+              <span className="text-3xl">🧄</span>
+              <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                Garliq
+              </h1>
+            </Link>
+
+            <Link href="/">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 rounded-full font-bold flex items-center gap-2"
+              >
+                <Sparkles size={18} />
+                Create Your Garliq Now
+              </motion.button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col lg:flex-row h-[calc(100vh-73px)]">
+            {/* Left: Preview (70%) */}
+            <div className="lg:w-[70%] h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800 bg-gray-900 relative">
+              <div className="absolute top-4 right-4 z-10">
+                <button
+                  onClick={() => setFullscreen(true)}
+                  className="p-2 bg-black/80 hover:bg-black rounded-full backdrop-blur-sm transition-colors"
+                >
+                  <Maximize2 size={20} className="text-gray-400" />
+                </button>
+              </div>
+
+              <iframe
+                srcDoc={post.html_code}
+                className="w-full h-full bg-white"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+                allow="autoplay"
+                title="post-preview"
+              />
+            </div>
+
+            {/* Right: Info & CTA (30%) */}
+            <div className="lg:w-[30%] flex flex-col bg-black">
+              {/* Post Info */}
+              <div className="p-4 sm:p-6 border-b border-gray-800">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0">
+                    {profile?.display_name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="font-bold">{profile?.display_name || 'Anonymous'}</p>
+                    <p className="text-sm text-gray-500">@{profile?.username || 'unknown'}</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-gray-300 mb-4 leading-relaxed">{post.caption}</p>
+
+                {post.prompt_visible && post.prompt && (
+                  <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-3 mb-4">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Code2 size={12} className="text-purple-400" />
+                      <span className="text-xs font-bold text-purple-400 uppercase">Prompt</span>
+                    </div>
+                    <p className="text-xs text-gray-400 font-mono leading-relaxed">{post.prompt}</p>
+                  </div>
+                )}
+
+                {/* Engagement Stats (Read-only) */}
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-800">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Heart size={24} />
+                    <span className="text-sm font-bold">{post.likes_count}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <MessageCircle size={24} />
+                    <span className="text-sm font-bold">{post.comments_count}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA Section */}
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <div className="mb-6">
+                  <div className="text-6xl mb-4">🧄</div>
+                  <h3 className="text-2xl font-bold mb-2">Love this micro-app?</h3>
+                  <p className="text-gray-400 text-sm mb-6">
+                    Create your own in just 30 seconds with AI-powered Garliq
+                  </p>
+                </div>
+
+                <Link href="/" className="w-full max-w-sm">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    <Sparkles size={20} />
+                    Create Your Garliq Now
+                  </motion.button>
+                </Link>
+
+                <p className="text-xs text-gray-600 mt-4">
+                  Free forever • No credit card required • 30-second setup
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Fullscreen Modal */}
+        {fullscreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black z-50 flex flex-col"
+          >
+            <div className="p-4 flex justify-between items-center border-b border-gray-800">
+              <span className="font-mono text-sm text-gray-400">Fullscreen Preview</span>
+              <button onClick={() => setFullscreen(false)} className="text-gray-400 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+            <iframe
+              srcDoc={post.html_code}
+              className="flex-1 w-full bg-white"
+              sandbox="allow-scripts allow-same-origin allow-forms"
+              allow="autoplay; fullscreen"
+            />
+          </motion.div>
+        )}
+      </div>
+    );
+  }
+
+  // ✅ LOGGED-IN VIEW (Keep exactly as before)
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
@@ -485,42 +631,32 @@ export default function PostDetailPage() {
             </div>
 
             {/* Comment Input */}
-            {user ? (
-              <div className="p-4 border-t border-gray-800">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSubmitComment();
-                      }
-                    }}
-                    placeholder="Add a comment..."
-                    className="flex-1 px-4 py-2 bg-gray-900 rounded-full border border-gray-800 focus:border-purple-500 focus:outline-none text-sm"
-                    disabled={submittingComment}
-                    maxLength={120}
-                  />
-                  <button
-                    onClick={handleSubmitComment}
-                    disabled={!newComment.trim() || submittingComment}
-                    className="p-2 bg-purple-600 hover:bg-purple-700 rounded-full disabled:opacity-30 transition-colors"
-                  >
-                    <Send size={20} />
-                  </button>
-                </div>
+            <div className="p-4 border-t border-gray-800">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmitComment();
+                    }
+                  }}
+                  placeholder="Add a comment..."
+                  className="flex-1 px-4 py-2 bg-gray-900 rounded-full border border-gray-800 focus:border-purple-500 focus:outline-none text-sm"
+                  disabled={submittingComment}
+                  maxLength={120}
+                />
+                <button
+                  onClick={handleSubmitComment}
+                  disabled={!newComment.trim() || submittingComment}
+                  className="p-2 bg-purple-600 hover:bg-purple-700 rounded-full disabled:opacity-30 transition-colors"
+                >
+                  <Send size={20} />
+                </button>
               </div>
-            ) : (
-              <div className="p-4 border-t border-gray-800 text-center">
-                <Link href="/auth">
-                  <button className="text-sm text-purple-400 hover:text-purple-300">
-                    Log in to comment
-                  </button>
-                </Link>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
