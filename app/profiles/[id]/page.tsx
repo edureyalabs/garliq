@@ -144,23 +144,23 @@ export default function ProfilePage() {
   };
 
   const fetchProfile = async () => {
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-  if (data) setProfile(data);
-  
-  // Check if user is logged out and fetch posts
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    setLoading(true);
-    await fetchUserPosts(0);
-  } else {
-    setLoading(false);
-  }
-};
+    if (data) setProfile(data);
+    
+    // Check if user is logged out and fetch posts
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setLoading(true);
+      await fetchUserPosts(0);
+    }
+    // Note: For logged-in users, we don't set loading to false here
+    // The useEffect with activeTab dependency will handle the initial data fetch
+  };
 
   const fetchUserPosts = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
