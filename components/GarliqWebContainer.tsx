@@ -3,6 +3,7 @@ import { useRef, useState, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCw, Maximize2, Minimize2, X } from 'lucide-react';
+import Image from 'next/image';
 
 interface GarliqWebContainerProps {
   htmlCode: string;
@@ -120,7 +121,12 @@ const GarliqWebContainer = memo(function GarliqWebContainer({
   const ChromeBar = ({ isFullscreen = false }: { isFullscreen?: boolean }) => (
     <div className="bg-gradient-to-r from-gray-900 via-gray-900 to-gray-800 border-b border-gray-700 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-xl flex-shrink-0">🧄</span>
+        <Image 
+  src="/logo.png" 
+  alt="Garliq" 
+  width={24} 
+  height={24}
+/>
         <span className="text-sm font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400 hidden sm:block">
           Garliq
         </span>

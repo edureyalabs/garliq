@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Plus, Heart, MessageCircle, Share2, LogOut, User, TrendingUp, Clock, Code2, Bookmark, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Post {
   id: string;
@@ -335,13 +336,17 @@ export default function FeedPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <Link href="/" className="flex items-center gap-3 group">
-              <motion.span 
+              <motion.div
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.5 }}
-                className="text-3xl sm:text-4xl"
               >
-                🧄
-              </motion.span>
+                <Image 
+                  src="/logo.png" 
+                  alt="Garliq" 
+                  width={48} 
+                  height={48}
+                />
+              </motion.div>
               <h1 className="text-xl sm:text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
                 Garliq
               </h1>
@@ -407,7 +412,14 @@ export default function FeedPage() {
             animate={{ opacity: 1 }}
             className="text-center py-20 sm:py-32"
           >
-            <div className="text-5xl sm:text-7xl mb-6">🧄</div>
+            <div className="mb-6 flex justify-center">
+  <Image 
+    src="/logo.png" 
+    alt="Garliq" 
+    width={120} 
+    height={120}
+  />
+</div>
             <h2 className="text-2xl sm:text-3xl font-bold mb-3">No Posts Yet</h2>
             <p className="text-gray-500 mb-8 text-base sm:text-lg">Be the first to create something legendary</p>
             <Link href="/create">
@@ -483,7 +495,12 @@ export default function FeedPage() {
                           className="flex items-center gap-1.5 hover:scale-110 transition-transform"
                         >
                           {post.is_liked ? (
-                            <span className="text-lg sm:text-xl">🧄</span>
+                            <Image 
+                              src="/logo.png" 
+                              alt="Liked" 
+                              width={20} 
+                              height={20}
+                            />
                           ) : (
                             <Heart size={18} className="text-gray-500 hover:text-purple-400 transition-colors" />
                           )}

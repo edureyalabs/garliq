@@ -1,169 +1,511 @@
 'use client';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { Sparkles, Zap, Share2, GitFork, Clock, Users, ArrowRight, Play, CheckCircle2, Layers, Globe2, Rocket, Heart, MessageCircle } from 'lucide-react';
+import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import { Sparkles, Zap, Share2, GitFork, ArrowRight, CheckCircle2, Code2, Globe2, Rocket, Heart, Layers, Terminal, PlayCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
+import Image from 'next/image';
 
-// Live Demo Micro-App Component
-const LiveMicroApp = () => {
-  const [tripBudget, setTripBudget] = useState(5000);
-  const [days, setDays] = useState(7);
-  
-  const breakdown = {
-    flights: Math.round(tripBudget * 0.35),
-    hotels: Math.round(tripBudget * 0.40),
-    food: Math.round(tripBudget * 0.15),
-    activities: Math.round(tripBudget * 0.10)
+// ============================================
+// FUNCTIONAL MICRO-APP WIDGETS
+// ============================================
+
+// 1. TIC TAC TOE GAME - Fully Functional
+const TicTacToeGame = () => {
+  const [board, setBoard] = useState<(string | null)[]>(Array(9).fill(null));
+  const [isXNext, setIsXNext] = useState(true);
+  const [winner, setWinner] = useState<string | null>(null);
+
+  const calculateWinner = (squares: (string | null)[]) => {
+    const lines = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+      [0, 4, 8], [2, 4, 6] // diagonals
+    ];
+    for (let [a, b, c] of lines) {
+      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+        return squares[a];
+      }
+    }
+    return null;
+  };
+
+  const handleClick = (index: number) => {
+    if (board[index] || winner) return;
+    
+    const newBoard = [...board];
+    newBoard[index] = isXNext ? 'X' : 'O';
+    setBoard(newBoard);
+    setIsXNext(!isXNext);
+    
+    const gameWinner = calculateWinner(newBoard);
+    if (gameWinner) setWinner(gameWinner);
+  };
+
+  const resetGame = () => {
+    setBoard(Array(9).fill(null));
+    setIsXNext(true);
+    setWinner(null);
   };
 
   return (
-    <div className="w-full max-w-md bg-gradient-to-br from-gray-900 to-black border border-purple-500/30 rounded-2xl p-6 shadow-2xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h4 className="text-lg font-bold text-white">Trip Budget Planner</h4>
-          <p className="text-xs text-gray-500 font-mono">Generated in 28 seconds</p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold">
+          {winner ? (
+            <span className="text-green-400">🎉 {winner} Wins!</span>
+          ) : board.every(cell => cell) ? (
+            <span className="text-yellow-400">Draw!</span>
+          ) : (
+            <span className="text-purple-400">Turn: {isXNext ? 'X' : 'O'}</span>
+          )}
         </div>
-        <div className="flex gap-2">
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 bg-purple-500/20 rounded-lg hover:bg-purple-500/30 transition-colors">
-            <Heart className="w-4 h-4 text-purple-400" />
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 bg-pink-500/20 rounded-lg hover:bg-pink-500/30 transition-colors">
-            <Share2 className="w-4 h-4 text-pink-400" />
-          </motion.button>
-        </div>
+        <button
+          onClick={resetGame}
+          className="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+        >
+          Reset
+        </button>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="text-sm text-gray-400 mb-2 block">Total Budget: ${tripBudget}</label>
-          <input 
-            type="range" 
-            min="1000" 
-            max="20000" 
-            step="500"
-            value={tripBudget}
-            onChange={(e) => setTripBudget(Number(e.target.value))}
-            className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider"
-          />
-        </div>
-
-        <div>
-          <label className="text-sm text-gray-400 mb-2 block">Trip Duration: {days} days</label>
-          <input 
-            type="range" 
-            min="3" 
-            max="30"
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider"
-          />
-        </div>
-
-        <div className="space-y-2 pt-4 border-t border-gray-800">
-          {Object.entries(breakdown).map(([key, value]) => (
-            <div key={key} className="flex justify-between items-center">
-              <span className="text-sm text-gray-400 capitalize">{key}</span>
-              <div className="flex items-center gap-2">
-                <div className="w-24 h-2 bg-gray-800 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(value / tripBudget) * 100}%` }}
-                    className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
-                  />
-                </div>
-                <span className="text-sm font-bold text-white w-16 text-right">${value}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="pt-4 border-t border-gray-800 flex gap-2">
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-sm font-semibold text-white"
+      <div className="grid grid-cols-3 gap-2">
+        {board.map((cell, i) => (
+          <motion.button
+            key={i}
+            onClick={() => handleClick(i)}
+            whileHover={{ scale: cell ? 1 : 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`aspect-square rounded-xl flex items-center justify-center text-2xl font-bold transition-all ${
+              cell 
+                ? 'bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg' 
+                : 'bg-gray-800 hover:bg-gray-700 text-gray-600'
+            }`}
           >
-            Save Plan
+            {cell}
           </motion.button>
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-4 py-2 bg-gray-800 rounded-lg text-sm font-semibold text-white flex items-center gap-2"
-          >
-            <GitFork className="w-4 h-4" />
-            Fork
-          </motion.button>
-        </div>
+        ))}
       </div>
     </div>
   );
 };
 
-// Generation Animation Component
-const GenerationAnimation = () => {
+// 2. CRYPTO TRACKER - Real-time prices
+const CryptoTrackerWidget = () => {
+  const [prices, setPrices] = useState({
+    BTC: { price: 97234, change: 2.4, trend: 'up' },
+    ETH: { price: 3642, change: -1.2, trend: 'down' },
+    SOL: { price: 198, change: 5.7, trend: 'up' }
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPrices(prev => ({
+        BTC: {
+          price: prev.BTC.price + (Math.random() - 0.5) * 500,
+          change: prev.BTC.change + (Math.random() - 0.5) * 0.5,
+          trend: Math.random() > 0.5 ? 'up' : 'down'
+        },
+        ETH: {
+          price: prev.ETH.price + (Math.random() - 0.5) * 50,
+          change: prev.ETH.change + (Math.random() - 0.5) * 0.3,
+          trend: Math.random() > 0.5 ? 'up' : 'down'
+        },
+        SOL: {
+          price: prev.SOL.price + (Math.random() - 0.5) * 10,
+          change: prev.SOL.change + (Math.random() - 0.5) * 0.4,
+          trend: Math.random() > 0.5 ? 'up' : 'down'
+        }
+      }));
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const cryptos = [
+    { symbol: 'BTC', name: 'Bitcoin', color: 'from-orange-500 to-yellow-500', icon: '₿' },
+    { symbol: 'ETH', name: 'Ethereum', color: 'from-blue-500 to-cyan-500', icon: 'Ξ' },
+    { symbol: 'SOL', name: 'Solana', color: 'from-purple-500 to-pink-500', icon: '◎' }
+  ];
+
+  return (
+    <div className="space-y-3">
+      {cryptos.map((crypto) => {
+        const data = prices[crypto.symbol as keyof typeof prices];
+        const isPositive = data.change > 0;
+
+        return (
+          <motion.div
+            key={crypto.symbol}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-4 border border-gray-800 hover:border-gray-700 transition-all"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${crypto.color} flex items-center justify-center text-xl font-bold`}>
+                  {crypto.icon}
+                </div>
+                <div>
+                  <div className="font-bold text-sm">{crypto.symbol}</div>
+                  <div className="text-xs text-gray-500">{crypto.name}</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <motion.div 
+                  key={data.price}
+                  initial={{ scale: 1.2, color: isPositive ? '#10b981' : '#ef4444' }}
+                  animate={{ scale: 1, color: '#ffffff' }}
+                  className="font-bold"
+                >
+                  ${data.price.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                </motion.div>
+                <div className={`text-xs font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                  {isPositive ? '↑' : '↓'} {Math.abs(data.change).toFixed(2)}%
+                </div>
+              </div>
+            </div>
+
+            {/* Mini Chart */}
+            <div className="h-8 flex items-end gap-1">
+              {Array.from({ length: 20 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ height: 0 }}
+                  animate={{ 
+                    height: `${20 + Math.random() * 80}%`,
+                  }}
+                  transition={{ 
+                    duration: 0.5,
+                    delay: i * 0.02,
+                    repeat: Infinity,
+                    repeatDelay: 2
+                  }}
+                  className={`flex-1 rounded-sm ${
+                    isPositive ? 'bg-green-500/50' : 'bg-red-500/50'
+                  }`}
+                />
+              ))}
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+};
+
+// 3. AI CHATBOT WIDGET - Interactive
+const AIChatbotWidget = () => {
+  const [messages, setMessages] = useState([
+    { role: 'bot', text: 'Hi! I\'m your AI assistant. How can I help you today?' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+
+  const quickReplies = ['Tell me a joke', 'What\'s the weather?', 'Help me learn', 'Random fact'];
+
+  const simulateResponse = (userMessage: string) => {
+    setIsTyping(true);
+    
+    setTimeout(() => {
+      const responses: { [key: string]: string } = {
+        'tell me a joke': '🤣 Why did the developer go broke? Because they used up all their cache!',
+        'what\'s the weather?': '☀️ It\'s sunny and 72°F in San Francisco! Perfect coding weather.',
+        'help me learn': '📚 I can help you learn anything! What topic interests you?',
+        'random fact': '🌟 Did you know? Honey never spoils. Archaeologists found 3000-year-old honey that was still edible!',
+        'default': '🤖 That\'s interesting! I\'m a demo AI, but imagine what a real Garliq Card could do!'
+      };
+
+      const responseKey = userMessage.toLowerCase();
+      const response = responses[responseKey] || responses['default'];
+
+      setMessages(prev => [...prev, { role: 'bot', text: response }]);
+      setIsTyping(false);
+    }, 1000);
+  };
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+
+    setMessages(prev => [...prev, { role: 'user', text: input }]);
+    simulateResponse(input);
+    setInput('');
+  };
+
+  const handleQuickReply = (reply: string) => {
+    setMessages(prev => [...prev, { role: 'user', text: reply }]);
+    simulateResponse(reply);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Chat Messages */}
+      <div className="h-40 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+        {messages.map((msg, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[80%] px-3 py-2 rounded-xl text-xs ${
+                msg.role === 'user'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                  : 'bg-gray-800 text-gray-200'
+              }`}
+            >
+              {msg.text}
+            </div>
+          </motion.div>
+        ))}
+        
+        {isTyping && (
+          <div className="flex justify-start">
+            <div className="bg-gray-800 px-3 py-2 rounded-xl flex items-center gap-1">
+              <motion.div
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                className="w-1.5 h-1.5 bg-gray-400 rounded-full"
+              />
+              <motion.div
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                className="w-1.5 h-1.5 bg-gray-400 rounded-full"
+              />
+              <motion.div
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                className="w-1.5 h-1.5 bg-gray-400 rounded-full"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Quick Replies */}
+      <div className="flex flex-wrap gap-2">
+        {quickReplies.map((reply, i) => (
+          <button
+            key={i}
+            onClick={() => handleQuickReply(reply)}
+            className="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            {reply}
+          </button>
+        ))}
+      </div>
+
+      {/* Input */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+          placeholder="Type a message..."
+          className="flex-1 px-3 py-2 bg-gray-800 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 text-white placeholder-gray-500"
+        />
+        <button
+          onClick={handleSend}
+          disabled={!input.trim()}
+          className="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Floating Garliq Card Component
+const FloatingGarliqCard = ({ delay = 0, children, className = "" }: { delay?: number, children: React.ReactNode, className?: string }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.6 }}
+      className={className}
+    >
+      <motion.div
+        animate={{ 
+          y: [-5, 5, -5],
+          rotate: [-1, 1, -1]
+        }}
+        transition={{ 
+          duration: 4,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: delay * 0.5
+        }}
+        className="relative"
+      >
+        {children}
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// Animated Card Showcase Component
+const AnimatedCardShowcase = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(containerRef, { once: true, margin: "-100px" });
+
+  const cards = [
+    {
+      title: "Crypto Portfolio Tracker",
+      description: "Real-time crypto prices with alerts",
+      gradient: "from-orange-500 to-pink-500",
+      icon: "₿",
+      category: "Finance"
+    },
+    {
+      title: "Quiz Master",
+      description: "Interactive quizzes with scoring",
+      gradient: "from-purple-500 to-blue-500",
+      icon: "🎯",
+      category: "Education"
+    },
+    {
+      title: "Workout Timer",
+      description: "Custom interval training tool",
+      gradient: "from-green-500 to-teal-500",
+      icon: "💪",
+      category: "Health"
+    },
+    {
+      title: "Budget Calculator",
+      description: "Smart expense tracking",
+      gradient: "from-yellow-500 to-orange-500",
+      icon: "💰",
+      category: "Finance"
+    },
+    {
+      title: "Recipe Scaler",
+      description: "Adjust ingredient portions instantly",
+      gradient: "from-red-500 to-pink-500",
+      icon: "🍳",
+      category: "Lifestyle"
+    },
+    {
+      title: "Meeting Assistant",
+      description: "Agenda and notes organizer",
+      gradient: "from-indigo-500 to-purple-500",
+      icon: "📅",
+      category: "Productivity"
+    }
+  ];
+
+  return (
+    <div ref={containerRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {cards.map((card, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, scale: 0.8, y: 50 }}
+          animate={isInView ? { opacity: 1, scale: 1, y: 0 } : {}}
+          transition={{ delay: i * 0.1, duration: 0.5, ease: "easeOut" }}
+          whileHover={{ scale: 1.05, y: -5 }}
+          className="relative group"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-20 rounded-2xl blur-xl transition-opacity duration-300" 
+               style={{ background: `linear-gradient(to bottom right, var(--tw-gradient-stops))` }} />
+          
+          <div className="relative bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-800 rounded-2xl p-6 h-full overflow-hidden">
+            {/* Category Badge */}
+            <div className="absolute top-4 right-4">
+              <span className="text-xs px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-gray-400 border border-white/10">
+                {card.category}
+              </span>
+            </div>
+
+            {/* Icon */}
+            <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center text-3xl mb-4 shadow-lg`}>
+              {card.icon}
+            </div>
+
+            {/* Content */}
+            <h3 className="text-xl font-bold mb-2 text-white">{card.title}</h3>
+            <p className="text-sm text-gray-400 mb-4">{card.description}</p>
+
+            {/* Stats */}
+            <div className="flex items-center gap-4 text-xs text-gray-500 pt-4 border-t border-gray-800">
+              <span className="flex items-center gap-1">
+                <Heart size={12} className="text-pink-400" />
+                {Math.floor(Math.random() * 900) + 100}
+              </span>
+              <span className="flex items-center gap-1">
+                <GitFork size={12} className="text-purple-400" />
+                {Math.floor(Math.random() * 50) + 10}
+              </span>
+            </div>
+
+            {/* Hover Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+};
+
+// Thought to Execution Animation
+const ThoughtToExecutionDemo = () => {
   const [step, setStep] = useState(0);
   const steps = [
-    { label: 'Analyzing your request...', icon: Sparkles },
-    { label: 'Designing interface...', icon: Layers },
-    { label: 'Connecting data sources...', icon: Globe2 },
-    { label: 'Optimizing experience...', icon: Zap },
-    { label: 'Your app is ready!', icon: CheckCircle2 }
+    { text: "I need a tip calculator for my restaurant...", icon: "💭" },
+    { text: "Analyzing your request...", icon: "🤖" },
+    { text: "Designing interface...", icon: "🎨" },
+    { text: "Your Garliq Card is ready!", icon: "✨" }
   ];
 
   useEffect(() => {
     const interval = setInterval(() => {
       setStep((prev) => (prev + 1) % steps.length);
-    }, 1200);
+    }, 2500);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="w-full max-w-md bg-black/50 border border-gray-800 rounded-2xl p-8 backdrop-blur-sm">
-      <div className="space-y-6">
-        {steps.map((s, i) => {
-          const Icon = s.icon;
-          const isActive = i === step;
-          const isComplete = i < step;
-          
-          return (
+    <div className="relative">
+      <div className="bg-black/50 backdrop-blur-sm border border-gray-800 rounded-2xl p-8">
+        <div className="space-y-6">
+          {steps.map((s, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0.3 }}
+              initial={{ opacity: 0.3, x: -20 }}
               animate={{ 
-                opacity: isActive ? 1 : isComplete ? 0.7 : 0.3,
-                scale: isActive ? 1.02 : 1
+                opacity: i === step ? 1 : i < step ? 0.5 : 0.3,
+                x: i === step ? 0 : -20,
+                scale: i === step ? 1.05 : 1
               }}
-              className="flex items-center gap-4"
+              transition={{ duration: 0.5 }}
+              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                i === step ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30' : 'bg-gray-900/30'
+              }`}
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                isActive ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 
-                isComplete ? 'bg-green-500/20' : 'bg-gray-800'
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+                i === step ? 'bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg' : 'bg-gray-800'
               }`}>
-                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : isComplete ? 'text-green-400' : 'text-gray-600'}`} />
+                {s.icon}
               </div>
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${isActive ? 'text-white' : 'text-gray-500'}`}>
-                  {s.label}
-                </p>
-                {isActive && (
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 1.2 }}
-                    className="h-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mt-2"
-                  />
-                )}
-              </div>
+              <p className={`text-sm font-medium ${i === step ? 'text-white' : 'text-gray-500'}`}>
+                {s.text}
+              </p>
             </motion.div>
-          );
-        })}
-      </div>
-      
-      <div className="mt-8 text-center">
-        <p className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-          {step === steps.length - 1 ? '✓' : `${Math.round((step / (steps.length - 1)) * 100)}%`}
+          ))}
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mt-6 h-2 bg-gray-800 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+            initial={{ width: "0%" }}
+            animate={{ width: `${((step + 1) / steps.length) * 100}%` }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+
+        <p className="text-center text-xs text-gray-500 mt-4">
+          Average creation time: <span className="text-purple-400 font-bold">28 seconds</span>
         </p>
-        <p className="text-xs text-gray-600 mt-1">Average time: 28 seconds</p>
       </div>
     </div>
   );
@@ -173,8 +515,8 @@ export default function Landing() {
   const [mounted, setMounted] = useState(false);
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll();
-  const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
-  const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.8]);
+  const opacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
+  const scale = useTransform(scrollYProgress, [0, 0.3], [1, 0.95]);
 
   useEffect(() => setMounted(true), []);
 
@@ -182,7 +524,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
-      {/* Animated Background Grid */}
+      {/* Animated Background */}
       <div className="fixed inset-0 bg-black">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-pink-900/20" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(147,51,234,0.15),transparent_50%)]" />
@@ -199,11 +541,11 @@ export default function Landing() {
       <motion.div 
         ref={heroRef}
         style={{ opacity, scale }}
-        className="relative min-h-screen flex items-center justify-center px-6 pt-20"
+        className="relative min-h-screen flex items-center justify-center px-6 pt-20 pb-32"
       >
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            {/* Logo */}
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="text-center mb-20">
+            {/* Logo with Animation */}
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
@@ -216,9 +558,15 @@ export default function Landing() {
                   rotate: [0, 3, -3, 0]
                 }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="text-8xl md:text-9xl filter drop-shadow-2xl"
+                className="relative"
               >
-                🧄
+                <Image 
+                  src="/logo.png" 
+                  alt="Garliq" 
+                  width={120} 
+                  height={120}
+                  className="filter drop-shadow-2xl"
+                />
               </motion.div>
               <motion.div 
                 animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
@@ -233,21 +581,27 @@ export default function Landing() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.8 }}
             >
-              <h1 className="text-6xl md:text-7xl font-black mb-6 leading-none">
-                Create Powerful Micro-Apps
+              <div className="inline-block mb-6">
+                <span className="px-6 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-full text-sm font-bold text-purple-300 backdrop-blur-sm">
+                  ✨ World's First Micro-Application Creation Platform
+                </span>
+              </div>
+
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-none">
+                Turn Your Thoughts Into
                 <br />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400">
-                  In Just Minutes
+                  Instant Utilities
                 </span>
               </h1>
               
-              <p className="text-xl md:text-2xl text-gray-400 mb-8 max-w-3xl mx-auto leading-relaxed">
-                Turn your ideas and requirements into a fully-functional, interactive application through natural conversation. 
-                It's all just Vibe Coding.
+              <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-4xl mx-auto leading-relaxed">
+                Introducing <span className="text-white font-bold">Garliq Cards</span> — living, shareable micro-applications 
+                that bring your ideas to life in seconds. No coding. No complexity. Just pure creation.
               </p>
 
               {/* Primary CTAs */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
                 <Link href="/auth">
                   <motion.button
                     whileHover={{ scale: 1.05, boxShadow: '0 0 40px rgba(147, 51, 234, 0.6)' }}
@@ -255,235 +609,174 @@ export default function Landing() {
                     className="group relative px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl font-bold text-lg overflow-hidden shadow-2xl"
                   >
                     <span className="relative z-10 flex items-center gap-3">
-                      Create Your First Micro-App — Free
+                      Create Your First Garliq Card — Free
                       <ArrowRight className="group-hover:translate-x-1 transition-transform" />
                     </span>
                     <motion.div 
                       className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      animate={{ backgroundPosition: ['0%', '100%'] }}
-                      transition={{ duration: 2, repeat: Infinity, repeatType: 'reverse' }}
                     />
                   </motion.button>
                 </Link>
-                
-                {/* <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-10 py-5 bg-black/50 border-2 border-gray-700 hover:border-purple-500 rounded-2xl font-bold text-lg backdrop-blur-sm transition-colors flex items-center gap-2"
-                >
-                  <Play className="w-5 h-5" />
-                  Watch 30-Second Demo
-                </motion.button> */}
               </div>
 
               {/* Trust Signals */}
-              <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
+              <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Powerful AI Agents
+                  Free to Start
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Advanced Agentic Orchestration
+                  No Credit Card
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Best LLM Models
+                  30-Second Creation
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400" />
+                  Powered by Advanced AI
                 </div>
               </div>
             </motion.div>
           </div>
 
-          {/* Live Demo Section */}
+          {/* Floating Cards Preview - REAL FUNCTIONAL DEMOS */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.8 }}
-            className="flex flex-col lg:flex-row gap-8 items-center justify-center"
+            className="relative max-w-7xl mx-auto"
           >
-            <div className="flex-1 max-w-xl">
-              <div className="mb-4">
-                <span className="inline-block px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-full text-sm font-semibold text-purple-300 mb-4">
-                  ✨ LIVE INTERACTIVE DEMO
-                </span>
-              </div>
-              <h3 className="text-3xl font-bold mb-4">
-                This Wasn't a Mockup.
-                <br />
-                <span className="text-gray-500">It's a Real Micro-App.</span>
-              </h3>
-              <p className="text-gray-400 leading-relaxed mb-6">
-                Created in <span className="text-purple-400 font-bold">28 seconds</span> from the prompt: 
-                <span className="italic text-gray-300"> "Help me plan my trip budget with interactive sliders."</span>
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <Zap className="w-5 h-5 text-purple-400 mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-white">Real Calculations</p>
-                    <p className="text-sm text-gray-500">Dynamic computations, not static numbers</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Card 1: Real Interactive Game - Tic Tac Toe */}
+              <FloatingGarliqCard delay={0.1}>
+                <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl overflow-hidden shadow-2xl hover:border-purple-500/50 transition-all group">
+                  {/* Card Header */}
+                  <div className="p-4 border-b border-gray-800 bg-black/50 backdrop-blur-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-xl font-bold">
+                        🎮
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">Tic Tac Toe</h4>
+                        <p className="text-xs text-gray-500">by @sarah_codes</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 font-semibold">
+                        LIVE
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Share2 className="w-5 h-5 text-pink-400 mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-white">Instant Sharing</p>
-                    <p className="text-sm text-gray-500">One link, anyone can use it</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <GitFork className="w-5 h-5 text-orange-400 mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-white">Forkable & Remixable</p>
-                    <p className="text-sm text-gray-500">Customize for your needs</p>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            <div className="flex-1 flex justify-center">
-              <LiveMicroApp />
+                  {/* Actual Functional Game */}
+                  <div className="p-6 bg-gradient-to-br from-purple-900/20 to-black">
+                    <TicTacToeGame />
+                  </div>
+
+                  {/* Card Footer */}
+                  <div className="p-4 border-t border-gray-800 flex items-center justify-between text-xs bg-black/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-4">
+                      <span className="flex items-center gap-1 text-gray-400 hover:text-pink-400 transition-colors cursor-pointer">
+                        <Heart size={14} className="text-pink-400" /> 1.2K
+                      </span>
+                      <span className="flex items-center gap-1 text-gray-400 hover:text-purple-400 transition-colors cursor-pointer">
+                        <GitFork size={14} className="text-purple-400" /> 234
+                      </span>
+                    </div>
+                    <span className="text-gray-500">Built in 24s</span>
+                  </div>
+                </div>
+              </FloatingGarliqCard>
+
+              {/* Card 2: Real Crypto Price Tracker */}
+              <FloatingGarliqCard delay={0.2}>
+                <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl overflow-hidden shadow-2xl hover:border-blue-500/50 transition-all group">
+                  {/* Card Header */}
+                  <div className="p-4 border-b border-gray-800 bg-black/50 backdrop-blur-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center text-xl font-bold">
+                        ₿
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">Crypto Tracker</h4>
+                        <p className="text-xs text-gray-500">by @cryptoking</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 font-semibold">
+                        LIVE
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actual Functional Crypto Tracker */}
+                  <div className="p-6 bg-gradient-to-br from-blue-900/20 to-black">
+                    <CryptoTrackerWidget />
+                  </div>
+
+                  {/* Card Footer */}
+                  <div className="p-4 border-t border-gray-800 flex items-center justify-between text-xs bg-black/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-4">
+                      <span className="flex items-center gap-1 text-gray-400 hover:text-pink-400 transition-colors cursor-pointer">
+                        <Heart size={14} className="text-pink-400" /> 3.4K
+                      </span>
+                      <span className="flex items-center gap-1 text-gray-400 hover:text-purple-400 transition-colors cursor-pointer">
+                        <GitFork size={14} className="text-purple-400" /> 567
+                      </span>
+                    </div>
+                    <span className="text-gray-500">Built in 31s</span>
+                  </div>
+                </div>
+              </FloatingGarliqCard>
+
+              {/* Card 3: Real AI Chatbot */}
+              <FloatingGarliqCard delay={0.3}>
+                <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl overflow-hidden shadow-2xl hover:border-green-500/50 transition-all group">
+                  {/* Card Header */}
+                  <div className="p-4 border-b border-gray-800 bg-black/50 backdrop-blur-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-500 rounded-xl flex items-center justify-center text-xl font-bold">
+                        🤖
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">AI Assistant</h4>
+                        <p className="text-xs text-gray-500">by @ai_builder</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 font-semibold">
+                        LIVE
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actual Functional AI Chatbot */}
+                  <div className="p-6 bg-gradient-to-br from-green-900/20 to-black">
+                    <AIChatbotWidget />
+                  </div>
+
+                  {/* Card Footer */}
+                  <div className="p-4 border-t border-gray-800 flex items-center justify-between text-xs bg-black/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-4">
+                      <span className="flex items-center gap-1 text-gray-400 hover:text-pink-400 transition-colors cursor-pointer">
+                        <Heart size={14} className="text-pink-400" /> 2.8K
+                      </span>
+                      <span className="flex items-center gap-1 text-gray-400 hover:text-purple-400 transition-colors cursor-pointer">
+                        <GitFork size={14} className="text-purple-400" /> 423
+                      </span>
+                    </div>
+                    <span className="text-gray-500">Built in 28s</span>
+                  </div>
+                </div>
+              </FloatingGarliqCard>
             </div>
           </motion.div>
         </div>
       </motion.div>
 
-      {/* Stats Bar */}
-      <div className="relative py-20 px-6 border-y border-gray-900">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { value: '12,000+', label: 'Micro-Apps Created', icon: Sparkles },
-              { value: '28s', label: 'Average Generation Time', icon: Clock },
-              { value: '4.8/5', label: 'User Rating', icon: Heart },
-              { value: '85%', label: 'Share to Fork Rate', icon: GitFork }
-            ].map((stat, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="text-center"
-              >
-                <div className="inline-block p-3 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl mb-3">
-                  <stat.icon className="w-6 h-6 text-purple-400" />
-                </div>
-                <div className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-gray-500 mt-1">{stat.label}</div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* How It Works */}
-      <div className="relative py-32 px-6">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mb-20"
-          >
-            <span className="inline-block px-4 py-2 bg-orange-500/20 border border-orange-500/30 rounded-full text-sm font-semibold text-orange-300 mb-6">
-              HOW IT WORKS
-            </span>
-            <h2 className="text-5xl md:text-6xl font-black mb-6">
-              From Idea to App
-              <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                In Three Simple Steps
-              </span>
-            </h2>
-            <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-              No coding knowledge. No design skills. Just describe what you need.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-12 mb-20">
-            {[
-              {
-                step: '01',
-                title: 'Describe What You Need',
-                description: 'Use natural language. "Create a mortgage calculator" or "Build a study guide generator." The AI understands your intent.',
-                icon: MessageCircle,
-                color: 'from-purple-500 to-purple-600'
-              },
-              {
-                step: '02',
-                title: 'AI Generates Your App',
-                description: 'Watch as AI analyzes your request, designs the interface, connects data sources, and builds a fully-functional application in seconds.',
-                icon: Sparkles,
-                color: 'from-pink-500 to-pink-600'
-              },
-              {
-                step: '03',
-                title: 'Use, Share, Iterate',
-                description: 'Your app is live instantly. Share via link, let others fork and customize, or iterate with follow-up requests.',
-                icon: Rocket,
-                color: 'from-orange-500 to-orange-600'
-              }
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.2 }}
-                className="relative"
-              >
-                <div className="relative z-10">
-                  <div className={`inline-block p-5 rounded-2xl bg-gradient-to-br ${item.color} mb-6 shadow-2xl`}>
-                    <item.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <div className="text-7xl font-black text-gray-900 mb-4">{item.step}</div>
-                  <h3 className="text-2xl font-bold mb-4">{item.title}</h3>
-                  <p className="text-gray-500 leading-relaxed">{item.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Generation Animation Demo */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="flex flex-col lg:flex-row gap-12 items-center bg-gradient-to-br from-gray-900/50 to-black border border-gray-800 rounded-3xl p-12"
-          >
-            <div className="flex-1">
-              <h3 className="text-3xl font-bold mb-4">Watch the Magic Happen</h3>
-              <p className="text-gray-400 mb-6 leading-relaxed">
-                Our AI doesn't just generate code—it architects complete applications. From analyzing your intent to optimizing the user experience, every step happens in seconds.
-              </p>
-              <ul className="space-y-3">
-                {[
-                  'Intelligent UI design based on your use case',
-                  'Automatic API integration for live data',
-                  'Responsive layouts that work on any device',
-                  'Error handling and edge case management',
-                  'Performance optimization built-in'
-                ].map((feature, i) => (
-                  <li key={i} className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-300">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="flex-1 flex justify-center">
-              <GenerationAnimation />
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* What Makes Us Different */}
+      {/* What Are Garliq Cards */}
       <div className="relative py-32 px-6 bg-gradient-to-b from-black via-purple-950/10 to-black">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -492,102 +785,292 @@ export default function Landing() {
             viewport={{ once: true }}
             className="text-center mb-20"
           >
-            <span className="inline-block px-4 py-2 bg-pink-500/20 border border-pink-500/30 rounded-full text-sm font-semibold text-pink-300 mb-6">
-              WHY GARLIQ
-            </span>
+            <div className="inline-block mb-6">
+              <span className="px-6 py-3 bg-gradient-to-r from-pink-500/20 to-orange-500/20 border border-pink-500/30 rounded-full text-sm font-bold text-pink-300 backdrop-blur-sm">
+                🎴 INTRODUCING GARLIQ CARDS
+              </span>
+            </div>
             <h2 className="text-5xl md:text-6xl font-black mb-6">
-              Not a Website Builder.
+              Not Apps. Not Websites.
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                A Micro-App Platform.
+                Living Utilities.
               </span>
             </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
+              Garliq Cards are micro-applications that exist as self-contained, shareable utilities. 
+              They're born from your thoughts, run instantly, and evolve through community collaboration.
+            </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-12 max-w-5xl mx-auto">
-            {/* Traditional Tools */}
+          {/* Three Core Principles */}
+          <div className="grid md:grid-cols-3 gap-8 mb-20">
+            {[
+              {
+                icon: Sparkles,
+                title: "Instant Manifestation",
+                description: "Describe what you need in plain language. Your Garliq Card materializes in ~30 seconds, ready to use immediately.",
+                gradient: "from-purple-500 to-purple-600"
+              },
+              {
+                icon: Share2,
+                title: "Social by Design",
+                description: "Every card can be shared, forked, and remixed. Solutions spread like ideas but work like software.",
+                gradient: "from-pink-500 to-pink-600"
+              },
+              {
+                icon: Rocket,
+                title: "Forever Evolving",
+                description: "Cards improve over time through community forks and iterations. The best versions naturally rise to the top.",
+                gradient: "from-orange-500 to-orange-600"
+              }
+            ].map((principle, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.2 }}
+                whileHover={{ y: -10 }}
+                className="relative group"
+              >
+                <div className="relative z-10 bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-800 rounded-2xl p-8 h-full hover:border-purple-500/50 transition-all">
+                  <div className={`inline-block p-5 rounded-2xl bg-gradient-to-br ${principle.gradient} mb-6 shadow-2xl`}>
+                    <principle.icon className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-4">{principle.title}</h3>
+                  <p className="text-gray-400 leading-relaxed">{principle.description}</p>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 rounded-2xl blur-xl transition-opacity" 
+                     style={{ background: `linear-gradient(to bottom right, var(--tw-gradient-stops))` }} />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Visual Comparison */}
+          <div className="grid md:grid-cols-2 gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="bg-red-500/5 border-2 border-red-500/20 rounded-2xl p-8"
+              className="space-y-6"
             >
-              <div className="text-red-400 text-sm font-bold mb-4">❌ TRADITIONAL TOOLS</div>
-              <h3 className="text-2xl font-bold mb-6 text-gray-400">Website Builders & No-Code Platforms</h3>
-              <ul className="space-y-4 text-gray-500">
-                <li className="flex gap-3">
-                  <span className="text-red-400">•</span>
-                  <span>Multi-page complexity for simple tasks</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-red-400">•</span>
-                  <span>Static content, limited interactivity</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-red-400">•</span>
-                  <span>Steep learning curve, drag-and-drop friction</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-red-400">•</span>
-                  <span>Days to weeks to launch</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-red-400">•</span>
-                  <span>Expensive hosting and maintenance</span>
-                </li>
-              </ul>
+              <div className="inline-block px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-full text-sm font-semibold text-red-300 mb-4">
+                ❌ THE OLD WAY
+              </div>
+              <h3 className="text-3xl font-bold mb-6 text-gray-400">Traditional Software</h3>
+              <div className="space-y-4">
+                {[
+                  "Search for the right tool online",
+                  "Sign up for yet another account",
+                  "Pay monthly subscription fees",
+                  "Learn complex interface",
+                  "Wait for features you need",
+                  "Start over when requirements change"
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 text-gray-500">
+                    <span className="text-red-400 mt-1">✕</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
             </motion.div>
 
-            {/* Garliq */}
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-2 border-purple-500/30 rounded-2xl p-8"
+              className="space-y-6"
             >
-              <div className="text-purple-400 text-sm font-bold mb-4">✓ GARLIQ MICRO-APPS</div>
-              <h3 className="text-2xl font-bold mb-6">Purpose-Built Applications</h3>
-              <ul className="space-y-4">
-                <li className="flex gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>Single-purpose, focused functionality</span>
-                </li>
-                <li className="flex gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>Fully interactive with real calculations</span>
-                </li>
-                <li className="flex gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>Natural conversation—no interface to learn</span>
-                </li>
-                <li className="flex gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>Just seconds from idea to live app</span>
-                </li>
-                <li className="flex gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>Zero hosting costs, instant sharing</span>
-                </li>
-              </ul>
+              <div className="inline-block px-4 py-2 bg-green-500/10 border border-green-500/30 rounded-full text-sm font-semibold text-green-300 mb-4">
+                ✓ THE GARLIQ WAY
+              </div>
+              <h3 className="text-3xl font-bold mb-6">Garliq Cards</h3>
+              <div className="space-y-4">
+                {[
+                  "Describe what you need in one sentence",
+                  "Your Garliq Card is created instantly",
+                  "Use it immediately — no login required",
+                  "Share with anyone via simple link",
+                  "Fork and customize as needs evolve",
+                  "Join community of solution creators"
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <span className="text-gray-300">{item}</span>
+                  </div>
+                ))}
+              </div>
             </motion.div>
           </div>
+        </div>
+      </div>
 
-          {/* Power Despite Simplicity */}
+      {/* From Thought to Execution */}
+      <div className="relative py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
+          >
+            <div className="inline-block mb-6">
+              <span className="px-6 py-3 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-full text-sm font-bold text-purple-300 backdrop-blur-sm">
+                ⚡ THE MAGIC HAPPENS INSTANTLY
+              </span>
+            </div>
+            <h2 className="text-5xl md:text-6xl font-black mb-6">
+              Bring Your Thoughts
+              <br />
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                To Life
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+              The gap between imagination and execution? Gone. Your thoughts become running, shareable utilities in seconds.
+            </p>
+          </motion.div>
+
+          <div className="grid lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="space-y-8"
+            >
+              <div className="space-y-6">
+                {[
+                  {
+                    step: "01",
+                    title: "Think It",
+                    description: "Describe your need naturally: 'I need a calculator that splits bills including tip percentages'",
+                    icon: "💭"
+                  },
+                  {
+                    step: "02",
+                    title: "Watch It Form",
+                    description: "AI understands your intent and crafts a perfect micro-application in real-time",
+                    icon: "✨"
+                  },
+                  {
+                    step: "03",
+                    title: "Use & Share",
+                    description: "Your Garliq Card is live. Use it instantly, share it with anyone, watch others fork and improve it",
+                    icon: "🚀"
+                  }
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.2 }}
+                    className="flex gap-6 group"
+                  >
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl shadow-lg group-hover:scale-110 transition-transform">
+                        {item.icon}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-bold text-purple-400 mb-2">STEP {item.step}</div>
+                      <h4 className="text-2xl font-bold mb-3">{item.title}</h4>
+                      <p className="text-gray-400 leading-relaxed">{item.description}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-2xl p-6">
+                <div className="flex items-start gap-4">
+                  <Zap className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="text-sm font-bold text-white mb-2">Average Creation Time</p>
+                    <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                      28 Seconds
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">From idea to running application</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <ThoughtToExecutionDemo />
+            </motion.div>
+          </div>
+        </div>
+      </div>
+
+      {/* Use Cases Showcase */}
+      <div className="relative py-32 px-6 bg-gradient-to-b from-black via-purple-950/10 to-black">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
+          >
+            <div className="inline-block mb-6">
+              <span className="px-6 py-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-full text-sm font-bold text-orange-300 backdrop-blur-sm">
+                🎯 INFINITE POSSIBILITIES
+              </span>
+            </div>
+            <h2 className="text-5xl md:text-6xl font-black mb-6">
+              From Simple Games to
+              <br />
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                Complex Applications
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+              Every Garliq Card solves a real problem. Create utilities for yourself, share with your community, or discover what others have built.
+            </p>
+          </motion.div>
+
+          <AnimatedCardShowcase />
+
+          {/* Category Pills */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mt-16 text-center max-w-4xl mx-auto"
+            className="flex flex-wrap justify-center gap-3 mt-16"
           >
-            <p className="text-xl text-gray-400 leading-relaxed">
-              Our micro-apps deliver <span className="text-purple-400 font-bold">every functionality</span> users need for specific tasks—
-              rivaling expensive SaaS tools but <span className="text-pink-400 font-bold">instant, affordable, and customizable</span>.
-            </p>
+            {[
+              "🎮 Games", 
+              "💰 Finance Tools", 
+              "📚 Education", 
+              "🏋️ Health & Fitness",
+              "🎨 Creative Tools",
+              "⏱️ Productivity",
+              "🤖 AI Assistants",
+              "📊 Data Visualizers",
+              "🔐 Utilities",
+              "🌐 Web Tools"
+            ].map((category, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                whileHover={{ scale: 1.1 }}
+                className="px-5 py-2.5 bg-gray-900/50 hover:bg-gray-800/80 border border-gray-800 hover:border-purple-500/50 rounded-full text-sm font-medium transition-all cursor-pointer backdrop-blur-sm"
+              >
+                {category}
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </div>
 
-      {/* Use Cases */}
+      {/* Who It's For */}
       <div className="relative py-32 px-6">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -602,134 +1085,51 @@ export default function Landing() {
                 Everyone
               </span>
             </h2>
-            <p className="text-xl text-gray-500">
-              From individuals to teams, solve problems instantly
+            <p className="text-xl text-gray-400">
+              No matter your role or technical skill, Garliq empowers you to create
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-4 gap-6">
             {[
               {
-                category: 'Individuals',
-                examples: [
-                  'Personal budget trackers',
-                  'Study guide generators',
-                  'Habit tracking dashboards',
-                  'Recipe cost calculators',
-                  'Travel planners'
-                ],
-                icon: Users,
-                gradient: 'from-purple-500 to-purple-600'
+                emoji: "👨‍🏫",
+                title: "Teachers",
+                description: "Create interactive quizzes, flashcards, and learning games instantly"
               },
               {
-                category: 'Creators',
-                examples: [
-                  'Audience engagement tools',
-                  'Custom calculators for followers',
-                  'Interactive quizzes',
-                  'Portfolio showcases',
-                  'Monetized utilities'
-                ],
-                icon: Sparkles,
-                gradient: 'from-pink-500 to-pink-600'
+                emoji: "💼",
+                title: "Business Owners",
+                description: "Build custom calculators, booking forms, and client tools"
               },
               {
-                category: 'Teams',
-                examples: [
-                  'Internal workflow tools',
-                  'Client proposal calculators',
-                  'Data visualization dashboards',
-                  'Form builders',
-                  'Project trackers'
-                ],
-                icon: Globe2,
-                gradient: 'from-orange-500 to-orange-600'
+                emoji: "🎨",
+                title: "Creators",
+                description: "Design audience engagement tools, polls, and interactive content"
+              },
+              {
+                emoji: "👤",
+                title: "Everyone Else",
+                description: "From students to hobbyists — if you have a need, create a card"
               }
-            ].map((useCase, i) => (
+            ].map((persona, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.2 }}
-                whileHover={{ y: -10 }}
-                className="group bg-gradient-to-br from-gray-900 to-black border border-gray-800 hover:border-purple-500/50 rounded-2xl p-8 transition-all"
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ y: -10, scale: 1.02 }}
+                className="bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-800 rounded-2xl p-8 hover:border-purple-500/50 transition-all"
               >
-                <div className={`inline-block p-4 rounded-xl bg-gradient-to-br ${useCase.gradient} mb-6`}>
-                  <useCase.icon className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold mb-6">{useCase.category}</h3>
-                <ul className="space-y-3">
-                  {useCase.examples.map((example, j) => (
-                    <li key={j} className="flex items-start gap-3 text-gray-400">
-                      <Zap className="w-4 h-4 text-purple-400 mt-1 flex-shrink-0" />
-                      <span>{example}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="text-5xl mb-4">{persona.emoji}</div>
+                <h3 className="text-xl font-bold mb-3">{persona.title}</h3>
+                <p className="text-sm text-gray-400 leading-relaxed">{persona.description}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </div>
-
-      {/* Social Proof / Testimonials
-      <div className="relative py-32 px-6 bg-gradient-to-b from-black via-purple-950/10 to-black">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mb-20"
-          >
-            <h2 className="text-5xl md:text-6xl font-black mb-6">
-              Trusted by{' '}
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                Thousands
-              </span>
-            </h2>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                quote: "I built a mortgage calculator in 30 seconds that my clients actually use. It's better than the $50/month tool I was paying for.",
-                author: "Sarah Chen",
-                role: "Real Estate Agent",
-                avatar: "👩‍💼"
-              },
-              {
-                quote: "As a teacher, I create custom study tools for each lesson. My students love the interactive quizzes. Game changer.",
-                author: "Marcus Johnson",
-                role: "High School Teacher",
-                avatar: "👨‍🏫"
-              },
-              {
-                quote: "I made a wedding budget tracker and shared it with my fiancé. We both update it in real-time. So much easier than spreadsheets.",
-                author: "Emily Rodriguez",
-                role: "Bride-to-Be",
-                avatar: "👰"
-              }
-            ].map((testimonial, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.2 }}
-                className="bg-black/50 border border-gray-800 rounded-2xl p-8 backdrop-blur-sm"
-              >
-                <div className="text-4xl mb-4">{testimonial.avatar}</div>
-                <p className="text-gray-300 mb-6 leading-relaxed italic">"{testimonial.quote}"</p>
-                <div>
-                  <p className="font-bold text-white">{testimonial.author}</p>
-                  <p className="text-sm text-gray-500">{testimonial.role}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </div> */}
 
       {/* Final CTA */}
       <div className="relative py-32 px-6">
@@ -751,15 +1151,25 @@ export default function Landing() {
             />
             
             <div className="relative bg-gradient-to-br from-gray-900/90 to-black/90 border border-purple-500/30 backdrop-blur-xl p-16 text-center">
+              <div className="mb-8">
+                <Image 
+                  src="/logo.png" 
+                  alt="Garliq" 
+                  width={80} 
+                  height={80}
+                  className="mx-auto filter drop-shadow-2xl"
+                />
+              </div>
+
               <h2 className="text-5xl md:text-6xl font-black mb-6">
-                Your First Micro-App
+                Start Creating
                 <br />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                  Awaits
+                  Your First Card
                 </span>
               </h2>
               <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
-                Join thousands creating custom tools for their exact needs. From idea to live app in 30 seconds. No coding required.
+                Join the new era of software creation. Turn your thoughts into utilities. Share them with the world. Watch them evolve.
               </p>
               
               <Link href="/auth">
@@ -769,7 +1179,7 @@ export default function Landing() {
                   className="group relative px-12 py-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl font-bold text-xl overflow-hidden shadow-2xl"
                 >
                   <span className="relative z-10 flex items-center gap-3">
-                    Create Your First Micro-App — Free
+                    Create Free Garliq Card Now
                     <motion.div
                       animate={{ x: [0, 5, 0] }}
                       transition={{ duration: 1.5, repeat: Infinity }}
@@ -789,15 +1199,15 @@ export default function Landing() {
               <div className="flex items-center justify-center gap-8 mt-8 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Free to start
+                  Free forever plan
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  No credit card
+                  No credit card needed
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  30-second setup
+                  Start creating in seconds
                 </div>
               </div>
             </div>
@@ -810,10 +1220,15 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
-              <span className="text-4xl">🧄</span>
+              <Image 
+                src="/logo.png" 
+                alt="Garliq" 
+                width={48} 
+                height={48}
+              />
               <div>
                 <p className="font-bold text-white">Garliq</p>
-                <p className="text-sm text-gray-600">Micro-App Generation Platform</p>
+                <p className="text-sm text-gray-600">Micro-Application Creation Platform</p>
               </div>
             </div>
             
@@ -834,46 +1249,13 @@ export default function Landing() {
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-900 text-center text-gray-600 text-sm">
-            <p className="mb-2">© 2025 Garliq by Parasync Technologies. Crafting the future of micro-applications.</p>
+            <p className="mb-2">© 2025 Garliq by Parasync Technologies. Building the future of micro-applications.</p>
             <p>
               Need help? <a href="mailto:team@parasync.in" className="text-purple-400 hover:text-purple-300 underline">team@parasync.in</a>
             </p>
           </div>
         </div>
       </div>
-
-      {/* Custom Styles */}
-      <style jsx global>{`
-        @keyframes gradient {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        
-        .animate-gradient {
-          background-size: 200% auto;
-          animation: gradient 3s ease infinite;
-        }
-
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
-          cursor: pointer;
-          box-shadow: 0 0 10px rgba(147, 51, 234, 0.5);
-        }
-
-        .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 0 10px rgba(147, 51, 234, 0.5);
-        }
-      `}</style>
     </div>
   );
 }

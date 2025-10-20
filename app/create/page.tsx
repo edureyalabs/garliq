@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Send, Terminal, Zap, Crown, Loader2 } from 'lucide-react';
+import Image from 'next/image';
 
 type ModelType = 'llama-3.3-70b' | 'claude-sonnet-4.5';
 
@@ -115,7 +116,12 @@ export default function CreatePage() {
           >
             <ArrowLeft size={24} />
             <div className="flex items-center gap-3">
-              <span className="text-3xl">🧄</span>
+              <Image 
+  src="/logo.png" 
+  alt="Garliq" 
+  width={36} 
+  height={36}
+/>
               <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
                 VIBE CONSOLE
               </h1>
@@ -129,7 +135,7 @@ export default function CreatePage() {
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
               <Terminal size={16} className="text-purple-400" />
-              <span className="text-sm font-mono text-gray-400">v2.0.0</span>
+              <span className="text-sm font-mono text-gray-400">v1.0.0</span>
             </div>
           </div>
         </div>

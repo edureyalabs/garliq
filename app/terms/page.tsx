@@ -2,6 +2,7 @@
 import { motion } from 'framer-motion';
 import { FileText, Scale, AlertTriangle, Shield, UserX, DollarSign, Mail, Clock } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function TermsOfService() {
   return (
@@ -16,7 +17,14 @@ export default function TermsOfService() {
       <header className="relative border-b border-gray-900 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
-            <span className="text-4xl group-hover:scale-110 transition-transform">🧄</span>
+            <div className="group-hover:scale-110 transition-transform">
+              <Image 
+                src="/logo.png" 
+                alt="Garliq" 
+                width={48} 
+                height={48}
+              />
+            </div>
             <div>
               <p className="font-bold text-white text-xl">Garliq</p>
               <p className="text-xs text-gray-500">Micro-App Platform</p>
@@ -762,7 +770,12 @@ export default function TermsOfService() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
-              <span className="text-4xl">🧄</span>
+              <Image 
+                src="/logo.png" 
+                alt="Garliq" 
+                width={48} 
+                height={48}
+              />
               <div>
                 <p className="font-bold text-white">Garliq</p>
                 <p className="text-sm text-gray-600">Micro-App Generation Platform</p>

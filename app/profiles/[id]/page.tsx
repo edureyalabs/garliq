@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, Share2, ExternalLink, Trash2, Eye, Zap, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import TokenPurchaseModal from '@/components/TokenPurchaseModal';
+import Image from 'next/image';
 
 interface Profile {
   id: string;
@@ -460,7 +461,12 @@ export default function ProfilePage() {
         <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-40">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3 hover:opacity-70 transition-opacity">
-              <span className="text-3xl">🧄</span>
+              <Image 
+  src="/logo.png" 
+  alt="Garliq" 
+  width={48} 
+  height={48}
+/>
               <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
                 Garliq
               </h1>
@@ -644,7 +650,12 @@ export default function ProfilePage() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <button onClick={() => router.push('/feed')} className="flex items-center gap-3 hover:opacity-70 transition-opacity">
             <ArrowLeft size={24} />
-            <span className="text-3xl">🧄</span>
+            <Image 
+  src="/logo.png" 
+  alt="Garliq" 
+  width={48} 
+  height={48}
+/>
           </button>
 
           <div className="flex items-center gap-3">

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw, CheckCircle } from 'lucide-react';
+import Image from 'next/image';
 
 interface Message {
   id: string;
@@ -452,7 +453,12 @@ export default function StudioPage() {
             className="flex items-center gap-3 hover:opacity-70 transition-opacity"
           >
             <ArrowLeft size={24} />
-            <span className="text-3xl">🧄</span>
+            <Image 
+  src="/logo.png" 
+  alt="Garliq" 
+  width={36} 
+  height={36}
+/>
             <h1 className="text-xl font-black">{session.title}</h1>
           </button>
 

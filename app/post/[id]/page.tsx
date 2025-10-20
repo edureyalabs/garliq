@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Trash2, Sparkles, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import GarliqWebContainer from '@/components/GarliqWebContainer';
+import Image from 'next/image';
 
 interface Post {
   id: string;
@@ -431,7 +432,12 @@ export default function PostDetailPage() {
         <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3 hover:opacity-70 transition-opacity">
-              <span className="text-3xl">🧄</span>
+              <Image 
+  src="/logo.png" 
+  alt="Garliq" 
+  width={48} 
+  height={48}
+/>
               <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
                 Garliq
               </h1>
@@ -511,7 +517,14 @@ export default function PostDetailPage() {
 
               <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                 <div className="mb-6">
-                  <div className="text-6xl mb-4">🧄</div>
+                  <div className="mb-4 flex justify-center">
+                    <Image 
+                      src="/logo.png" 
+                      alt="Garliq" 
+                      width={80} 
+                      height={80}
+                    />
+                  </div>
                   <h3 className="text-2xl font-bold mb-2">Love this micro-app?</h3>
                   <p className="text-gray-400 text-sm mb-6">
                     Create your own in just 30 seconds with AI-powered Garliq
@@ -550,7 +563,7 @@ export default function PostDetailPage() {
             className="flex items-center gap-3 hover:opacity-70 transition-opacity"
           >
             <ArrowLeft size={24} />
-            <span className="text-3xl">🧄</span>
+            {/* <span className="text-3xl">🧄</span> */}
           </button>
 
           <div className="flex items-center gap-2">
@@ -634,7 +647,12 @@ export default function PostDetailPage() {
                   className="flex items-center gap-2 hover:scale-105 transition-transform disabled:opacity-50"
                 >
                   {post.is_liked ? (
-                    <span className="text-2xl">🧄</span>
+                    <Image 
+                      src="/logo.png" 
+                      alt="Liked" 
+                      width={24} 
+                      height={24}
+                    />
                   ) : (
                     <Heart size={24} className="text-gray-500" />
                   )}
