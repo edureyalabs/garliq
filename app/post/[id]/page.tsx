@@ -527,7 +527,7 @@ export default function PostDetailPage() {
                   </div>
                   <h3 className="text-2xl font-bold mb-2">Love this micro-app?</h3>
                   <p className="text-gray-400 text-sm mb-6">
-                    Create your own in just 30 seconds with AI-powered Garliq
+                    Create your own in just minutes with AI-powered Garliq
                   </p>
                 </div>
 
@@ -543,7 +543,7 @@ export default function PostDetailPage() {
                 </Link>
 
                 <p className="text-xs text-gray-600 mt-4">
-                  Free forever • No credit card required • 30-second setup
+                  Free to Start • Powerful Agentic Design • Instant Creation
                 </p>
               </div>
             </div>
