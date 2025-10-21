@@ -19,12 +19,17 @@ export async function GET(request: NextRequest) {
       hasTokenHash: !!token_hash, 
       type, 
       next,
-      redirectTo
+      redirectTo,
+      requestUrl: request.url,
+      host: request.headers.get('host')
     });
 
     if (!token_hash || !type) {
       console.error('❌ Missing token_hash or type');
-      return NextResponse.redirect(new URL('/auth/error?error=Missing+authentication+token', request.url));
+      // Use host header for error redirect
+      const host = request.headers.get('host');
+      const protocol = request.headers.get('x-forwarded-proto') || 'https';
+      return NextResponse.redirect(`${protocol}://${host}/auth/error?error=Missing+authentication+token`);
     }
 
     // Verify the OTP token - this exchanges the token for a session
@@ -35,22 +40,34 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('❌ Verification error:', error.message);
+      const host = request.headers.get('host');
+      const protocol = request.headers.get('x-forwarded-proto') || 'https';
       return NextResponse.redirect(
-        new URL(`/auth/error?error=${encodeURIComponent(error.message)}`, request.url)
+        `${protocol}://${host}/auth/error?error=${encodeURIComponent(error.message)}`
       );
     }
 
     console.log('✅ Token verified successfully');
     console.log('Session created:', !!data.session);
-    console.log('Redirecting to:', redirectTo);
+
+    // Get the host from headers (this is reliable in production)
+    const host = request.headers.get('host');
+    const protocol = request.headers.get('x-forwarded-proto') || 'https';
+    const redirectUrl = `${protocol}://${host}${redirectTo}`;
+    
+    console.log('🔗 Full redirect URL:', redirectUrl);
+    console.log('🌐 Host:', host);
+    console.log('🔒 Protocol:', protocol);
 
     // Successfully verified - redirect to the appropriate page
-    return NextResponse.redirect(new URL(redirectTo, request.url));
+    return NextResponse.redirect(redirectUrl);
 
   } catch (err) {
     console.error('❌ Exception in auth confirm:', err);
+    const host = request.headers.get('host');
+    const protocol = request.headers.get('x-forwarded-proto') || 'https';
     return NextResponse.redirect(
-      new URL('/auth/error?error=An+unexpected+error+occurred', request.url)
+      `${protocol}://${host}/auth/error?error=An+unexpected+error+occurred`
     );
   }
 }
