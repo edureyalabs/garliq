@@ -3,55 +3,35 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 
 function AuthContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // CRITICAL: Check for password reset token in URL hash and preserve it
-    const hash = window.location.hash;
-    if (hash) {
-      const hashParams = new URLSearchParams(hash.substring(1));
-      const type = hashParams.get('type');
-      
-      if (type === 'recovery') {
-        // Redirect to reset password page WITH the complete hash containing all tokens
-        console.log('🔄 Recovery token detected, redirecting to reset-password with hash');
-        router.push('/auth/reset-password' + hash);
-        return;
-      }
-    }
-
-    // Check if user already has a session
+    // Simply check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.push('/feed');
+        router.replace('/feed');
       } else {
         setLoading(false);
       }
     });
 
-    // Listen for auth state changes
+    // Listen for successful sign-ins
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        // Preserve the hash when redirecting for password recovery
-        const currentHash = window.location.hash;
-        console.log('🔄 PASSWORD_RECOVERY event, redirecting with hash');
-        router.push('/auth/reset-password' + currentHash);
-      } else if (session) {
-        router.push('/feed');
+      if (event === 'SIGNED_IN' && session) {
+        router.replace('/feed');
       }
     });
 
     return () => subscription.unsubscribe();
   }, [router]);
 
-if (loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
         <div className="text-6xl animate-bounce">🧄</div>
@@ -92,11 +72,6 @@ if (loading) {
                   brandAccent: '#ec4899',
                 }
               }
-            },
-            className: {
-              container: 'auth-container',
-              button: 'auth-button',
-              input: 'auth-input',
             }
           }}
           providers={[]}
