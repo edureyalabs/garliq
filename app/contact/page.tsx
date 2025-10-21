@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { Mail, MessageCircle, FileQuestion, Clock, MapPin, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { MessageCircle, FileQuestion, Clock, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import Image from 'next/image';
@@ -105,65 +105,9 @@ export default function Contact() {
         </div>
       </div>
 
-      {/* Contact Methods */}
+      {/* Contact Form and Quick Help */}
       <div className="relative py-16 px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
-            {[
-              {
-                icon: Mail,
-                title: 'Email Support',
-                description: 'Get help from our support team',
-                contact: 'team@parasync.in',
-                action: 'mailto:team@parasync.in',
-                gradient: 'from-purple-500 to-purple-600'
-              },
-              {
-                icon: Clock,
-                title: 'Response Time',
-                description: 'We typically respond within',
-                contact: '24-48 hours',
-                action: null,
-                gradient: 'from-pink-500 to-pink-600'
-              },
-              {
-                icon: MapPin,
-                title: 'Location',
-                description: 'Based in',
-                contact: 'Bengaluru, India',
-                action: null,
-                gradient: 'from-orange-500 to-orange-600'
-              }
-            ].map((method, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.2 }}
-                whileHover={{ y: -5 }}
-                className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl p-8 text-center group hover:border-purple-500/50 transition-all"
-              >
-                <div className={`inline-block p-4 rounded-xl bg-gradient-to-br ${method.gradient} mb-6 group-hover:scale-110 transition-transform`}>
-                  <method.icon className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-3">{method.title}</h3>
-                <p className="text-sm text-gray-500 mb-4">{method.description}</p>
-                {method.action ? (
-                  <a
-                    href={method.action}
-                    className="text-lg font-semibold text-purple-400 hover:text-purple-300 transition-colors"
-                  >
-                    {method.contact}
-                  </a>
-                ) : (
-                  <p className="text-lg font-semibold text-white">{method.contact}</p>
-                )}
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Contact Form and Quick Help */}
           <div className="grid lg:grid-cols-2 gap-12">
             {/* Contact Form */}
             <motion.div
@@ -364,43 +308,6 @@ export default function Contact() {
         </div>
       </div>
 
-      {/* Additional Contact Info */}
-      <div className="relative py-16 px-6 border-t border-gray-900">
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl p-8 text-center"
-          >
-            <h2 className="text-3xl font-bold mb-4">Looking for Something Else?</h2>
-            <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-              Browse our documentation, check out our blog, or join our community to connect with other Garliq users.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/auth">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-semibold"
-                >
-                  Get Started Free
-                </motion.button>
-              </Link>
-              <a href="https://docs.garliq.com" target="_blank" rel="noopener noreferrer">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-6 py-3 bg-gray-800 border border-gray-700 hover:border-purple-500 rounded-xl font-semibold transition-colors"
-                >
-                  Documentation
-                </motion.button>
-              </a>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
       {/* Footer */}
       <footer className="relative border-t border-gray-900 py-12 px-6">
         <div className="max-w-7xl mx-auto">
@@ -432,7 +339,7 @@ export default function Contact() {
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-900 text-center text-gray-600 text-sm">
-            <p>© 2025 Garliq by ParaSync Technologies. All rights reserved.</p>
+            <p>© 2025 Garliq by Parasync Technologies. All rights reserved.</p>
             <p className="mt-2">
               <a href="mailto:team@parasync.in" className="hover:text-purple-400 transition-colors">
                 team@parasync.in

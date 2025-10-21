@@ -544,7 +544,7 @@ export default function PrivacyPolicy() {
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-900 text-center text-gray-600 text-sm">
-            <p>© 2025 Garliq by ParaSync Technologies. All rights reserved.</p>
+            <p>© 2025 Garliq by Parasync Technologies. All rights reserved.</p>
           </div>
         </div>
       </footer>

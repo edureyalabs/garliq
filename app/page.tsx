@@ -504,7 +504,7 @@ const ThoughtToExecutionDemo = () => {
         </div>
 
         <p className="text-center text-xs text-gray-500 mt-4">
-          Average creation time: <span className="text-purple-400 font-bold">28 seconds</span>
+          Average creation time: <span className="text-purple-400 font-bold">3 Minutes</span>
         </p>
       </div>
     </div>
@@ -597,7 +597,7 @@ export default function Landing() {
               
               <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-4xl mx-auto leading-relaxed">
                 Introducing <span className="text-white font-bold">Garliq Cards</span> — living, shareable micro-applications 
-                that bring your ideas to life in seconds. No coding. No complexity. Just pure creation.
+                that bring your ideas to life in minutes. No coding. No complexity. Just pure creation.
               </p>
 
               {/* Primary CTAs */}
@@ -609,7 +609,7 @@ export default function Landing() {
                     className="group relative px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl font-bold text-lg overflow-hidden shadow-2xl"
                   >
                     <span className="relative z-10 flex items-center gap-3">
-                      Create Your First Garliq Card — Free
+                      Create Your Garliqs Now
                       <ArrowRight className="group-hover:translate-x-1 transition-transform" />
                     </span>
                     <motion.div 
@@ -627,15 +627,15 @@ export default function Landing() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  No Credit Card
+                  Pay as you Go
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  30-Second Creation
+                  Explore Other Garliq Cards
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Powered by Advanced AI
+                  Powerful Agentic Orchestration
                 </div>
               </div>
             </motion.div>
@@ -787,7 +787,7 @@ export default function Landing() {
           >
             <div className="inline-block mb-6">
               <span className="px-6 py-3 bg-gradient-to-r from-pink-500/20 to-orange-500/20 border border-pink-500/30 rounded-full text-sm font-bold text-pink-300 backdrop-blur-sm">
-                🎴 INTRODUCING GARLIQ CARDS
+                🎴 Introducing Garliq Cards
               </span>
             </div>
             <h2 className="text-5xl md:text-6xl font-black mb-6">
@@ -809,7 +809,7 @@ export default function Landing() {
               {
                 icon: Sparkles,
                 title: "Instant Manifestation",
-                description: "Describe what you need in plain language. Your Garliq Card materializes in ~30 seconds, ready to use immediately.",
+                description: "Describe what you need in plain language. Your Garliq Card materializes in ~3 minutes, ready to use immediately.",
                 gradient: "from-purple-500 to-purple-600"
               },
               {
@@ -888,12 +888,12 @@ export default function Landing() {
               <h3 className="text-3xl font-bold mb-6">Garliq Cards</h3>
               <div className="space-y-4">
                 {[
-                  "Describe what you need in one sentence",
+                  "Describe what you need in one prompt",
                   "Your Garliq Card is created instantly",
-                  "Use it immediately — no login required",
+                  "Use it immediately, Enjoy the Experience",
                   "Share with anyone via simple link",
                   "Fork and customize as needs evolve",
-                  "Join community of solution creators"
+                  "Explore & Use Garliqs of Other Creators"
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
@@ -988,7 +988,7 @@ export default function Landing() {
                   <div>
                     <p className="text-sm font-bold text-white mb-2">Average Creation Time</p>
                     <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                      28 Seconds
+                      3 Minutes
                     </p>
                     <p className="text-xs text-gray-500 mt-2">From idea to running application</p>
                   </div>
@@ -1018,7 +1018,7 @@ export default function Landing() {
           >
             <div className="inline-block mb-6">
               <span className="px-6 py-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-full text-sm font-bold text-orange-300 backdrop-blur-sm">
-                🎯 INFINITE POSSIBILITIES
+                🎯 Infinite Possibilities
               </span>
             </div>
             <h2 className="text-5xl md:text-6xl font-black mb-6">
@@ -1199,11 +1199,11 @@ export default function Landing() {
               <div className="flex items-center justify-center gap-8 mt-8 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Free forever plan
+                  Pay per Token Usage Only
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  No credit card needed
+                  Vast Library of Free Garliq Cards
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />

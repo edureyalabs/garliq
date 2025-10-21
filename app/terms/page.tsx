@@ -110,7 +110,7 @@ export default function TermsOfService() {
               <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-2xl p-8 mb-8">
                 <h2 className="text-3xl font-bold mb-4 text-white">Agreement to Terms</h2>
                 <p className="text-gray-300 leading-relaxed mb-4">
-                  These Terms of Service ("Terms") constitute a legally binding agreement between you and ParaSync Technologies 
+                  These Terms of Service ("Terms") constitute a legally binding agreement between you and Parasync Technologies 
                   ("Garliq," "we," "us," or "our") governing your access to and use of the Garliq micro-application generation 
                   platform, including our website, services, and applications (collectively, the "Service").
                 </p>
@@ -746,7 +746,7 @@ export default function TermsOfService() {
                     <Shield className="w-5 h-5 text-purple-400 mt-1" />
                     <div>
                       <p className="font-semibold text-white">Legal Entity</p>
-                      <p className="text-gray-400">ParaSync Technologies</p>
+                      <p className="text-gray-400">Parasync Technologies</p>
                     </div>
                   </div>
                   
@@ -796,7 +796,7 @@ export default function TermsOfService() {
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-900 text-center text-gray-600 text-sm">
-            <p>© 2025 Garliq by ParaSync Technologies. All rights reserved.</p>
+            <p>© 2025 Garliq by Parasync Technologies. All rights reserved.</p>
           </div>
         </div>
       </footer>
