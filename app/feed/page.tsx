@@ -96,7 +96,8 @@ export default function FeedPage() {
 
     let query = supabase
       .from('posts')
-      .select('*', { count: 'exact' });
+      .select('*', { count: 'exact' })
+      .eq('status', 'APPROVED');
 
     if (filter === 'new') {
       query = query.order('created_at', { ascending: false });
