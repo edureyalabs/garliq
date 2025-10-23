@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, Share2, ExternalLink, Trash2, Eye, Zap, Sparkles } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, Share2, ExternalLink, Trash2, Eye, Zap, Sparkles, MessageCircle, Plus } from 'lucide-react';
 import Link from 'next/link';
 import TokenPurchaseModal from '@/components/TokenPurchaseModal';
 import Image from 'next/image';
@@ -26,6 +26,14 @@ interface Post {
   created_at: string;
   prompt: string | null;
   prompt_visible: boolean;
+  user_id: string;
+  is_liked?: boolean;
+  is_saved?: boolean;
+  profiles?: {
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
 }
 
 interface Project {
@@ -152,14 +160,11 @@ export default function ProfilePage() {
 
     if (data) setProfile(data);
     
-    // Check if user is logged out and fetch posts
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       setLoading(true);
       await fetchUserPosts(0);
     }
-    // Note: For logged-in users, we don't set loading to false here
-    // The useEffect with activeTab dependency will handle the initial data fetch
   };
 
   const fetchUserPosts = async (pageNum: number) => {
@@ -181,8 +186,29 @@ export default function ProfilePage() {
     }
 
     if (data) {
+      // Fetch interactions if user is logged in
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      let postsWithInteractions = data;
+      if (session) {
+        postsWithInteractions = await Promise.all(
+          data.map(async (post) => {
+            const [likeData, saveData] = await Promise.all([
+              supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
+              supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+            ]);
+
+            return { 
+              ...post, 
+              is_liked: !!likeData.data,
+              is_saved: !!saveData.data 
+            };
+          })
+        );
+      }
+
       if (pageNum === 0) {
-        setPosts(data);
+        setPosts(postsWithInteractions);
         const totalLikes = data.reduce((sum, post) => sum + (post.likes_count || 0), 0);
         setStats(prev => ({ 
           ...prev, 
@@ -192,7 +218,7 @@ export default function ProfilePage() {
       } else {
         setPosts(prev => {
           const existingIds = new Set(prev.map(p => p.id));
-          const newPosts = data.filter(p => !existingIds.has(p.id));
+          const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
           return [...prev, ...newPosts];
         });
       }
@@ -273,13 +299,39 @@ export default function ProfilePage() {
       .order('created_at', { ascending: false });
 
     if (posts) {
+      // Fetch profiles for post creators
+      const userIds = [...new Set(posts.map(p => p.user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', userIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+
+      // Add interaction data and profiles
+      const postsWithInteractions = await Promise.all(
+        posts.map(async (post) => {
+          const [likeData, saveData] = await Promise.all([
+            supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
+            supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle()
+          ]);
+
+          return { 
+            ...post, 
+            is_liked: !!likeData.data,
+            is_saved: !!saveData.data,
+            profiles: profilesMap.get(post.user_id)
+          };
+        })
+      );
+
       if (pageNum === 0) {
-        setSavedPosts(posts);
+        setSavedPosts(postsWithInteractions);
         setStats(prev => ({ ...prev, saves: count || posts.length }));
       } else {
         setSavedPosts(prev => {
           const existingIds = new Set(prev.map(p => p.id));
-          const newPosts = posts.filter(p => !existingIds.has(p.id));
+          const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
           return [...prev, ...newPosts];
         });
       }
@@ -304,6 +356,111 @@ export default function ProfilePage() {
       } else if (activeTab === 'saved') {
         fetchSavedPosts(nextPage);
       }
+    }
+  };
+
+  const handleLike = async (postId: string, isLiked: boolean) => {
+    if (!currentUser) return;
+
+    try {
+      if (isLiked) {
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', currentUser.id);
+        
+        if (error) throw error;
+
+        const { error: rpcError } = await supabase.rpc('decrement_likes', { post_id: postId });
+        if (rpcError) throw rpcError;
+      } else {
+        const { error } = await supabase
+          .from('likes')
+          .insert({ post_id: postId, user_id: currentUser.id });
+        
+        if (error) throw error;
+
+        const { error: rpcError } = await supabase.rpc('increment_likes', { post_id: postId });
+        if (rpcError) throw rpcError;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const { data: updatedPost, error: fetchError } = await supabase
+        .from('posts')
+        .select('likes_count, comments_count')
+        .eq('id', postId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (updatedPost) {
+        const { data: likeCheck } = await supabase
+          .from('likes')
+          .select('*')
+          .eq('post_id', postId)
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+        const updatePost = (post: Post) => 
+          post.id === postId ? {
+            ...post,
+            is_liked: !!likeCheck,
+            likes_count: updatedPost.likes_count || 0,
+            comments_count: updatedPost.comments_count || 0
+          } : post;
+
+        setPosts(prevPosts => prevPosts.map(updatePost));
+        setSavedPosts(prevPosts => prevPosts.map(updatePost));
+      }
+    } catch (error: any) {
+      console.error('Like error:', error);
+      alert('Failed to update like: ' + error.message);
+    }
+  };
+
+  const handleSave = async (postId: string, isSaved: boolean) => {
+    if (!currentUser) return;
+
+    const updatePost = (post: Post) => 
+      post.id === postId ? { ...post, is_saved: !isSaved } : post;
+
+    setPosts(prevPosts => prevPosts.map(updatePost));
+    setSavedPosts(prevPosts => prevPosts.map(updatePost));
+
+    try {
+      if (isSaved) {
+        await supabase.from('saves').delete().eq('post_id', postId).eq('user_id', currentUser.id);
+      } else {
+        await supabase.from('saves').insert({ post_id: postId, user_id: currentUser.id });
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      setPosts(prevPosts => prevPosts.map(post => 
+        post.id === postId ? { ...post, is_saved: isSaved } : post
+      ));
+      setSavedPosts(prevPosts => prevPosts.map(post => 
+        post.id === postId ? { ...post, is_saved: isSaved } : post
+      ));
+    }
+  };
+
+  const handleSharePost = async (post: Post) => {
+    const shareUrl = `${window.location.origin}/post/${post.id}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${post.caption} | Garliq`,
+          url: shareUrl
+        });
+      } catch {
+        // User cancelled
+      }
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      alert('Link copied!');
     }
   };
 
@@ -459,14 +616,14 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-black text-white">
         {/* Header */}
         <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-40">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3 hover:opacity-70 transition-opacity">
               <Image 
-  src="/logo.png" 
-  alt="Garliq" 
-  width={48} 
-  height={48}
-/>
+                src="/logo.png" 
+                alt="Garliq" 
+                width={48} 
+                height={48}
+              />
               <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
                 Garliq
               </h1>
@@ -484,10 +641,11 @@ export default function ProfilePage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 rounded-full font-bold flex items-center gap-2"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-bold flex items-center gap-2 text-sm sm:text-base"
                 >
                   <Sparkles size={18} />
-                  Create Your Garliq
+                  <span className="hidden sm:inline">Create Your Garliq</span>
+                  <span className="sm:hidden">Create</span>
                 </motion.button>
               </Link>
             </div>
@@ -495,36 +653,36 @@ export default function ProfilePage() {
         </div>
 
         {/* Profile Header */}
-        <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="flex flex-col md:flex-row gap-8 items-start mb-8">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-6xl font-black flex-shrink-0 overflow-hidden">
-  {profile.avatar_url ? (
-    <img 
-      src={profile.avatar_url} 
-      alt={profile.display_name}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <span>{profile.display_name[0].toUpperCase()}</span>
-  )}
-</div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="flex flex-col md:flex-row gap-6 sm:gap-8 items-start mb-8">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl sm:text-6xl font-black flex-shrink-0 overflow-hidden">
+              {profile.avatar_url ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt={profile.display_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{profile.display_name[0].toUpperCase()}</span>
+              )}
+            </div>
 
             <div className="flex-1">
-              <h1 className="text-4xl font-black mb-2">{profile.display_name}</h1>
-              <p className="text-gray-500 mb-4">@{profile.username}</p>
+              <h1 className="text-3xl sm:text-4xl font-black mb-2">{profile.display_name}</h1>
+              <p className="text-gray-500 mb-4 text-sm sm:text-base">@{profile.username}</p>
               
               {profile.bio && (
-                <p className="text-gray-300 mb-6 leading-relaxed max-w-2xl">{profile.bio}</p>
+                <p className="text-gray-300 mb-6 leading-relaxed max-w-2xl text-sm sm:text-base">{profile.bio}</p>
               )}
 
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-8">
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8">
                 <Calendar size={16} />
                 <span>
                   Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {[
                   { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
                   { label: 'Garlics', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' }
@@ -534,11 +692,11 @@ export default function ProfilePage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className="bg-gray-900/50 border border-gray-800 rounded-xl p-4"
+                    className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 sm:p-4"
                   >
-                    <stat.icon className={`${stat.color} mb-2`} size={20} />
-                    <div className="text-2xl font-black">{stat.value}</div>
-                    <div className="text-xs text-gray-500 font-medium">{stat.label}</div>
+                    <stat.icon className={`${stat.color} mb-2`} size={18} />
+                    <div className="text-xl sm:text-2xl font-black">{stat.value}</div>
+                    <div className="text-[10px] sm:text-xs text-gray-500 font-medium">{stat.label}</div>
                   </motion.div>
                 ))}
               </div>
@@ -546,71 +704,113 @@ export default function ProfilePage() {
           </div>
 
           {/* Posts Tab */}
-          <div className="flex items-center gap-2 mb-8 border-b border-gray-800">
-            <button className="flex items-center gap-2 px-6 py-3 font-semibold transition-all border-b-2 border-purple-500 text-white">
+          <div className="flex items-center gap-2 mb-6 sm:mb-8 border-b border-gray-800">
+            <button className="flex items-center gap-2 px-4 sm:px-6 py-3 font-semibold transition-all border-b-2 border-purple-500 text-white text-sm sm:text-base">
               <Code2 size={18} />
               Posts
             </button>
           </div>
 
-          {/* Posts Grid */}
+          {/* Posts Grid - Feed Style */}
           {posts.length === 0 && !loading ? (
-            <div className="text-center py-20 bg-gray-900/30 rounded-2xl border border-gray-800">
-              <Code2 size={48} className="mx-auto mb-4 text-gray-700" />
-              <p className="text-gray-500">No posts yet</p>
-            </div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-16 sm:py-20"
+            >
+              <div className="mb-4 sm:mb-6 flex justify-center">
+                <Image 
+                  src="/logo.png" 
+                  alt="Garliq" 
+                  width={100} 
+                  height={100}
+                  className="sm:w-[120px] sm:h-[120px]"
+                />
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">No Posts Yet</h2>
+              <p className="text-gray-500 text-sm sm:text-base">This user hasn't shared any creations yet</p>
+            </motion.div>
           ) : (
             <>
-              <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {posts.map((post, i) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {posts.map((post, index) => (
                   <motion.div
-                    key={post.id}
+                    key={`${post.id}-${index}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i % 12, 11) * 0.05 }}
-                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
                   >
+                    {/* User Info Header */}
+                    <div className="p-3 sm:p-4 border-b border-gray-800/50 bg-black/40 backdrop-blur-sm">
+                      <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 sm:gap-3 hover:opacity-70 transition-opacity">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0 overflow-hidden">
+                          {profile.avatar_url ? (
+                            <img 
+                              src={profile.avatar_url} 
+                              alt={profile.display_name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span>{profile.display_name[0].toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-semibold truncate">{profile.display_name}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">@{profile.username}</p>
+                        </div>
+                      </Link>
+                    </div>
+
+                    {/* Preview */}
                     <Link href={`/post/${post.id}`}>
-                      <div className="aspect-square bg-white cursor-pointer relative overflow-hidden">
+                      <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
                         <iframe
-                          srcDoc={`
-                            <!DOCTYPE html>
-                            <html>
-                              <head>
-                                <style>
-                                  * { margin: 0; padding: 0; }
-                                  body { overflow: hidden; transform: scale(0.5); transform-origin: top left; width: 200%; height: 200%; }
-                                  audio, video { display: none !important; }
-                                </style>
-                              </head>
-                              <body>
-                                ${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}
-                              </body>
-                            </html>
-                          `}
+                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
                           className="w-full h-full pointer-events-none"
                           sandbox=""
                           loading="lazy"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Eye className="text-white drop-shadow-lg" size={32} />
-                        </div>
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                       </div>
                     </Link>
 
-                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                      <p className="text-sm font-semibold line-clamp-2 mb-2">
-                        {post.caption || 'Untitled'}
-                      </p>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="flex items-center gap-1">
-                          <Heart size={14} />
-                          {post.likes_count || 0}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Code2 size={14} />
-                          {post.comments_count || 0}
-                        </span>
+                    {/* Post Info */}
+                    <div className="p-3 sm:p-4 space-y-3">
+                      <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+
+                      {post.prompt_visible && post.prompt && (
+                        <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Code2 size={10} className="text-purple-400" />
+                            <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <div className="flex items-center gap-1.5">
+                            <Heart size={18} className="text-gray-500" />
+                            <span className="text-xs sm:text-sm font-bold text-gray-400">{post.likes_count || 0}</span>
+                          </div>
+
+                          <Link href={`/post/${post.id}#comments`}>
+                            <div className="flex items-center gap-1.5 text-gray-500">
+                              <MessageCircle size={18} />
+                              <span className="text-xs sm:text-sm font-bold">{post.comments_count || 0}</span>
+                            </div>
+                          </Link>
+                        </div>
+
+                        <button 
+                          onClick={() => handleSharePost(post)} 
+                          className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                        >
+                          <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                        </button>
                       </div>
                     </div>
                   </motion.div>
@@ -647,33 +847,34 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
       <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <button onClick={() => router.push('/feed')} className="flex items-center gap-3 hover:opacity-70 transition-opacity">
             <ArrowLeft size={24} />
             <Image 
-  src="/logo.png" 
-  alt="Garliq" 
-  width={48} 
-  height={48}
-/>
+              src="/logo.png" 
+              alt="Garliq" 
+              width={48} 
+              height={48}
+            />
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {isOwnProfile && (
               <>
-                <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
+                <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
                   <Zap size={16} className="text-yellow-400" />
-                  <span className="text-sm font-bold">{tokenBalance.toLocaleString()}</span>
+                  <span className="text-xs sm:text-sm font-bold">{tokenBalance.toLocaleString()}</span>
                 </div>
                 
                 <motion.button
                   onClick={() => setShowTokenModal(true)}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-5 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-full font-semibold flex items-center gap-2"
+                  className="px-3 sm:px-5 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-full font-semibold flex items-center gap-2 text-xs sm:text-sm"
                 >
-                  <Zap size={18} />
-                  Buy Tokens
+                  <Zap size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden sm:inline">Buy Tokens</span>
+                  <span className="sm:hidden">Buy</span>
                 </motion.button>
               </>
             )}
@@ -683,10 +884,11 @@ export default function ProfilePage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 rounded-full font-semibold flex items-center gap-2"
+                  className="px-3 sm:px-5 py-2 bg-purple-600 hover:bg-purple-700 rounded-full font-semibold flex items-center gap-2 text-xs sm:text-sm"
                 >
-                  <Edit size={18} />
-                  Edit Profile
+                  <Edit size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden sm:inline">Edit Profile</span>
+                  <span className="sm:hidden">Edit</span>
                 </motion.button>
               </Link>
             )}
@@ -702,36 +904,36 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile Header */}
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="flex flex-col md:flex-row gap-8 items-start mb-8">
-          <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-6xl font-black flex-shrink-0 overflow-hidden">
-  {profile.avatar_url ? (
-    <img 
-      src={profile.avatar_url} 
-      alt={profile.display_name}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <span>{profile.display_name[0].toUpperCase()}</span>
-  )}
-</div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <div className="flex flex-col md:flex-row gap-6 sm:gap-8 items-start mb-8">
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl sm:text-6xl font-black flex-shrink-0 overflow-hidden">
+            {profile.avatar_url ? (
+              <img 
+                src={profile.avatar_url} 
+                alt={profile.display_name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span>{profile.display_name[0].toUpperCase()}</span>
+            )}
+          </div>
 
           <div className="flex-1">
-            <h1 className="text-4xl font-black mb-2">{profile.display_name}</h1>
-            <p className="text-gray-500 mb-4">@{profile.username}</p>
+            <h1 className="text-3xl sm:text-4xl font-black mb-2">{profile.display_name}</h1>
+            <p className="text-gray-500 mb-4 text-sm sm:text-base">@{profile.username}</p>
             
             {profile.bio && (
-              <p className="text-gray-300 mb-6 leading-relaxed max-w-2xl">{profile.bio}</p>
+              <p className="text-gray-300 mb-6 leading-relaxed max-w-2xl text-sm sm:text-base">{profile.bio}</p>
             )}
 
-            <div className="flex items-center gap-2 text-sm text-gray-500 mb-8">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8">
               <Calendar size={16} />
               <span>
                 Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               {[
                 { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
                 { label: 'Garlics', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' },
@@ -744,11 +946,11 @@ export default function ProfilePage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className="bg-gray-900/50 border border-gray-800 rounded-xl p-4"
+                    className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 sm:p-4"
                   >
-                    <stat.icon className={`${stat.color} mb-2`} size={20} />
-                    <div className="text-2xl font-black">{stat.value}</div>
-                    <div className="text-xs text-gray-500 font-medium">{stat.label}</div>
+                    <stat.icon className={`${stat.color} mb-2`} size={18} />
+                    <div className="text-xl sm:text-2xl font-black">{stat.value}</div>
+                    <div className="text-[10px] sm:text-xs text-gray-500 font-medium">{stat.label}</div>
                   </motion.div>
                 )
               ))}
@@ -757,7 +959,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-2 mb-8 border-b border-gray-800">
+        <div className="flex items-center gap-2 mb-6 sm:mb-8 border-b border-gray-800 overflow-x-auto">
           {[
             { id: 'posts', label: 'My Posts', icon: Code2 },
             { id: 'projects', label: 'Projects', icon: Code2 },
@@ -766,7 +968,7 @@ export default function ProfilePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`flex items-center gap-2 px-6 py-3 font-semibold transition-all border-b-2 ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 font-semibold transition-all border-b-2 whitespace-nowrap text-sm sm:text-base ${
                 activeTab === tab.id
                   ? 'border-purple-500 text-white'
                   : 'border-transparent text-gray-500 hover:text-white'
@@ -780,62 +982,157 @@ export default function ProfilePage() {
 
         {/* Content Grid */}
         {displayItems.length === 0 && !loading ? (
-          <div className="text-center py-20 bg-gray-900/30 rounded-2xl border border-gray-800">
-            <Code2 size={48} className="mx-auto mb-4 text-gray-700" />
-            <p className="text-gray-500">
-              {activeTab === 'posts' ? 'No posts yet' : activeTab === 'projects' ? 'No projects yet' : 'No saved posts'}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16 sm:py-20"
+          >
+            <div className="mb-4 sm:mb-6 flex justify-center">
+              <Image 
+                src="/logo.png" 
+                alt="Garliq" 
+                width={100} 
+                height={100}
+                className="sm:w-[120px] sm:h-[120px]"
+              />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">
+              {activeTab === 'posts' ? 'No Posts Yet' : activeTab === 'projects' ? 'No Projects Yet' : 'No Saved Posts'}
+            </h2>
+            <p className="text-gray-500 mb-6 sm:mb-8 text-sm sm:text-base">
+              {activeTab === 'posts' 
+                ? 'Share your first creation with the world' 
+                : activeTab === 'projects' 
+                ? 'Start building something amazing'
+                : 'Save posts you love to view them here'}
             </p>
-          </div>
+            {isOwnProfile && activeTab !== 'saved' && (
+              <Link href="/create">
+                <button className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 sm:px-8 py-3 rounded-full font-bold flex items-center gap-2 mx-auto text-sm sm:text-base">
+                  <Plus size={18} />
+                  Start Creating
+                </button>
+              </Link>
+            )}
+          </motion.div>
         ) : (
           <>
-            <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {displayItems.map((item, i) => {
-                const isProject = activeTab === 'projects';
-                const post = !isProject ? (item as Post) : null;
-                const project = isProject ? (item as Project) : null;
-                
-                return (
+            {/* Posts Grid - Feed Style */}
+            {activeTab === 'posts' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {posts.map((post, index) => (
                   <motion.div
-                    key={item.id}
+                    key={`${post.id}-${index}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i % 12, 11) * 0.05 }}
-                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
                   >
+
                     {/* Preview */}
-                    <div 
-                      className="aspect-square bg-white cursor-pointer relative overflow-hidden"
-                      onClick={() => setSelectedItem(item)}
-                    >
-                      <iframe
-                        srcDoc={`
-                          <!DOCTYPE html>
-                          <html>
-                            <head>
-                              <style>
-                                * { margin: 0; padding: 0; }
-                                body { overflow: hidden; transform: scale(0.5); transform-origin: top left; width: 200%; height: 200%; }
-                                audio, video { display: none !important; }
-                              </style>
-                            </head>
-                            <body>
-                              ${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}
-                            </body>
-                          </html>
-                        `}
-                        className="w-full h-full pointer-events-none"
-                        sandbox=""
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Eye className="text-white drop-shadow-lg" size={32} />
+                    <Link href={`/post/${post.id}`}>
+                      <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
+                        <iframe
+                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
+                          className="w-full h-full pointer-events-none"
+                          sandbox=""
+                          loading="lazy"
+                        />
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                      </div>
+                    </Link>
+
+                    {/* Post Info */}
+                    <div className="p-3 sm:p-4 space-y-3">
+                      <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+
+                      {post.prompt_visible && post.prompt && (
+                        <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Code2 size={10} className="text-purple-400" />
+                            <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <button
+                            onClick={() => handleLike(post.id, post.is_liked || false)}
+                            className="flex items-center gap-1.5 hover:scale-110 transition-transform"
+                          >
+                            {post.is_liked ? (
+                              <Image 
+                                src="/logo.png" 
+                                alt="Liked" 
+                                width={20} 
+                                height={20}
+                              />
+                            ) : (
+                              <Heart size={18} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                            )}
+                            <span className="text-xs sm:text-sm font-bold text-gray-400">{post.likes_count || 0}</span>
+                          </button>
+
+                          <Link href={`/post/${post.id}#comments`}>
+                            <button className="flex items-center gap-1.5 text-gray-500 hover:text-pink-400 transition-colors">
+                              <MessageCircle size={18} />
+                              <span className="text-xs sm:text-sm font-bold">{post.comments_count || 0}</span>
+                            </button>
+                          </Link>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleSave(post.id, post.is_saved || false)}
+                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                          >
+                            <Bookmark 
+                              size={18} 
+                              className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
+                            />
+                          </button>
+
+                          <button 
+                            onClick={() => handleSharePost(post)} 
+                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                          >
+                            <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                          </button>
+
+                          {isOwnProfile && (
+                            <button
+                              onClick={() => handleDeletePost(post.id)}
+                              className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                            >
+                              <Trash2 size={18} className="text-gray-500 hover:text-red-400 transition-colors" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
 
-                    {/* Info Overlay for Projects */}
-                    {isProject && project && isOwnProfile && (
-                      <div className="absolute top-2 right-2 z-10 flex gap-1">
-                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+            {/* Projects Grid */}
+            {activeTab === 'projects' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {projects.map((project, index) => (
+                  <motion.div
+                    key={`${project.id}-${index}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
+                  >
+                    {/* Status Badge */}
+                    {isOwnProfile && (
+                      <div className="absolute top-3 right-3 z-10">
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-bold shadow-lg ${
                           project.is_draft 
                             ? 'bg-yellow-500/90 text-black' 
                             : 'bg-green-500/90 text-black'
@@ -845,17 +1142,35 @@ export default function ProfilePage() {
                       </div>
                     )}
 
-                    {/* Hover Actions for Projects */}
-                    {isProject && project && isOwnProfile && (
-                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity space-y-2">
-                        <p className="text-sm font-bold line-clamp-1 mb-2">
-                          {project.title || 'Untitled'}
-                        </p>
-                        
-                        <div className="flex gap-2">
+                    {/* Preview */}
+                    <div 
+                      className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all"
+                      onClick={() => setSelectedItem(project)}
+                    >
+                      <iframe
+                        srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${project.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
+                        className="w-full h-full pointer-events-none"
+                        sandbox=""
+                        loading="lazy"
+                      />
+                      
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
+                        <Eye className="text-white drop-shadow-lg" size={32} />
+                      </div>
+                    </div>
+
+                    {/* Project Info */}
+                    <div className="p-3 sm:p-4">
+                      <p className="text-sm sm:text-base font-bold mb-2 line-clamp-1">{project.title || 'Untitled Project'}</p>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Updated {new Date(project.updated_at).toLocaleDateString()}
+                      </p>
+
+                      {isOwnProfile && (
+                        <div className="flex gap-2 pt-3 border-t border-gray-800/50">
                           {project.session_id && (
                             <Link href={`/studio/${project.session_id}`} className="flex-1">
-                              <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold">
+                              <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold transition-colors">
                                 <Edit size={14} />
                                 Edit
                               </button>
@@ -868,8 +1183,8 @@ export default function ProfilePage() {
                                 e.stopPropagation();
                                 handleShareClick(project);
                               }}
-                              className="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg"
-                              title="Share"
+                              className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                              title="Share to Feed"
                             >
                               <Share2 size={14} />
                             </button>
@@ -877,7 +1192,7 @@ export default function ProfilePage() {
                           
                           {!project.is_draft && project.post_id && (
                             <Link href={`/post/${project.post_id}`} onClick={(e) => e.stopPropagation()}>
-                              <button className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg" title="View Post">
+                              <button className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors" title="View Post">
                                 <ExternalLink size={14} />
                               </button>
                             </Link>
@@ -888,51 +1203,130 @@ export default function ProfilePage() {
                               e.stopPropagation();
                               handleDeleteProject(project);
                             }}
-                            className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
-                            title="Delete"
+                            className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                            title="Delete Project"
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
 
-                    {/* Post Stats */}
-                    {!isProject && post && (
-                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                        <p className="text-sm font-semibold line-clamp-2 mb-2">
-                          {post.caption || 'Untitled'}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 text-xs">
-                            <span className="flex items-center gap-1">
-                              <Heart size={14} />
-                              {post.likes_count || 0}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Code2 size={14} />
-                              {post.comments_count || 0}
-                            </span>
-                          </div>
-                          {isOwnProfile && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeletePost(post.id);
-                              }}
-                              className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg"
-                              title="Delete Post"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+            {/* Saved Posts Grid - Feed Style */}
+            {activeTab === 'saved' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {savedPosts.map((post, index) => (
+                  <motion.div
+                    key={`${post.id}-${index}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
+                  >
+                    {/* User Info Header */}
+                    <div className="p-3 sm:p-4 border-b border-gray-800/50 bg-black/40 backdrop-blur-sm">
+                      <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 sm:gap-3 hover:opacity-70 transition-opacity">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0 overflow-hidden">
+                          {post.profiles?.avatar_url ? (
+                            <img 
+                              src={post.profiles.avatar_url} 
+                              alt={post.profiles.display_name || 'User'}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
                           )}
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
+                        </div>
+                      </Link>
+                    </div>
+
+                    {/* Preview */}
+                    <Link href={`/post/${post.id}`}>
+                      <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
+                        <iframe
+                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
+                          className="w-full h-full pointer-events-none"
+                          sandbox=""
+                          loading="lazy"
+                        />
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                       </div>
-                    )}
+                    </Link>
+
+                    {/* Post Info */}
+                    <div className="p-3 sm:p-4 space-y-3">
+                      <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+
+                      {post.prompt_visible && post.prompt && (
+                        <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Code2 size={10} className="text-purple-400" />
+                            <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <button
+                            onClick={() => handleLike(post.id, post.is_liked || false)}
+                            className="flex items-center gap-1.5 hover:scale-110 transition-transform"
+                          >
+                            {post.is_liked ? (
+                              <Image 
+                                src="/logo.png" 
+                                alt="Liked" 
+                                width={20} 
+                                height={20}
+                              />
+                            ) : (
+                              <Heart size={18} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                            )}
+                            <span className="text-xs sm:text-sm font-bold text-gray-400">{post.likes_count || 0}</span>
+                          </button>
+
+                          <Link href={`/post/${post.id}#comments`}>
+                            <button className="flex items-center gap-1.5 text-gray-500 hover:text-pink-400 transition-colors">
+                              <MessageCircle size={18} />
+                              <span className="text-xs sm:text-sm font-bold">{post.comments_count || 0}</span>
+                            </button>
+                          </Link>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleSave(post.id, post.is_saved || false)}
+                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                          >
+                            <Bookmark 
+                              size={18} 
+                              className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
+                            />
+                          </button>
+
+                          <button 
+                            onClick={() => handleSharePost(post)} 
+                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                          >
+                            <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Infinite Scroll Trigger */}
             <div ref={observerTarget} className="py-8 flex justify-center">
@@ -961,7 +1355,7 @@ export default function ProfilePage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-6"
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 sm:p-6"
           onClick={() => setSelectedItem(null)}
         >
           <motion.div
@@ -971,9 +1365,9 @@ export default function ProfilePage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-full flex flex-col">
-              <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
+              <div className="p-3 sm:p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
                 <div>
-                  <h3 className="font-bold">
+                  <h3 className="font-bold text-sm sm:text-base">
                     {'caption' in selectedItem ? selectedItem.caption : 'title' in selectedItem ? selectedItem.title : 'Preview'}
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -983,9 +1377,9 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2">
                   {'session_id' in selectedItem && selectedItem.session_id && isOwnProfile && (
                     <Link href={`/studio/${selectedItem.session_id}`}>
-                      <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center gap-2 text-sm">
+                      <button className="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center gap-2 text-xs sm:text-sm">
                         <Edit size={16} />
-                        Edit
+                        <span className="hidden sm:inline">Edit</span>
                       </button>
                     </Link>
                   )}
@@ -998,7 +1392,7 @@ export default function ProfilePage() {
                   )}
                   <button 
                     onClick={() => setSelectedItem(null)} 
-                    className="text-gray-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center hover:bg-gray-800 rounded-full transition-colors"
+                    className="text-gray-400 hover:text-white text-xl sm:text-2xl w-8 h-8 flex items-center justify-center hover:bg-gray-800 rounded-full transition-colors"
                   >
                     ✕
                   </button>
@@ -1022,7 +1416,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6"
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 sm:p-6"
             onClick={() => !sharing && setShowShareModal(false)}
           >
             <motion.div
@@ -1030,12 +1424,12 @@ export default function ProfilePage() {
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+              className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-2xl"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold">📢 Share to Feed</h3>
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h3 className="text-lg sm:text-xl font-bold">📢 Share to Feed</h3>
                 <button onClick={() => !sharing && setShowShareModal(false)} disabled={sharing}>
-                  <span className="text-2xl text-gray-400 hover:text-white">✕</span>
+                  <span className="text-xl sm:text-2xl text-gray-400 hover:text-white">✕</span>
                 </button>
               </div>
 
@@ -1044,11 +1438,11 @@ export default function ProfilePage() {
                 value={shareCaption}
                 onChange={(e) => setShareCaption(e.target.value)}
                 placeholder="Add a caption..."
-                className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4"
+                className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4 text-sm sm:text-base"
                 disabled={sharing}
               />
 
-              <label className="flex items-center gap-3 mb-6 cursor-pointer">
+              <label className="flex items-center gap-3 mb-4 sm:mb-6 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={promptVisible}
@@ -1056,7 +1450,7 @@ export default function ProfilePage() {
                   className="w-5 h-5"
                   disabled={sharing}
                 />
-                <span className="text-sm text-gray-400">Share prompt publicly</span>
+                <span className="text-xs sm:text-sm text-gray-400">Share prompt publicly</span>
               </label>
 
               <motion.button
@@ -1064,7 +1458,7 @@ export default function ProfilePage() {
                 disabled={!shareCaption.trim() || sharing}
                 whileHover={!sharing ? { scale: 1.02 } : {}}
                 whileTap={!sharing ? { scale: 0.98 } : {}}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 {sharing ? (
                   <>
