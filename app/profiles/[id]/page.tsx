@@ -685,7 +685,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3 sm:gap-4">
                 {[
                   { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
-                  { label: 'Garlics', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' }
+                  { label: 'Garliqs', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' }
                 ].map((stat, i) => (
                   <motion.div
                     key={i}
@@ -915,7 +915,7 @@ export default function ProfilePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               {[
                 { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
-                { label: 'Garlics', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' },
+                { label: 'Garliqs', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' },
                 { label: 'Projects', value: stats.projects, icon: Code2, color: 'text-green-400' },
                 { label: 'Saved', value: stats.saves, icon: Bookmark, color: 'text-orange-400', hideForOthers: true }
               ].map((stat, i) => (
