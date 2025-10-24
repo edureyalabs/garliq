@@ -682,7 +682,7 @@ export default function ProfilePage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 {[
                   { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
                   { label: 'Garlics', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' }
@@ -692,7 +692,7 @@ export default function ProfilePage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 sm:p-4"
+                    className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 sm:p-4 w-32 sm:w-36"
                   >
                     <stat.icon className={`${stat.color} mb-2`} size={18} />
                     <div className="text-xl sm:text-2xl font-black">{stat.value}</div>
@@ -741,27 +741,6 @@ export default function ProfilePage() {
                     transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
                     className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
                   >
-                    {/* User Info Header */}
-                    <div className="p-3 sm:p-4 border-b border-gray-800/50 bg-black/40 backdrop-blur-sm">
-                      <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 sm:gap-3 hover:opacity-70 transition-opacity">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0 overflow-hidden">
-                          {profile.avatar_url ? (
-                            <img 
-                              src={profile.avatar_url} 
-                              alt={profile.display_name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span>{profile.display_name[0].toUpperCase()}</span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs sm:text-sm font-semibold truncate">{profile.display_name}</p>
-                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">@{profile.username}</p>
-                        </div>
-                      </Link>
-                    </div>
-
                     {/* Preview */}
                     <Link href={`/post/${post.id}`}>
                       <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
