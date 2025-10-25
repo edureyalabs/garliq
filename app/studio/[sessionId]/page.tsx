@@ -496,12 +496,12 @@ export default function StudioPage() {
               {session.selected_model === 'claude-sonnet-4.5' ? (
                 <>
                   <Crown size={16} className="text-pink-400" />
-                  <span className="text-sm font-mono text-pink-400">Claude</span>
+                  <span className="text-sm font-mono text-pink-400">Pro Agent</span>
                 </>
               ) : (
                 <>
                   <Zap size={16} className="text-purple-400" />
-                  <span className="text-sm font-mono text-purple-400">Llama</span>
+                  <span className="text-sm font-mono text-purple-400">Basic Agent</span>
                 </>
               )}
             </div>
