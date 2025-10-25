@@ -31,9 +31,9 @@ export async function POST(request: Request) {
 
     // Validate amount
     const amount = parseFloat(amountUSD);
-    if (isNaN(amount) || amount < 3) {
+    if (isNaN(amount) || amount < 1) {
       return NextResponse.json(
-        { error: 'Minimum purchase amount is $3 USD' },
+        { error: 'Minimum purchase amount is $1 USD' },
         { status: 400 }
       );
     }
