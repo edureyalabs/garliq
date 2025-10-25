@@ -59,6 +59,7 @@ export default function StudioPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const generationTriggeredRef = useRef(false);
   const previousStatusRef = useRef<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     checkUser();
@@ -107,8 +108,22 @@ export default function StudioPage() {
     };
   }, []);
 
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [inputMessage]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const scrollHeight = textarea.scrollHeight;
+      const maxHeight = 120; // Approximately 5 lines (24px per line)
+      textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+    }
   };
 
   const checkUser = async () => {
@@ -697,9 +712,9 @@ export default function StudioPage() {
           </div>
 
           <div className="p-6 border-t border-gray-800 flex-shrink-0">
-            <div className="flex gap-2">
-              <input
-                type="text"
+            <div className="flex gap-2 items-end">
+              <textarea
+                ref={textareaRef}
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => {
@@ -708,15 +723,17 @@ export default function StudioPage() {
                     handleSendMessage();
                   }
                 }}
-                placeholder="Describe your changes..."
-                className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none"
+                placeholder="Describe your changes... (Shift+Enter for new line)"
+                className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none resize-none overflow-y-auto scrollbar-hide"
+                style={{ minHeight: '48px', maxHeight: '120px' }}
                 disabled={loading || session.generation_status === 'generating'}
                 maxLength={10000}
+                rows={1}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!inputMessage.trim() || loading || session.generation_status === 'generating'}
-                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
               >
                 <Send size={20} />
               </button>

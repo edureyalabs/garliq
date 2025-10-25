@@ -284,7 +284,7 @@ export default function CreatePage() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="A cyberpunk portfolio with neon gradients and floating particles..."
+                placeholder="Describe your visualization to the agent, include as much detail as possible..."
                 className="w-full h-64 bg-black/50 text-white p-4 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none resize-none font-mono text-sm placeholder:text-gray-600"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.ctrlKey) {
