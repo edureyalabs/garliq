@@ -45,8 +45,8 @@ export default function TokenPurchaseModal({
   const handlePurchase = async () => {
     const amount = parseFloat(amountUSD);
     
-    if (amount < 1) {
-      setError('Minimum purchase is $1 USD');
+    if (amount < 3) {
+      setError('Minimum purchase is $3 USD');
       return;
     }
 
@@ -176,12 +176,12 @@ export default function TokenPurchaseModal({
               type="number"
               value={amountUSD}
               onChange={(e) => setAmountUSD(e.target.value)}
-              min="1"
+              min="3"
               step="0.01"
               disabled={loading}
               className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none text-2xl font-bold"
             />
-            <p className="text-xs text-gray-500 mt-1">Minimum: $1.00 USD</p>
+            <p className="text-xs text-gray-500 mt-1">Minimum: $3.00 USD</p>
           </div>
 
           <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 mb-6">
@@ -218,7 +218,7 @@ export default function TokenPurchaseModal({
 
           <button
             onClick={handlePurchase}
-            disabled={loading || parseFloat(amountUSD) < 1 || success}
+            disabled={loading || parseFloat(amountUSD) < 3 || success}
             className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 flex items-center justify-center gap-2"
           >
             {loading ? (
