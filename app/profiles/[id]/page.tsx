@@ -88,6 +88,7 @@ export default function ProfilePage() {
   useEffect(() => {
     checkUser();
     fetchProfile();
+    fetchAllStats();
   }, [userId]);
 
   useEffect(() => {
@@ -151,6 +152,41 @@ export default function ProfilePage() {
     setTokenBalance(data?.token_balance || 0);
   };
 
+  const fetchAllStats = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // Fetch posts count and total likes
+    const { count: postsCount, data: postsData } = await supabase
+      .from('posts')
+      .select('likes_count', { count: 'exact' })
+      .eq('user_id', userId);
+    
+    const totalLikes = postsData?.reduce((sum, post) => sum + (post.likes_count || 0), 0) || 0;
+    
+    // Fetch projects count
+    const { count: projectsCount } = await supabase
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    
+    // Fetch saved count (only if viewing own profile)
+    let savesCount = 0;
+    if (session && session.user.id === userId) {
+      const { count } = await supabase
+        .from('saves')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', session.user.id);
+      savesCount = count || 0;
+    }
+    
+    setStats({
+      posts: postsCount || 0,
+      totalLikes,
+      projects: projectsCount || 0,
+      saves: savesCount
+    });
+  };
+
   const fetchProfile = async () => {
     const { data } = await supabase
       .from('profiles')
@@ -209,12 +245,6 @@ export default function ProfilePage() {
 
       if (pageNum === 0) {
         setPosts(postsWithInteractions);
-        const totalLikes = data.reduce((sum, post) => sum + (post.likes_count || 0), 0);
-        setStats(prev => ({ 
-          ...prev, 
-          posts: count || data.length, 
-          totalLikes 
-        }));
       } else {
         setPosts(prev => {
           const existingIds = new Set(prev.map(p => p.id));
@@ -251,7 +281,6 @@ export default function ProfilePage() {
     if (data) {
       if (pageNum === 0) {
         setProjects(data);
-        setStats(prev => ({ ...prev, projects: count || data.length }));
       } else {
         setProjects(prev => {
           const existingIds = new Set(prev.map(p => p.id));
@@ -283,7 +312,6 @@ export default function ProfilePage() {
     if (savesError || !saves || saves.length === 0) {
       if (pageNum === 0) {
         setSavedPosts([]);
-        setStats(prev => ({ ...prev, saves: 0 }));
       }
       setHasMore(false);
       setLoading(false);
@@ -327,7 +355,6 @@ export default function ProfilePage() {
 
       if (pageNum === 0) {
         setSavedPosts(postsWithInteractions);
-        setStats(prev => ({ ...prev, saves: count || posts.length }));
       } else {
         setSavedPosts(prev => {
           const existingIds = new Set(prev.map(p => p.id));
@@ -508,6 +535,7 @@ export default function ProfilePage() {
       setPage(0);
       setHasMore(true);
       await fetchUserProjects(0);
+      await fetchAllStats();
       
       alert('✅ Project published to feed!');
     } catch (error: any) {
@@ -542,6 +570,7 @@ export default function ProfilePage() {
       setPage(0);
       setHasMore(true);
       await fetchUserProjects(0);
+      await fetchAllStats();
     } catch (error: any) {
       console.error('Delete error:', error);
       alert('❌ ' + error.message);
@@ -574,6 +603,7 @@ export default function ProfilePage() {
       setPage(0);
       setHasMore(true);
       await Promise.all([fetchUserPosts(0), fetchUserProjects(0)]);
+      await fetchAllStats();
     } catch (error: any) {
       console.error('Delete post error:', error);
       alert('❌ ' + error.message);

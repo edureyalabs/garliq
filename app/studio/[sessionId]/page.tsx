@@ -723,7 +723,7 @@ export default function StudioPage() {
                     handleSendMessage();
                   }
                 }}
-                placeholder="Describe your changes... (Shift+Enter for new line)"
+                placeholder="Describe your changes..."
                 className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none resize-none overflow-y-auto scrollbar-hide"
                 style={{ minHeight: '48px', maxHeight: '120px' }}
                 disabled={loading || session.generation_status === 'generating'}

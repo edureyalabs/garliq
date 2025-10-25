@@ -22,10 +22,13 @@ export default function TokenPurchaseModal({
   const [tokensPerDollar, setTokensPerDollar] = useState<number>(1000000);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       fetchTokenPrice();
+      setSuccess(false);
+      setError('');
     }
   }, [isOpen]);
 
@@ -42,8 +45,8 @@ export default function TokenPurchaseModal({
   const handlePurchase = async () => {
     const amount = parseFloat(amountUSD);
     
-    if (amount < 3) {
-      setError('Minimum purchase is $3 USD');
+    if (amount < 1) {
+      setError('Minimum purchase is $1 USD');
       return;
     }
 
@@ -95,12 +98,19 @@ export default function TokenPurchaseModal({
           const verifyData = await verifyRes.json();
           
           if (verifyData.success) {
-            onSuccess();
-            onClose();
+            setSuccess(true);
+            setLoading(false);
+            onSuccess(); // Update balance
+            
+            // Wait 2.5 seconds to show success message, then close
+            setTimeout(() => {
+              setSuccess(false);
+              onClose();
+            }, 2500);
           } else {
             setError('Payment verification failed');
+            setLoading(false);
           }
-          setLoading(false);
         },
         modal: {
           ondismiss: () => {
@@ -166,12 +176,12 @@ export default function TokenPurchaseModal({
               type="number"
               value={amountUSD}
               onChange={(e) => setAmountUSD(e.target.value)}
-              min="3"
+              min="1"
               step="0.01"
               disabled={loading}
               className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none text-2xl font-bold"
             />
-            <p className="text-xs text-gray-500 mt-1">Minimum: $3.00 USD</p>
+            <p className="text-xs text-gray-500 mt-1">Minimum: $1.00 USD</p>
           </div>
 
           <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 mb-6">
@@ -190,15 +200,36 @@ export default function TokenPurchaseModal({
             </div>
           )}
 
+          {success && (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400"
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">✅</div>
+                <div>
+                  <p className="font-bold">Payment Successful!</p>
+                  <p className="text-sm text-green-300">{calculateTokens().toLocaleString()} tokens added to your account</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           <button
             onClick={handlePurchase}
-            disabled={loading || parseFloat(amountUSD) < 3}
+            disabled={loading || parseFloat(amountUSD) < 1 || success}
             className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
                 <Loader2 className="animate-spin" size={20} />
                 Processing...
+              </>
+            ) : success ? (
+              <>
+                <Zap size={20} />
+                Success! Closing...
               </>
             ) : (
               `Purchase for $${parseFloat(amountUSD).toFixed(2)}`
