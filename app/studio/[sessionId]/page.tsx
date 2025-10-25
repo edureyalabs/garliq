@@ -679,8 +679,8 @@ export default function StudioPage() {
                   {(session.generation_status === 'pending' || session.generation_status === 'generating' || loading) && (
                     <>
                       <Loader2 className="animate-spin mx-auto mb-4" size={48} />
-                      <p className="text-lg font-semibold mb-2">Creating your micro-app...</p>
-                      <p className="text-sm text-gray-500">This usually takes 20-40 seconds</p>
+                      <p className="text-lg font-semibold mb-2">Crafting your visualization...</p>
+                      <p className="text-sm text-gray-500">This usually takes 3 - 7 minutes for longer generations.</p>
                     </>
                   )}
                   {session.generation_status === 'failed' && (
