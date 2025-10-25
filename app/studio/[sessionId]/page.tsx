@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw, CheckCircle, AlertCircle, RotateCcw, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 
 interface Message {
@@ -596,41 +596,74 @@ export default function StudioPage() {
               </motion.div>
             )}
 
-            {/* ✅ IMPROVED: Better error display with retry button */}
+            {/* ✅ ENHANCED: Error display with beta context banner */}
             {session.generation_status === 'failed' && session.generation_error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-5 bg-red-500/10 border-2 border-red-500/30 rounded-xl"
+                className="space-y-3"
               >
-                <div className="flex items-start gap-3 mb-3">
-                  <AlertCircle size={24} className="text-red-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-red-400 font-bold text-base mb-2">Generation Failed</p>
-                    {/* ✅ CHANGED: Show user-friendly error message */}
-                    <p className="text-gray-300 text-sm leading-relaxed">
-                      {session.generation_error}
-                    </p>
+                {/* Main Error Card */}
+                <div className="p-5 bg-red-500/10 border-2 border-red-500/30 rounded-xl">
+                  <div className="flex items-start gap-3 mb-3">
+                    <AlertCircle size={24} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-red-400 font-bold text-base mb-2">Generation Failed</p>
+                      <p className="text-gray-300 text-sm leading-relaxed">
+                        {session.generation_error}
+                      </p>
+                    </div>
                   </div>
+                  
+                  {/* Retry button */}
+                  <motion.button
+                    onClick={handleRetryGeneration}
+                    disabled={loading}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full mt-3 bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <RotateCcw size={16} />
+                    Retry Generation
+                  </motion.button>
+                  
+                  {session.retry_count > 0 && (
+                    <p className="text-gray-500 text-xs mt-2 text-center">
+                      Previous attempts: {session.retry_count}
+                    </p>
+                  )}
                 </div>
-                
-                {/* ✅ NEW: Retry button */}
-                <motion.button
-                  onClick={handleRetryGeneration}
-                  disabled={loading}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full mt-3 bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+
+                {/* ✅ NEW: Beta Context Banner - Only shows on failure */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-gradient-to-r from-yellow-900/30 via-orange-900/30 to-yellow-900/30 border border-yellow-700/40 rounded-xl p-4 backdrop-blur-sm"
                 >
-                  <RotateCcw size={16} />
-                  Retry Generation
-                </motion.button>
-                
-                {session.retry_count > 0 && (
-                  <p className="text-gray-500 text-xs mt-2 text-center">
-                    Previous attempts: {session.retry_count}
-                  </p>
-                )}
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full">
+                        <Sparkles size={12} className="text-yellow-400" />
+                        <span className="text-xs font-bold text-yellow-400">BETA</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-300 leading-relaxed mb-2">
+                        <span className="font-semibold text-yellow-300">We're still evolving!</span> Some generations may fail due to API rate limits or system load.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2 text-xs">
+                        <span className="text-gray-400">
+                          💡 <span className="text-blue-300 font-semibold">Try retrying</span> - it often works the second time
+                        </span>
+                        <span className="text-gray-500 hidden sm:block">•</span>
+                        <span className="text-gray-400">
+                          Need help? <a href="mailto:team@parasync.in" className="text-purple-400 underline hover:text-purple-300">Contact support</a>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
               </motion.div>
             )}
 

@@ -131,7 +131,7 @@ export default function CreatePage() {
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
               <Terminal size={16} className="text-purple-400" />
-              <span className="text-sm font-mono text-gray-400">v1.0.0</span>
+              <span className="text-sm font-mono text-gray-400">v1.0.0 Beta</span>
             </div>
           </div>
         </div>
