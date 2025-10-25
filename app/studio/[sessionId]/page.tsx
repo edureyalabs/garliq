@@ -724,7 +724,7 @@ export default function StudioPage() {
                       <Loader2 className="animate-spin mx-auto mb-4" size={48} />
                       <p className="text-lg font-semibold mb-2">Crafting your visualization...</p>
                       <p className="text-sm text-gray-500">This can take 5-15 minutes for complex generations.</p>
-                      <p className="text-xs text-gray-600 mt-2">Maximum generation time: 30 minutes</p>
+                      <p className="text-xs text-gray-600 mt-2">Maximum generation time: 20 minutes</p>
                     </>
                   )}
                   {session.generation_status === 'failed' && (
