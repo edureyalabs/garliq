@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
 import Image from 'next/image';
 
 interface Message {
@@ -274,6 +274,23 @@ export default function StudioPage() {
     }
   };
 
+  const handleRetryGeneration = async () => {
+    if (!user || !session || loading) return;
+
+    // Reset error state
+    setSession(prev => prev ? {
+      ...prev,
+      generation_status: 'pending',
+      generation_error: null
+    } : null);
+
+    // Get the last user message to retry
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    if (lastUserMessage) {
+      await handleGeneration(lastUserMessage.content);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading) return;
 
@@ -454,11 +471,11 @@ export default function StudioPage() {
           >
             <ArrowLeft size={24} />
             <Image 
-  src="/logo.png" 
-  alt="Garliq" 
-  width={36} 
-  height={36}
-/>
+              src="/logo.png" 
+              alt="Garliq" 
+              width={36} 
+              height={36}
+            />
             <h1 className="text-xl font-black">{session.title}</h1>
           </button>
 
@@ -579,15 +596,41 @@ export default function StudioPage() {
               </motion.div>
             )}
 
+            {/* ✅ IMPROVED: Better error display with retry button */}
             {session.generation_status === 'failed' && session.generation_error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
+                className="p-5 bg-red-500/10 border-2 border-red-500/30 rounded-xl"
               >
-                <p className="text-red-400 text-sm font-bold mb-2">❌ Generation Failed</p>
-                <p className="text-gray-400 text-xs">{session.generation_error}</p>
-                <p className="text-gray-500 text-xs mt-2">Retry count: {session.retry_count}</p>
+                <div className="flex items-start gap-3 mb-3">
+                  <AlertCircle size={24} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-red-400 font-bold text-base mb-2">Generation Failed</p>
+                    {/* ✅ CHANGED: Show user-friendly error message */}
+                    <p className="text-gray-300 text-sm leading-relaxed">
+                      {session.generation_error}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* ✅ NEW: Retry button */}
+                <motion.button
+                  onClick={handleRetryGeneration}
+                  disabled={loading}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full mt-3 bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  <RotateCcw size={16} />
+                  Retry Generation
+                </motion.button>
+                
+                {session.retry_count > 0 && (
+                  <p className="text-gray-500 text-xs mt-2 text-center">
+                    Previous attempts: {session.retry_count}
+                  </p>
+                )}
               </motion.div>
             )}
 
@@ -680,13 +723,14 @@ export default function StudioPage() {
                     <>
                       <Loader2 className="animate-spin mx-auto mb-4" size={48} />
                       <p className="text-lg font-semibold mb-2">Crafting your visualization...</p>
-                      <p className="text-sm text-gray-500">This usually takes 3 - 7 minutes for longer generations.</p>
+                      <p className="text-sm text-gray-500">This can take 5-15 minutes for complex generations.</p>
+                      <p className="text-xs text-gray-600 mt-2">Maximum generation time: 30 minutes</p>
                     </>
                   )}
                   {session.generation_status === 'failed' && (
                     <>
                       <X className="mx-auto mb-4 text-red-400" size={48} />
-                      <p>Generation failed. Please try again.</p>
+                      <p>Generation failed. Check the error message and retry.</p>
                     </>
                   )}
                 </div>
@@ -696,7 +740,7 @@ export default function StudioPage() {
         </div>
       </div>
 
-      {/* Share Modal - Improved Design */}
+      {/* Share Modal */}
       <AnimatePresence>
         {showPublishModal && (
           <motion.div
