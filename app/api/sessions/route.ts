@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { checkApiSubscription } from '@/lib/api-subscription-check';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,18 @@ const supabase = createClient(
 );
 
 export async function POST(request: Request) {
+  // Add subscription check FIRST
+  const authCheck = await checkApiSubscription();
+  
+  if (!authCheck.authorized) {
+    return NextResponse.json(
+      { error: authCheck.error },
+      { status: authCheck.error === 'Unauthorized' ? 401 : 403 }
+    );
+  }
+
+  const user = authCheck.user;
+
   try {
     const { initialPrompt, userId, selectedModel } = await request.json();
 
@@ -21,9 +34,9 @@ export async function POST(request: Request) {
         user_id: userId,
         title: initialPrompt.substring(0, 50) + '...',
         initial_prompt: initialPrompt,
-        generation_status: 'pending', // ✅ CHANGED: was 'status: active'
+        generation_status: 'pending',
         selected_model: selectedModel || 'llama-3.3-70b',
-        retry_count: 0 // ✅ NEW: initialize retry count
+        retry_count: 0
       })
       .select()
       .single();
@@ -33,7 +46,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    // ✅ NEW: Immediately save user prompt to chat_messages
+    // Immediately save user prompt to chat_messages
     await supabase
       .from('chat_messages')
       .insert({

@@ -7,6 +7,8 @@ import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Trash2, Sparkl
 import Link from 'next/link';
 import GarliqWebContainer from '@/components/GarliqWebContainer';
 import Image from 'next/image';
+import { useSubscription } from '@/hooks/useSubscription';
+import SubscriptionModal from '@/components/SubscriptionModal';
 
 interface Post {
   id: string;
@@ -54,8 +56,11 @@ export default function PostDetailPage() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  const { subscription, loading: subLoading, refetch: refetchSubscription } = useSubscription();
 
   // Memoize container props to prevent re-renders when comments change
   const containerProps = useMemo(() => ({
@@ -242,6 +247,12 @@ export default function PostDetailPage() {
   const handleLike = async () => {
     if (!user || !post) return;
 
+    // Check subscription for logged-in users
+    if (!subLoading && !subscription?.is_active) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     const isLiked = post.is_liked;
     console.log('Like action:', { isLiked, currentCount: post.likes_count });
     
@@ -285,6 +296,12 @@ export default function PostDetailPage() {
 
   const handleSave = async () => {
     if (!user || !post) return;
+
+    // Check subscription for logged-in users
+    if (!subLoading && !subscription?.is_active) {
+      setShowSubscriptionModal(true);
+      return;
+    }
 
     const isSaved = post.is_saved;
     setPost(prev => prev ? { ...prev, is_saved: !isSaved } : null);
@@ -349,6 +366,12 @@ export default function PostDetailPage() {
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !user || submittingComment) return;
 
+    // Check subscription for logged-in users
+    if (!subLoading && !subscription?.is_active) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     setSubmittingComment(true);
     console.log('Submitting comment...');
 
@@ -398,7 +421,11 @@ export default function PostDetailPage() {
     }
   };
 
-  if (loading) {
+  const handleInteractionPrompt = () => {
+    setShowSubscriptionModal(true);
+  };
+
+  if (loading || subLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <motion.div
@@ -433,11 +460,11 @@ export default function PostDetailPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3 hover:opacity-70 transition-opacity">
               <Image 
-  src="/logo.png" 
-  alt="Garliq" 
-  width={48} 
-  height={48}
-/>
+                src="/logo.png" 
+                alt="Garliq" 
+                width={48} 
+                height={48}
+              />
               <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
                 Garliq
               </h1>
@@ -474,16 +501,16 @@ export default function PostDetailPage() {
               <div className="p-4 sm:p-6 border-b border-gray-800">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0 overflow-hidden">
-  {profile?.avatar_url ? (
-    <img 
-      src={profile.avatar_url} 
-      alt={profile.display_name || 'User'}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <span>{profile?.display_name?.[0]?.toUpperCase() || '?'}</span>
-  )}
-</div>
+                    {profile?.avatar_url ? (
+                      <img 
+                        src={profile.avatar_url} 
+                        alt={profile.display_name || 'User'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{profile?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                    )}
+                  </div>
                   <div>
                     <p className="font-bold">{profile?.display_name || 'Anonymous'}</p>
                     <p className="text-sm text-gray-500">@{profile?.username || 'unknown'}</p>
@@ -553,7 +580,46 @@ export default function PostDetailPage() {
     );
   }
 
-  // LOGGED-IN VIEW
+  // LOGGED-IN VIEW - Check subscription
+  if (!subscription?.is_active) {
+    return (
+      <>
+        <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+          <div className="max-w-md w-full text-center">
+            <div className="mb-6 flex justify-center">
+              <Image 
+                src="/logo.png" 
+                alt="Garliq" 
+                width={100} 
+                height={100}
+              />
+            </div>
+            <h2 className="text-2xl font-bold mb-4">Subscription Required</h2>
+            <p className="text-gray-400 mb-6">
+              Subscribe to view posts and interact with the community
+            </p>
+            <button
+              onClick={() => setShowSubscriptionModal(true)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-3 rounded-full font-bold"
+            >
+              Subscribe Now - $3/month
+            </button>
+          </div>
+        </div>
+
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={() => setShowSubscriptionModal(false)}
+          onSuccess={() => {
+            refetchSubscription();
+            setShowSubscriptionModal(false);
+          }}
+        />
+      </>
+    );
+  }
+
+  // LOGGED-IN WITH ACTIVE SUBSCRIPTION
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-40">
@@ -563,7 +629,6 @@ export default function PostDetailPage() {
             className="flex items-center gap-3 hover:opacity-70 transition-opacity"
           >
             <ArrowLeft size={24} />
-            {/* <span className="text-3xl">🧄</span> */}
           </button>
 
           <div className="flex items-center gap-2">
@@ -612,16 +677,16 @@ export default function PostDetailPage() {
             <div className="p-4 sm:p-6 border-b border-gray-800">
               <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-3 mb-4 hover:opacity-70 transition-opacity">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold flex-shrink-0 overflow-hidden">
-  {profile?.avatar_url ? (
-    <img 
-      src={profile.avatar_url} 
-      alt={profile.display_name || 'User'}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <span>{profile?.display_name?.[0]?.toUpperCase() || '?'}</span>
-  )}
-</div>
+                  {profile?.avatar_url ? (
+                    <img 
+                      src={profile.avatar_url} 
+                      alt={profile.display_name || 'User'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{profile?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                  )}
+                </div>
                 <div>
                   <p className="font-bold">{profile?.display_name || 'Anonymous'}</p>
                   <p className="text-sm text-gray-500">@{profile?.username || 'unknown'}</p>
@@ -679,16 +744,16 @@ export default function PostDetailPage() {
                     <div key={comment.id} className="flex gap-3">
                       <Link href={`/profiles/${comment.user_id}`} className="flex-shrink-0">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold overflow-hidden">
-  {comment.profiles?.avatar_url ? (
-    <img 
-      src={comment.profiles.avatar_url} 
-      alt={comment.profiles.display_name || 'User'}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <span>{comment.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-  )}
-</div>
+                          {comment.profiles?.avatar_url ? (
+                            <img 
+                              src={comment.profiles.avatar_url} 
+                              alt={comment.profiles.display_name || 'User'}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span>{comment.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                          )}
+                        </div>
                       </Link>
                       <div className="flex-1">
                         <Link href={`/profiles/${comment.user_id}`} className="hover:underline">
@@ -758,6 +823,15 @@ export default function PostDetailPage() {
           </div>
         </div>
       </div>
+
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        onSuccess={() => {
+          refetchSubscription();
+          setShowSubscriptionModal(false);
+        }}
+      />
     </div>
   );
 }

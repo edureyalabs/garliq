@@ -3,9 +3,10 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, Share2, ExternalLink, Trash2, Eye, Zap, Sparkles, MessageCircle, Plus } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, Share2, ExternalLink, Trash2, Eye, Zap, Sparkles, MessageCircle, Plus, Crown, Clock } from 'lucide-react';
 import Link from 'next/link';
 import TokenPurchaseModal from '@/components/TokenPurchaseModal';
+import SubscriptionModal from '@/components/SubscriptionModal';
 import Image from 'next/image';
 
 interface Profile {
@@ -15,6 +16,8 @@ interface Profile {
   bio: string | null;
   avatar_url: string | null;
   created_at: string;
+  subscription_status: 'none' | 'active' | 'expired' | 'cancelled' | 'trial';
+  subscription_expires_at: string | null;
 }
 
 interface Post {
@@ -49,6 +52,13 @@ interface Project {
   updated_at: string;
 }
 
+interface SubscriptionStatus {
+  is_active: boolean;
+  status: string;
+  expires_at: string | null;
+  days_remaining: number;
+}
+
 type TabType = 'posts' | 'projects' | 'saved';
 
 const ITEMS_PER_PAGE = 12;
@@ -76,6 +86,8 @@ export default function ProfilePage() {
   const [sharing, setSharing] = useState(false);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number>(0);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [stats, setStats] = useState({ 
     posts: 0, 
     totalLikes: 0,
@@ -111,6 +123,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (currentUser?.id === userId) {
       fetchTokenBalance();
+      fetchSubscriptionStatus();
     }
   }, [currentUser, userId]);
 
@@ -150,6 +163,44 @@ export default function ProfilePage() {
       .single();
 
     setTokenBalance(data?.token_balance || 0);
+  };
+
+  const fetchSubscriptionStatus = async () => {
+    if (!currentUser?.id) return;
+
+    const { data, error } = await supabase.rpc('check_subscription_status', {
+      p_user_id: currentUser.id,
+    });
+
+    if (!error && data) {
+      setSubscriptionStatus(data as SubscriptionStatus);
+    }
+  };
+
+  const getSubscriptionBadge = () => {
+    if (!subscriptionStatus) return null;
+
+    const colors = {
+      active: 'bg-green-100 text-green-800 border-green-300',
+      trial: 'bg-purple-100 text-purple-800 border-purple-300',
+      expired: 'bg-red-100 text-red-800 border-red-300',
+      cancelled: 'bg-orange-100 text-orange-800 border-orange-300',
+      none: 'bg-gray-100 text-gray-800 border-gray-300',
+    };
+
+    const labels = {
+      active: 'Active Subscriber',
+      trial: 'Trial Period',
+      expired: 'Subscription Expired',
+      cancelled: 'Subscription Cancelled',
+      none: 'No Subscription',
+    };
+
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colors[subscriptionStatus.status as keyof typeof colors]}`}>
+        {labels[subscriptionStatus.status as keyof typeof labels]}
+      </span>
+    );
   };
 
   const fetchAllStats = async () => {
@@ -942,6 +993,70 @@ export default function ProfilePage() {
               </span>
             </div>
 
+            {/* SUBSCRIPTION STATUS CARD - Only for own profile */}
+            {isOwnProfile && subscriptionStatus && (
+              <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-gray-900/50 border border-gray-800 rounded-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
+                    <Crown size={20} className="text-purple-400" />
+                    Subscription Status
+                  </h3>
+                  {getSubscriptionBadge()}
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  {subscriptionStatus.expires_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 flex items-center gap-2">
+                        <Clock size={14} />
+                        {subscriptionStatus.is_active ? 'Expires' : 'Expired'}:
+                      </span>
+                      <span className="font-medium">
+                        {new Date(subscriptionStatus.expires_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  )}
+
+                  {subscriptionStatus.is_active && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Days Remaining:</span>
+                      <span className={`font-bold ${
+                        subscriptionStatus.days_remaining <= 3 ? 'text-red-400' :
+                        subscriptionStatus.days_remaining <= 7 ? 'text-orange-400' :
+                        'text-green-400'
+                      }`}>
+                        {subscriptionStatus.days_remaining} days
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {!subscriptionStatus.is_active && (
+                  <button
+                    onClick={() => setShowSubscriptionModal(true)}
+                    className="w-full mt-4 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Crown size={18} />
+                    Renew Subscription - $3/month
+                  </button>
+                )}
+
+                {subscriptionStatus.is_active && subscriptionStatus.days_remaining <= 7 && (
+                  <button
+                    onClick={() => setShowSubscriptionModal(true)}
+                    className="w-full mt-4 px-4 py-3 border-2 border-purple-600 text-purple-400 rounded-lg hover:bg-purple-600/10 font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Crown size={18} />
+                    Extend Subscription
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               {[
                 { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
@@ -1498,6 +1613,16 @@ export default function ProfilePage() {
         userId={userId}
         currentBalance={tokenBalance}
         onSuccess={fetchTokenBalance}
+      />
+
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        onSuccess={() => {
+          fetchSubscriptionStatus();
+          setShowSubscriptionModal(false);
+        }}
       />
     </div>
   );

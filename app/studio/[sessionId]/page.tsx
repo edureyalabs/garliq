@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw, CheckCircle, AlertCircle, RotateCcw, Sparkles } from 'lucide-react';
 import Image from 'next/image';
+import SubscriptionGuard from '@/components/SubscriptionGuard';
 
 interface Message {
   id: string;
@@ -121,7 +122,7 @@ export default function StudioPage() {
     if (textarea) {
       textarea.style.height = 'auto';
       const scrollHeight = textarea.scrollHeight;
-      const maxHeight = 120; // Approximately 5 lines (24px per line)
+      const maxHeight = 120;
       textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
     }
   };
@@ -292,14 +293,12 @@ export default function StudioPage() {
   const handleRetryGeneration = async () => {
     if (!user || !session || loading) return;
 
-    // Reset error state
     setSession(prev => prev ? {
       ...prev,
       generation_status: 'pending',
       generation_error: null
     } : null);
 
-    // Get the last user message to retry
     const lastUserMessage = messages.filter(m => m.role === 'user').pop();
     if (lastUserMessage) {
       await handleGeneration(lastUserMessage.content);
@@ -436,7 +435,6 @@ export default function StudioPage() {
       setPublishCaption('');
       await loadProject();
       
-      // Show success notification instead of navigating away
       setShowSuccessNotification(true);
       setTimeout(() => {
         setShowSuccessNotification(false);
@@ -476,453 +474,451 @@ export default function StudioPage() {
   }
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
-      {/* Top Bar */}
-      <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 flex-shrink-0">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <button 
-            onClick={() => router.push('/feed')} 
-            className="flex items-center gap-3 hover:opacity-70 transition-opacity"
-          >
-            <ArrowLeft size={24} />
-            <Image 
-              src="/logo.png" 
-              alt="Garliq" 
-              width={36} 
-              height={36}
-            />
-            <h1 className="text-xl font-black">{session.title}</h1>
-          </button>
+    <SubscriptionGuard requireActive={true}>
+      <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+        {/* Top Bar */}
+        <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 flex-shrink-0">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <button 
+              onClick={() => router.push('/feed')} 
+              className="flex items-center gap-3 hover:opacity-70 transition-opacity"
+            >
+              <ArrowLeft size={24} />
+              <Image 
+                src="/logo.png" 
+                alt="Garliq" 
+                width={36} 
+                height={36}
+              />
+              <h1 className="text-xl font-black">{session.title}</h1>
+            </button>
 
-          <div className="flex items-center gap-3">
-            <div className={`px-4 py-2 rounded-full border text-sm font-bold ${
-              session.generation_status === 'pending' ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400' :
-              session.generation_status === 'generating' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 animate-pulse' :
-              session.generation_status === 'completed' ? 'bg-green-500/20 border-green-500/30 text-green-400' :
-              'bg-red-500/20 border-red-500/30 text-red-400'
-            }`}>
-              {session.generation_status === 'pending' && '⏳ Pending'}
-              {session.generation_status === 'generating' && '🔄 Generating...'}
-              {session.generation_status === 'completed' && '✅ Ready'}
-              {session.generation_status === 'failed' && '❌ Failed'}
-            </div>
+            <div className="flex items-center gap-3">
+              <div className={`px-4 py-2 rounded-full border text-sm font-bold ${
+                session.generation_status === 'pending' ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400' :
+                session.generation_status === 'generating' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 animate-pulse' :
+                session.generation_status === 'completed' ? 'bg-green-500/20 border-green-500/30 text-green-400' :
+                'bg-red-500/20 border-red-500/30 text-red-400'
+              }`}>
+                {session.generation_status === 'pending' && '⏳ Pending'}
+                {session.generation_status === 'generating' && '🔄 Generating...'}
+                {session.generation_status === 'completed' && '✅ Ready'}
+                {session.generation_status === 'failed' && '❌ Failed'}
+              </div>
 
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
-              {session.selected_model === 'claude-sonnet-4.5' ? (
-                <>
-                  <Crown size={16} className="text-pink-400" />
-                  <span className="text-sm font-mono text-pink-400">Pro Agent</span>
-                </>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
+                {session.selected_model === 'claude-sonnet-4.5' ? (
+                  <>
+                    <Crown size={16} className="text-pink-400" />
+                    <span className="text-sm font-mono text-pink-400">Pro Agent</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap size={16} className="text-purple-400" />
+                    <span className="text-sm font-mono text-purple-400">Basic Agent</span>
+                  </>
+                )}
+              </div>
+
+              {session.selected_model === 'claude-sonnet-4.5' && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
+                  <Zap size={16} className="text-yellow-400" />
+                  <span className="text-sm font-bold">{tokenBalance.toLocaleString()}</span>
+                </div>
+              )}
+
+              <motion.button
+                onClick={handleSaveProject}
+                disabled={!currentHtml || saving || loading || session.generation_status === 'generating' || justSaved}
+                whileHover={!saving && !loading && !justSaved ? { scale: 1.05 } : {}}
+                whileTap={!saving && !loading && !justSaved ? { scale: 0.95 } : {}}
+                className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-all ${
+                  justSaved 
+                    ? 'bg-green-600 cursor-default' 
+                    : 'bg-yellow-600 hover:bg-yellow-700'
+                } disabled:opacity-30 disabled:cursor-not-allowed`}
+              >
+                <Save size={18} />
+                {saving ? 'Saving...' : justSaved ? 'Saved ✓' : 'Save Project'}
+              </motion.button>
+
+              {project?.post_id ? (
+                <motion.button
+                  onClick={handleUpdatePost}
+                  disabled={loading || !currentHtml || session.generation_status === 'generating'}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
+                >
+                  <RefreshCw size={18} />
+                  Update Post
+                </motion.button>
               ) : (
-                <>
-                  <Zap size={16} className="text-purple-400" />
-                  <span className="text-sm font-mono text-purple-400">Basic Agent</span>
-                </>
+                <motion.button
+                  onClick={() => setShowPublishModal(true)}
+                  disabled={!project || !currentHtml || session.generation_status !== 'completed' || loading}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
+                >
+                  <Share2 size={18} />
+                  Share to Feed
+                </motion.button>
               )}
             </div>
-
-            {session.selected_model === 'claude-sonnet-4.5' && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
-                <Zap size={16} className="text-yellow-400" />
-                <span className="text-sm font-bold">{tokenBalance.toLocaleString()}</span>
-              </div>
-            )}
-
-            <motion.button
-              onClick={handleSaveProject}
-              disabled={!currentHtml || saving || loading || session.generation_status === 'generating' || justSaved}
-              whileHover={!saving && !loading && !justSaved ? { scale: 1.05 } : {}}
-              whileTap={!saving && !loading && !justSaved ? { scale: 0.95 } : {}}
-              className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-all ${
-                justSaved 
-                  ? 'bg-green-600 cursor-default' 
-                  : 'bg-yellow-600 hover:bg-yellow-700'
-              } disabled:opacity-30 disabled:cursor-not-allowed`}
-            >
-              <Save size={18} />
-              {saving ? 'Saving...' : justSaved ? 'Saved ✓' : 'Save Project'}
-            </motion.button>
-
-            {project?.post_id ? (
-              <motion.button
-                onClick={handleUpdatePost}
-                disabled={loading || !currentHtml || session.generation_status === 'generating'}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
-              >
-                <RefreshCw size={18} />
-                Update Post
-              </motion.button>
-            ) : (
-              <motion.button
-                onClick={() => setShowPublishModal(true)}
-                disabled={!project || !currentHtml || session.generation_status !== 'completed' || loading}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
-              >
-                <Share2 size={18} />
-                Share to Feed
-              </motion.button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Success Notification */}
-      <AnimatePresence>
-        {showSuccessNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50"
-          >
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 rounded-2xl shadow-2xl border border-green-500/50 flex items-center gap-3 min-w-[400px]">
-              <CheckCircle size={24} className="text-white flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-white font-bold text-lg mb-1">Post Created Successfully! 🎉</p>
-                <p className="text-green-100 text-sm">
-                  Your post is now available in the "My Posts" section of your profile and can be shared with others.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Chat Panel - 40% */}
-        <div className="w-2/5 border-r border-gray-800 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
-            {showInsufficientTokens && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
-              >
-                <p className="text-red-400 text-sm">
-                  ⚠️ Insufficient tokens! You need at least 1,000 tokens.
-                  <br />
-                  <span className="text-gray-400">Current balance: {tokenBalance} tokens</span>
-                </p>
-              </motion.div>
-            )}
-
-            {/* ✅ ENHANCED: Error display with beta context banner */}
-            {session.generation_status === 'failed' && session.generation_error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-3"
-              >
-                {/* Main Error Card */}
-                <div className="p-5 bg-red-500/10 border-2 border-red-500/30 rounded-xl">
-                  <div className="flex items-start gap-3 mb-3">
-                    <AlertCircle size={24} className="text-red-400 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-red-400 font-bold text-base mb-2">Generation Failed</p>
-                      <p className="text-gray-300 text-sm leading-relaxed">
-                        {session.generation_error}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Retry button */}
-                  <motion.button
-                    onClick={handleRetryGeneration}
-                    disabled={loading}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full mt-3 bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-                  >
-                    <RotateCcw size={16} />
-                    Retry Generation
-                  </motion.button>
-                  
-                  {session.retry_count > 0 && (
-                    <p className="text-gray-500 text-xs mt-2 text-center">
-                      Previous attempts: {session.retry_count}
-                    </p>
-                  )}
-                </div>
-
-                {/* ✅ NEW: Beta Context Banner - Only shows on failure */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-gradient-to-r from-yellow-900/30 via-orange-900/30 to-yellow-900/30 border border-yellow-700/40 rounded-xl p-4 backdrop-blur-sm"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-0.5">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full">
-                        <Sparkles size={12} className="text-yellow-400" />
-                        <span className="text-xs font-bold text-yellow-400">BETA</span>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-300 leading-relaxed mb-2">
-                        <span className="font-semibold text-yellow-300">We're still evolving!</span> Some generations may fail due to API rate limits or system load.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-2 text-xs">
-                        <span className="text-gray-400">
-                          💡 <span className="text-blue-300 font-semibold">Try retrying</span> - it often works the second time
-                        </span>
-                        <span className="text-gray-500 hidden sm:block">•</span>
-                        <span className="text-gray-400">
-                          Need help? <a href="mailto:team@parasync.in" className="text-purple-400 underline hover:text-purple-300">Contact support</a>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] px-4 py-3 rounded-2xl ${
-                    msg.role === 'user'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-800 text-gray-200'
-                  }`}
-                >
-                  <p className="text-sm leading-relaxed">{msg.content}</p>
-                </div>
-              </div>
-            ))}
-
-            {(loading || session.generation_status === 'generating') && (
-              <div className="flex justify-start">
-                <div className="bg-gray-800 px-4 py-3 rounded-2xl flex items-center gap-2">
-                  <Loader2 className="animate-spin text-purple-400" size={20} />
-                  <span className="text-sm text-gray-400">Generating your creation...</span>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="p-6 border-t border-gray-800 flex-shrink-0">
-            <div className="flex gap-2 items-end">
-              <textarea
-                ref={textareaRef}
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                placeholder="Describe your changes..."
-                className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none resize-none overflow-y-auto scrollbar-hide"
-                style={{ minHeight: '48px', maxHeight: '120px' }}
-                disabled={loading || session.generation_status === 'generating'}
-                maxLength={10000}
-                rows={1}
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || loading || session.generation_status === 'generating'}
-                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-              >
-                <Send size={20} />
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* Preview Panel - 60% */}
-        <div className="flex-1 flex flex-col bg-gray-900 min-h-0">
-          <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Eye size={16} className="text-purple-400" />
-              <span className="text-sm font-mono text-gray-400">live-preview</span>
-            </div>
-            <button 
-              onClick={() => setFullscreen(true)}
-              className="p-2 hover:bg-gray-800 rounded transition-colors"
-              disabled={!currentHtml}
-            >
-              <Maximize2 size={18} className="text-gray-400" />
-            </button>
-          </div>
-
-          <div className="flex-1 bg-white min-h-0">
-            {currentHtml ? (
-              <iframe
-                key={currentHtml}
-                srcDoc={currentHtml}
-                className="w-full h-full"
-                sandbox="allow-scripts allow-same-origin"
-                title="preview"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">
-                <div className="text-center">
-                  {(session.generation_status === 'pending' || session.generation_status === 'generating' || loading) && (
-                    <>
-                      <Loader2 className="animate-spin mx-auto mb-4" size={48} />
-                      <p className="text-lg font-semibold mb-2">Crafting your visualization...</p>
-                      <p className="text-sm text-gray-500">This can take 5-15 minutes for complex generations.</p>
-                      <p className="text-xs text-gray-600 mt-2">Maximum generation time: 20 minutes</p>
-                    </>
-                  )}
-                  {session.generation_status === 'failed' && (
-                    <>
-                      <X className="mx-auto mb-4 text-red-400" size={48} />
-                      <p>Generation failed. Check the error message and retry.</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Share Modal */}
-      <AnimatePresence>
-        {showPublishModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6"
-            onClick={() => !publishing && setShowPublishModal(false)}
-          >
+        {/* Success Notification */}
+        <AnimatePresence>
+          {showSuccessNotification && (
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-3xl p-8 w-full max-w-2xl shadow-2xl"
+              initial={{ opacity: 0, y: -50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50"
             >
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center">
-                    <Share2 size={24} className="text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold">Share to Feed</h3>
-                    <p className="text-sm text-gray-400">Let others see your creation</p>
-                  </div>
+              <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 rounded-2xl shadow-2xl border border-green-500/50 flex items-center gap-3 min-w-[400px]">
+                <CheckCircle size={24} className="text-white flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-white font-bold text-lg mb-1">Post Created Successfully! 🎉</p>
+                  <p className="text-green-100 text-sm">
+                    Your post is now available in the "My Posts" section of your profile and can be shared with others.
+                  </p>
                 </div>
-                <button 
-                  onClick={() => !publishing && setShowPublishModal(false)} 
-                  disabled={publishing}
-                  className="p-2 hover:bg-gray-700 rounded-xl transition-colors"
-                >
-                  <X size={24} className="text-gray-400 hover:text-white" />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-3">
-                    Caption
-                  </label>
-                  <textarea
-                    value={publishCaption}
-                    onChange={(e) => setPublishCaption(e.target.value)}
-                    placeholder="Write a caption for your post... (e.g., 'Check out my interactive game!' or 'Built a cool calculator app')"
-                    className="w-full px-5 py-4 bg-black/50 rounded-2xl border border-gray-700 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all resize-none text-gray-100 placeholder-gray-500"
-                    disabled={publishing}
-                    maxLength={200}
-                    rows={4}
-                  />
-                  <div className="flex justify-between items-center mt-2">
-                    <p className="text-xs text-gray-500">
-                      Make it descriptive so others know what your creation does!
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {publishCaption.length}/200
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-black/30 rounded-2xl p-5 border border-gray-700">
-                  <label className="flex items-start gap-4 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={promptVisible}
-                      onChange={(e) => setPromptVisible(e.target.checked)}
-                      className="w-5 h-5 mt-0.5 rounded border-gray-600 text-purple-600 focus:ring-purple-500 focus:ring-offset-gray-900"
-                      disabled={publishing}
-                    />
-                    <div className="flex-1">
-                      <span className="text-sm font-semibold text-gray-200 group-hover:text-white transition-colors">
-                        Share prompt publicly
-                      </span>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Allow others to see the prompt you used to create this project
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                <motion.button
-                  onClick={handleShare}
-                  disabled={!publishCaption.trim() || publishing}
-                  whileHover={!publishing ? { scale: 1.02 } : {}}
-                  whileTap={!publishing ? { scale: 0.98 } : {}}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 py-4 rounded-2xl font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-purple-500/25 transition-all"
-                >
-                  {publishing ? (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                      >
-                        🧄
-                      </motion.div>
-                      <span>Publishing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Share2 size={20} />
-                      <span>Publish to Feed</span>
-                    </>
-                  )}
-                </motion.button>
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      {/* Fullscreen Preview */}
-      <AnimatePresence>
-        {fullscreen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black z-50 flex flex-col"
-          >
-            <div className="p-4 flex justify-between items-center border-b border-gray-800">
-              <span className="font-mono text-sm text-gray-400">Fullscreen Preview</span>
-              <button onClick={() => setFullscreen(false)} className="text-gray-400 hover:text-white">
-                <X size={24} />
+        {/* Main Content */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          {/* Chat Panel - 40% */}
+          <div className="w-2/5 border-r border-gray-800 flex flex-col min-h-0">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+              {showInsufficientTokens && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
+                >
+                  <p className="text-red-400 text-sm">
+                    ⚠️ Insufficient tokens! You need at least 1,000 tokens.
+                    <br />
+                    <span className="text-gray-400">Current balance: {tokenBalance} tokens</span>
+                  </p>
+                </motion.div>
+              )}
+
+              {session.generation_status === 'failed' && session.generation_error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-3"
+                >
+                  <div className="p-5 bg-red-500/10 border-2 border-red-500/30 rounded-xl">
+                    <div className="flex items-start gap-3 mb-3">
+                      <AlertCircle size={24} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-red-400 font-bold text-base mb-2">Generation Failed</p>
+                        <p className="text-gray-300 text-sm leading-relaxed">
+                          {session.generation_error}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <motion.button
+                      onClick={handleRetryGeneration}
+                      disabled={loading}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full mt-3 bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                    >
+                      <RotateCcw size={16} />
+                      Retry Generation
+                    </motion.button>
+                    
+                    {session.retry_count > 0 && (
+                      <p className="text-gray-500 text-xs mt-2 text-center">
+                        Previous attempts: {session.retry_count}
+                      </p>
+                    )}
+                  </div>
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-gradient-to-r from-yellow-900/30 via-orange-900/30 to-yellow-900/30 border border-yellow-700/40 rounded-xl p-4 backdrop-blur-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full">
+                          <Sparkles size={12} className="text-yellow-400" />
+                          <span className="text-xs font-bold text-yellow-400">BETA</span>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-300 leading-relaxed mb-2">
+                          <span className="font-semibold text-yellow-300">We're still evolving!</span> Some generations may fail due to API rate limits or system load.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-2 text-xs">
+                          <span className="text-gray-400">
+                            💡 <span className="text-blue-300 font-semibold">Try retrying</span> - it often works the second time
+                          </span>
+                          <span className="text-gray-500 hidden sm:block">•</span>
+                          <span className="text-gray-400">
+                            Need help? <a href="mailto:team@parasync.in" className="text-purple-400 underline hover:text-purple-300">Contact support</a>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] px-4 py-3 rounded-2xl ${
+                      msg.role === 'user'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-800 text-gray-200'
+                    }`}
+                  >
+                    <p className="text-sm leading-relaxed">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+
+              {(loading || session.generation_status === 'generating') && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-800 px-4 py-3 rounded-2xl flex items-center gap-2">
+                    <Loader2 className="animate-spin text-purple-400" size={20} />
+                    <span className="text-sm text-gray-400">Generating your creation...</span>
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className="p-6 border-t border-gray-800 flex-shrink-0">
+              <div className="flex gap-2 items-end">
+                <textarea
+                  ref={textareaRef}
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Describe your changes..."
+                  className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none resize-none overflow-y-auto scrollbar-hide"
+                  style={{ minHeight: '48px', maxHeight: '120px' }}
+                  disabled={loading || session.generation_status === 'generating'}
+                  maxLength={10000}
+                  rows={1}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!inputMessage.trim() || loading || session.generation_status === 'generating'}
+                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                >
+                  <Send size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Preview Panel - 60% */}
+          <div className="flex-1 flex flex-col bg-gray-900 min-h-0">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Eye size={16} className="text-purple-400" />
+                <span className="text-sm font-mono text-gray-400">live-preview</span>
+              </div>
+              <button 
+                onClick={() => setFullscreen(true)}
+                className="p-2 hover:bg-gray-800 rounded transition-colors"
+                disabled={!currentHtml}
+              >
+                <Maximize2 size={18} className="text-gray-400" />
               </button>
             </div>
-            <iframe
-              srcDoc={currentHtml}
-              className="flex-1 w-full bg-white"
-              sandbox="allow-scripts allow-same-origin allow-forms"
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+
+            <div className="flex-1 bg-white min-h-0">
+              {currentHtml ? (
+                <iframe
+                  key={currentHtml}
+                  srcDoc={currentHtml}
+                  className="w-full h-full"
+                  sandbox="allow-scripts allow-same-origin"
+                  title="preview"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  <div className="text-center">
+                    {(session.generation_status === 'pending' || session.generation_status === 'generating' || loading) && (
+                      <>
+                        <Loader2 className="animate-spin mx-auto mb-4" size={48} />
+                        <p className="text-lg font-semibold mb-2">Crafting your visualization...</p>
+                        <p className="text-sm text-gray-500">This can take 5-15 minutes for complex generations.</p>
+                        <p className="text-xs text-gray-600 mt-2">Maximum generation time: 20 minutes</p>
+                      </>
+                    )}
+                    {session.generation_status === 'failed' && (
+                      <>
+                        <X className="mx-auto mb-4 text-red-400" size={48} />
+                        <p>Generation failed. Check the error message and retry.</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Share Modal */}
+        <AnimatePresence>
+          {showPublishModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6"
+              onClick={() => !publishing && setShowPublishModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-3xl p-8 w-full max-w-2xl shadow-2xl"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center">
+                      <Share2 size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold">Share to Feed</h3>
+                      <p className="text-sm text-gray-400">Let others see your creation</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => !publishing && setShowPublishModal(false)} 
+                    disabled={publishing}
+                    className="p-2 hover:bg-gray-700 rounded-xl transition-colors"
+                  >
+                    <X size={24} className="text-gray-400 hover:text-white" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-3">
+                      Caption
+                    </label>
+                    <textarea
+                      value={publishCaption}
+                      onChange={(e) => setPublishCaption(e.target.value)}
+                      placeholder="Write a caption for your post... (e.g., 'Check out my interactive game!' or 'Built a cool calculator app')"
+                      className="w-full px-5 py-4 bg-black/50 rounded-2xl border border-gray-700 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all resize-none text-gray-100 placeholder-gray-500"
+                      disabled={publishing}
+                      maxLength={200}
+                      rows={4}
+                    />
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-xs text-gray-500">
+                        Make it descriptive so others know what your creation does!
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {publishCaption.length}/200
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-black/30 rounded-2xl p-5 border border-gray-700">
+                    <label className="flex items-start gap-4 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={promptVisible}
+                        onChange={(e) => setPromptVisible(e.target.checked)}
+                        className="w-5 h-5 mt-0.5 rounded border-gray-600 text-purple-600 focus:ring-purple-500 focus:ring-offset-gray-900"
+                        disabled={publishing}
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm font-semibold text-gray-200 group-hover:text-white transition-colors">
+                          Share prompt publicly
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Allow others to see the prompt you used to create this project
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <motion.button
+                    onClick={handleShare}
+                    disabled={!publishCaption.trim() || publishing}
+                    whileHover={!publishing ? { scale: 1.02 } : {}}
+                    whileTap={!publishing ? { scale: 0.98 } : {}}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 py-4 rounded-2xl font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-purple-500/25 transition-all"
+                  >
+                    {publishing ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        >
+                          🧄
+                        </motion.div>
+                        <span>Publishing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 size={20} />
+                        <span>Publish to Feed</span>
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Fullscreen Preview */}
+        <AnimatePresence>
+          {fullscreen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black z-50 flex flex-col"
+            >
+              <div className="p-4 flex justify-between items-center border-b border-gray-800">
+                <span className="font-mono text-sm text-gray-400">Fullscreen Preview</span>
+                <button onClick={() => setFullscreen(false)} className="text-gray-400 hover:text-white">
+                  <X size={24} />
+                </button>
+              </div>
+              <iframe
+                srcDoc={currentHtml}
+                className="flex-1 w-full bg-white"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </SubscriptionGuard>
   );
 }

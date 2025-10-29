@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Plus, Heart, MessageCircle, Share2, LogOut, User, TrendingUp, Clock, Code2, Bookmark, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import SubscriptionGuard from '@/components/SubscriptionGuard';
 
 interface Post {
   id: string;
@@ -331,245 +332,247 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <Link href="/" className="flex items-center gap-3 group">
-              <motion.div
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Image 
-                  src="/logo.png" 
-                  alt="Garliq" 
-                  width={48} 
-                  height={48}
-                />
-              </motion.div>
-              <h1 className="text-xl sm:text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                Garliq
-              </h1>
-            </Link>
-
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Link href="/create">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold flex items-center gap-2 text-sm sm:text-base"
+    <SubscriptionGuard requireActive={true}>
+      <div className="min-h-screen bg-black text-white">
+        {/* Header */}
+        <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <Link href="/" className="flex items-center gap-3 group">
+                <motion.div
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.5 }}
                 >
-                  <Plus size={18} />
-                  <span className="hidden sm:inline">Create</span>
-                </motion.button>
+                  <Image 
+                    src="/logo.png" 
+                    alt="Garliq" 
+                    width={48} 
+                    height={48}
+                  />
+                </motion.div>
+                <h1 className="text-xl sm:text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                  Garliq
+                </h1>
               </Link>
 
-              <Link href={`/profiles/${user?.id}`}>
-                <button className="p-2 hover:bg-gray-800 rounded-full transition-colors">
-                  <User size={20} className="text-gray-400" />
-                </button>
-              </Link>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Link href="/create">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold flex items-center gap-2 text-sm sm:text-base"
+                  >
+                    <Plus size={18} />
+                    <span className="hidden sm:inline">Create</span>
+                  </motion.button>
+                </Link>
 
-              <button
-                onClick={handleLogout}
-                className="p-2 hover:bg-gray-800 rounded-full transition-colors"
-              >
-                <LogOut size={20} className="text-gray-400" />
-              </button>
-            </div>
-          </div>
+                <Link href={`/profiles/${user?.id}`}>
+                  <button className="p-2 hover:bg-gray-800 rounded-full transition-colors">
+                    <User size={20} className="text-gray-400" />
+                  </button>
+                </Link>
 
-          {/* Filters */}
-          <div className="flex items-center justify-center">
-            <div className="flex items-center gap-2 bg-gray-900 rounded-full p-1">
-              {[
-                { id: 'trending', icon: TrendingUp, label: 'Trending' },
-                { id: 'new', icon: Clock, label: 'New' }
-              ].map((filter) => (
                 <button
-                  key={filter.id}
-                  onClick={() => setActiveFilter(filter.id as FeedFilter)}
-                  className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full font-medium transition-all text-xs sm:text-sm ${
-                    activeFilter === filter.id
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
+                  onClick={handleLogout}
+                  className="p-2 hover:bg-gray-800 rounded-full transition-colors"
                 >
-                  <filter.icon size={16} />
-                  <span>{filter.label}</span>
+                  <LogOut size={20} className="text-gray-400" />
                 </button>
-              ))}
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center justify-center">
+              <div className="flex items-center gap-2 bg-gray-900 rounded-full p-1">
+                {[
+                  { id: 'trending', icon: TrendingUp, label: 'Trending' },
+                  { id: 'new', icon: Clock, label: 'New' }
+                ].map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setActiveFilter(filter.id as FeedFilter)}
+                    className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full font-medium transition-all text-xs sm:text-sm ${
+                      activeFilter === filter.id
+                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <filter.icon size={16} />
+                    <span>{filter.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Feed */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {posts.length === 0 && !loading ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20 sm:py-32"
-          >
-            <div className="mb-6 flex justify-center">
-  <Image 
-    src="/logo.png" 
-    alt="Garliq" 
-    width={120} 
-    height={120}
-  />
-</div>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3">No Posts Yet</h2>
-            <p className="text-gray-500 mb-8 text-base sm:text-lg">Be the first to create something legendary</p>
-            <Link href="/create">
-              <button className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 sm:px-8 py-3 rounded-full font-bold">
-                Start Creating
-              </button>
-            </Link>
-          </motion.div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-              {posts.map((post, index) => (
-                <motion.div
-                  key={`${post.id}-${index}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                  className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
-                >
-                  {/* User Info Header */}
-                  <div className="p-3 sm:p-4 border-b border-gray-800/50 bg-black/40 backdrop-blur-sm">
-                    <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 sm:gap-3 hover:opacity-70 transition-opacity">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0 overflow-hidden">
-  {post.profiles?.avatar_url ? (
-    <img 
-      src={post.profiles.avatar_url} 
-      alt={post.profiles.display_name || 'User'}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-  )}
-</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
-                      </div>
-                    </Link>
-                  </div>
-
-                  {/* Preview */}
-                  <Link href={`/post/${post.id}`}>
-                    <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
-                      <iframe
-                        srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
-                        className="w-full h-full pointer-events-none"
-                        sandbox=""
-                        loading="lazy"
-                      />
-                      
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                    </div>
-                  </Link>
-
-                  {/* Post Info */}
-                  <div className="p-3 sm:p-4 space-y-3">
-                    <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
-
-                    {post.prompt_visible && post.prompt && (
-                      <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
-                        <div className="flex items-center gap-1 mb-1">
-                          <Code2 size={10} className="text-purple-400" />
-                          <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
-                        </div>
-                        <p className="text-[10px] sm:text-[11px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <button
-                          onClick={() => handleLike(post.id, post.is_liked || false)}
-                          className="flex items-center gap-1.5 hover:scale-110 transition-transform"
-                        >
-                          {post.is_liked ? (
-                            <Image 
-                              src="/logo.png" 
-                              alt="Liked" 
-                              width={20} 
-                              height={20}
+        {/* Feed */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          {posts.length === 0 && !loading ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-20 sm:py-32"
+            >
+              <div className="mb-6 flex justify-center">
+                <Image 
+                  src="/logo.png" 
+                  alt="Garliq" 
+                  width={120} 
+                  height={120}
+                />
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-3">No Posts Yet</h2>
+              <p className="text-gray-500 mb-8 text-base sm:text-lg">Be the first to create something legendary</p>
+              <Link href="/create">
+                <button className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 sm:px-8 py-3 rounded-full font-bold">
+                  Start Creating
+                </button>
+              </Link>
+            </motion.div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {posts.map((post, index) => (
+                  <motion.div
+                    key={`${post.id}-${index}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
+                  >
+                    {/* User Info Header */}
+                    <div className="p-3 sm:p-4 border-b border-gray-800/50 bg-black/40 backdrop-blur-sm">
+                      <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 sm:gap-3 hover:opacity-70 transition-opacity">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0 overflow-hidden">
+                          {post.profiles?.avatar_url ? (
+                            <img 
+                              src={post.profiles.avatar_url} 
+                              alt={post.profiles.display_name || 'User'}
+                              className="w-full h-full object-cover"
                             />
                           ) : (
-                            <Heart size={18} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                            <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
                           )}
-                          <span className="text-xs sm:text-sm font-bold text-gray-400">{post.likes_count || 0}</span>
-                        </button>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
+                        </div>
+                      </Link>
+                    </div>
 
-                        <Link href={`/post/${post.id}#comments`}>
-                          <button className="flex items-center gap-1.5 text-gray-500 hover:text-pink-400 transition-colors">
-                            <MessageCircle size={18} />
-                            <span className="text-xs sm:text-sm font-bold">{post.comments_count || 0}</span>
-                          </button>
-                        </Link>
+                    {/* Preview */}
+                    <Link href={`/post/${post.id}`}>
+                      <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
+                        <iframe
+                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
+                          className="w-full h-full pointer-events-none"
+                          sandbox=""
+                          loading="lazy"
+                        />
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                       </div>
+                    </Link>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleSave(post.id, post.is_saved || false)}
-                          className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
-                        >
-                          <Bookmark 
-                            size={18} 
-                            className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
-                          />
-                        </button>
+                    {/* Post Info */}
+                    <div className="p-3 sm:p-4 space-y-3">
+                      <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
 
-                        <button 
-                          onClick={() => handleShare(post)} 
-                          className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
-                        >
-                          <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                        </button>
+                      {post.prompt_visible && post.prompt && (
+                        <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Code2 size={10} className="text-purple-400" />
+                            <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
+                        </div>
+                      )}
 
-                        {user?.id === post.user_id && (
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
+                        <div className="flex items-center gap-3 sm:gap-4">
                           <button
-                            onClick={() => handleDeletePost(post.id)}
+                            onClick={() => handleLike(post.id, post.is_liked || false)}
+                            className="flex items-center gap-1.5 hover:scale-110 transition-transform"
+                          >
+                            {post.is_liked ? (
+                              <Image 
+                                src="/logo.png" 
+                                alt="Liked" 
+                                width={20} 
+                                height={20}
+                              />
+                            ) : (
+                              <Heart size={18} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                            )}
+                            <span className="text-xs sm:text-sm font-bold text-gray-400">{post.likes_count || 0}</span>
+                          </button>
+
+                          <Link href={`/post/${post.id}#comments`}>
+                            <button className="flex items-center gap-1.5 text-gray-500 hover:text-pink-400 transition-colors">
+                              <MessageCircle size={18} />
+                              <span className="text-xs sm:text-sm font-bold">{post.comments_count || 0}</span>
+                            </button>
+                          </Link>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleSave(post.id, post.is_saved || false)}
                             className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
                           >
-                            <Trash2 size={18} className="text-gray-500 hover:text-red-400 transition-colors" />
+                            <Bookmark 
+                              size={18} 
+                              className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
+                            />
                           </button>
-                        )}
+
+                          <button 
+                            onClick={() => handleShare(post)} 
+                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                          >
+                            <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                          </button>
+
+                          {user?.id === post.user_id && (
+                            <button
+                              onClick={() => handleDeletePost(post.id)}
+                              className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                            >
+                              <Trash2 size={18} className="text-gray-500 hover:text-red-400 transition-colors" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Infinite Scroll Trigger */}
-            <div ref={observerTarget} className="py-8 flex justify-center">
-              {loadingMore && (
-                <div className="flex items-center gap-2 text-gray-400">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    className="text-2xl"
-                  >
-                    🧄
                   </motion.div>
-                  <span className="text-sm">Loading more...</span>
-                </div>
-              )}
-              {!hasMore && posts.length > 0 && (
-                <p className="text-gray-500 text-sm">You've reached the end!</p>
-              )}
-            </div>
-          </>
-        )}
+                ))}
+              </div>
+
+              {/* Infinite Scroll Trigger */}
+              <div ref={observerTarget} className="py-8 flex justify-center">
+                {loadingMore && (
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      className="text-2xl"
+                    >
+                      🧄
+                    </motion.div>
+                    <span className="text-sm">Loading more...</span>
+                  </div>
+                )}
+                {!hasMore && posts.length > 0 && (
+                  <p className="text-gray-500 text-sm">You've reached the end!</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </SubscriptionGuard>
   );
 }

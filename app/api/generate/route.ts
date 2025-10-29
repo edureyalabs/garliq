@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { checkApiSubscription } from '@/lib/api-subscription-check';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,6 +12,18 @@ const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:800
 export const maxDuration = 300; // Set max duration to 5 minutes for Vercel/Render
 
 export async function POST(request: Request) {
+  // Add subscription check FIRST
+  const authCheck = await checkApiSubscription();
+  
+  if (!authCheck.authorized) {
+    return NextResponse.json(
+      { error: authCheck.error },
+      { status: authCheck.error === 'Unauthorized' ? 401 : 403 }
+    );
+  }
+
+  const user = authCheck.user;
+
   try {
     const { sessionId, message, userId, model } = await request.json();
 
