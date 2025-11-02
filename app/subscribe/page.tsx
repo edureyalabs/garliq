@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SubscriptionModal from '@/components/SubscriptionModal';
 import { useSubscription } from '@/hooks/useSubscription';
+import { supabase } from '@/lib/supabase';
+import { LogOut } from 'lucide-react';
 
 export default function SubscribePage() {
   const router = useRouter();
@@ -16,6 +18,11 @@ export default function SubscribePage() {
     }
   }, [loading, subscription, router]);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -27,7 +34,16 @@ export default function SubscribePage() {
   return (
     <>
       {/* Background gradient with visible text */}
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-950 flex items-center justify-center p-4 text-gray-100">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-950 flex items-center justify-center p-4 text-gray-100 relative">
+        {/* Logout button - positioned at bottom right */}
+        <button
+          onClick={handleLogout}
+          className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-full transition-all shadow-lg border border-gray-700 hover:border-gray-600"
+        >
+          <LogOut size={18} />
+          <span className="text-sm font-medium">Logout</span>
+        </button>
+
         <div className="max-w-4xl w-full">
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">

@@ -6,10 +6,10 @@ import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 
 // ============================================
-// EDUCATIONAL DEMO WIDGETS
+// INTERACTIVE LEARNING DEMO WIDGETS
 // ============================================
 
-// 1. INTERACTIVE QUIZ - Educational Demo
+// 1. INTERACTIVE QUIZ - Learning Demo
 const InteractiveQuizWidget = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
@@ -18,22 +18,22 @@ const InteractiveQuizWidget = () => {
 
   const questions = [
     {
-      question: "What is the powerhouse of the cell?",
-      options: ["Nucleus", "Mitochondria", "Ribosome", "Chloroplast"],
+      question: "What is a bull market in trading?",
+      options: ["Market decline", "Market growth", "Sideways market", "Market crash"],
       correct: 1,
-      explanation: "Mitochondria generate energy (ATP) for the cell!"
+      explanation: "A bull market is characterized by rising prices and optimism!"
     },
     {
-      question: "What is H2O?",
-      options: ["Oxygen", "Hydrogen", "Water", "Helium"],
-      correct: 2,
-      explanation: "H2O is the chemical formula for water!"
+      question: "What does 'diversification' mean in investing?",
+      options: ["Buying one stock", "Spreading investments", "Day trading", "Selling everything"],
+      correct: 1,
+      explanation: "Diversification reduces risk by spreading investments across different assets!"
     },
     {
-      question: "What is 7 × 8?",
-      options: ["54", "56", "64", "72"],
+      question: "What is compound interest?",
+      options: ["Simple interest", "Interest on interest", "Bank fees", "Stock dividends"],
       correct: 1,
-      explanation: "7 × 8 = 56. Great job!"
+      explanation: "Compound interest means earning interest on your initial amount AND previous interest!"
     }
   ];
 
@@ -72,9 +72,9 @@ const InteractiveQuizWidget = () => {
           {score} / {questions.length}
         </div>
         <p className="text-sm text-gray-400">
-          {score === questions.length ? "Perfect score! You're a star!" :
-           score >= questions.length / 2 ? "Great work! Keep learning!" :
-           "Good effort! Review and try again!"}
+          {score === questions.length ? "Perfect! You're mastering this!" :
+           score >= questions.length / 2 ? "Great progress! Keep learning!" :
+           "Good start! Review and try again!"}
         </p>
         <button
           onClick={resetQuiz}
@@ -159,16 +159,16 @@ const FlashcardWidget = () => {
 
   const cards = [
     { 
-      front: "Photosynthesis", 
-      back: "Process by which plants convert light energy into chemical energy (glucose)" 
+      front: "Bull vs Bear Market", 
+      back: "Bull = prices rising (optimism). Bear = prices falling (pessimism). Remember: Bulls charge up, bears swipe down!" 
     },
     { 
-      front: "Newton's First Law", 
-      back: "An object at rest stays at rest unless acted upon by an external force" 
+      front: "Risk Tolerance", 
+      back: "Your ability to handle investment losses without panic. High risk = volatile assets. Low risk = stable, slower growth." 
     },
     { 
-      front: "Mitosis", 
-      back: "Cell division process that produces two identical daughter cells" 
+      front: "Dollar-Cost Averaging", 
+      back: "Investing fixed amounts regularly, regardless of price. Reduces impact of market volatility over time." 
     }
   ];
 
@@ -214,7 +214,7 @@ const FlashcardWidget = () => {
             style={{ backfaceVisibility: 'hidden' }}
           >
             <div className="text-center">
-              <div className="text-sm font-bold text-purple-200 mb-3">TERM</div>
+              <div className="text-sm font-bold text-purple-200 mb-3">CONCEPT</div>
               <p className="text-xl font-black text-white leading-relaxed">
                 {cards[currentCard].front}
               </p>
@@ -230,7 +230,7 @@ const FlashcardWidget = () => {
             }}
           >
             <div className="text-center">
-              <div className="text-sm font-bold text-blue-200 mb-3">DEFINITION</div>
+              <div className="text-sm font-bold text-blue-200 mb-3">EXPLANATION</div>
               <p className="text-sm text-white leading-relaxed">
                 {cards[currentCard].back}
               </p>
@@ -260,9 +260,9 @@ const FlashcardWidget = () => {
 // 3. PROGRESS TRACKER - Learning Analytics Demo
 const ProgressTrackerWidget = () => {
   const subjects = [
-    { name: "Physics", progress: 87, color: "from-blue-500 to-cyan-500", icon: "⚛️" },
-    { name: "Chemistry", progress: 65, color: "from-green-500 to-emerald-500", icon: "🧪" },
-    { name: "Biology", progress: 92, color: "from-purple-500 to-pink-500", icon: "🧬" }
+    { name: "Trading Basics", progress: 87, color: "from-blue-500 to-cyan-500", icon: "📈" },
+    { name: "Risk Management", progress: 65, color: "from-green-500 to-emerald-500", icon: "🛡️" },
+    { name: "Market Analysis", progress: 92, color: "from-purple-500 to-pink-500", icon: "🔍" }
   ];
 
   return (
@@ -302,7 +302,7 @@ const ProgressTrackerWidget = () => {
           <span className="font-bold text-green-400">81%</span>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          🎯 You're on track to complete all courses by next month!
+          🎯 You're mastering trading fundamentals!
         </p>
       </div>
     </div>
@@ -310,7 +310,7 @@ const ProgressTrackerWidget = () => {
 };
 
 // Floating Card Component
-const FloatingEducationCard = ({ delay = 0, children, className = "" }: { delay?: number, children: React.ReactNode, className?: string }) => {
+const FloatingLearningCard = ({ delay = 0, children, className = "" }: { delay?: number, children: React.ReactNode, className?: string }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -344,52 +344,46 @@ const AnimatedCourseShowcase = () => {
 
   const courses = [
     {
-      title: "Physics Fundamentals",
-      description: "Newton's laws with interactive simulations",
+      title: "Stock Market Fundamentals",
+      description: "From basic concepts to portfolio building",
       gradient: "from-blue-500 to-cyan-500",
-      icon: "⚛️",
-      subject: "Science",
-      students: 1247
+      icon: "📈",
+      category: "Finance"
     },
     {
-      title: "Spanish for Beginners",
-      description: "Pronunciation guides & vocabulary flashcards",
-      gradient: "from-red-500 to-orange-500",
-      icon: "🗣️",
-      subject: "Language",
-      students: 892
-    },
-    {
-      title: "World History Timeline",
-      description: "Interactive timeline with key events",
-      gradient: "from-amber-500 to-yellow-500",
-      icon: "🌍",
-      subject: "History",
-      students: 1543
-    },
-    {
-      title: "Mathematics Mastery",
-      description: "Algebra to calculus with step-by-step",
+      title: "Digital Photography Mastery",
+      description: "Composition, lighting, and editing techniques",
       gradient: "from-purple-500 to-pink-500",
-      icon: "📐",
-      subject: "Math",
-      students: 2103
+      icon: "📸",
+      category: "Creative"
     },
     {
-      title: "Biology Interactive",
-      description: "Cell structures & human anatomy 3D models",
+      title: "Italian Cooking Essentials",
+      description: "Authentic recipes and culinary techniques",
+      gradient: "from-red-500 to-orange-500",
+      icon: "🍝",
+      category: "Lifestyle"
+    },
+    {
+      title: "Python for Beginners",
+      description: "Code your first program in interactive lessons",
       gradient: "from-green-500 to-emerald-500",
-      icon: "🧬",
-      subject: "Science",
-      students: 987
+      icon: "💻",
+      category: "Technology"
     },
     {
-      title: "Coding for Kids",
-      description: "JavaScript basics through game building",
+      title: "Stoic Philosophy Guide",
+      description: "Ancient wisdom for modern challenges",
+      gradient: "from-amber-500 to-yellow-500",
+      icon: "🏛️",
+      category: "Philosophy"
+    },
+    {
+      title: "Guitar Music Theory",
+      description: "Scales, chords, and composition basics",
       gradient: "from-indigo-500 to-purple-500",
-      icon: "💻",
-      subject: "Technology",
-      students: 1654
+      icon: "🎸",
+      category: "Music"
     }
   ];
 
@@ -407,10 +401,10 @@ const AnimatedCourseShowcase = () => {
           <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-20 rounded-2xl blur-xl transition-opacity duration-300" />
           
           <div className="relative bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-800 rounded-2xl p-6 h-full overflow-hidden">
-            {/* Subject Badge */}
+            {/* Category Badge */}
             <div className="absolute top-4 right-4">
               <span className="text-xs px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-gray-400 border border-white/10">
-                {course.subject}
+                {course.category}
               </span>
             </div>
 
@@ -426,8 +420,8 @@ const AnimatedCourseShowcase = () => {
             {/* Stats */}
             <div className="flex items-center gap-4 text-xs text-gray-500 pt-4 border-t border-gray-800">
               <span className="flex items-center gap-1">
-                <Users size={12} className="text-green-400" />
-                {course.students.toLocaleString()} students
+                <Sparkles size={12} className="text-purple-400" />
+                AI-Generated
               </span>
               <span className="flex items-center gap-1">
                 <Trophy size={12} className="text-yellow-400" />
@@ -448,10 +442,10 @@ const AnimatedCourseShowcase = () => {
 const CourseCreationDemo = () => {
   const [step, setStep] = useState(0);
   const steps = [
-    { text: "I want to teach quantum physics to high schoolers...", icon: "💭" },
-    { text: "Analyzing curriculum standards...", icon: "🧠" },
-    { text: "Generating interactive lessons...", icon: "✨" },
-    { text: "Your course is ready with 12 chapters!", icon: "🎉" }
+    { text: "I want to learn options trading strategies...", icon: "💭" },
+    { text: "Analyzing best learning path...", icon: "🧠" },
+    { text: "Generating interactive lessons with simulations...", icon: "✨" },
+    { text: "Your personalized course is ready!", icon: "🎉" }
   ];
 
   useEffect(() => {
@@ -502,7 +496,7 @@ const CourseCreationDemo = () => {
         </div>
 
         <p className="text-center text-xs text-gray-500 mt-4">
-          Average course creation: <span className="text-purple-400 font-bold">3 Minutes</span>
+          Average course generation: <span className="text-purple-400 font-bold">3 Minutes</span>
         </p>
       </div>
     </div>
@@ -581,21 +575,21 @@ export default function Landing() {
             >
               <div className="inline-block mb-6">
                 <span className="px-6 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-full text-sm font-bold text-purple-300 backdrop-blur-sm">
-                  🎓 AI-Powered Course Creation for Educators
+                  ✨ Your Personal AI Learning Architect
                 </span>
               </div>
 
               <h1 className="text-5xl md:text-7xl lg:text-7xl font-black mb-8 leading-none">
-                Create Interactive Courses
+                Turn Curiosity Into
                 <br />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400">
-                  In Minutes, Not Hours
+                  Structured Mastery
                 </span>
               </h1>
               
               <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-4xl mx-auto leading-relaxed">
-                Turn any lesson into an <span className="text-white font-bold">engaging, AI-generated interactive course</span>. 
-                Add quizzes, flashcards, progress tracking, and even an AI tutor. Your students learn by doing.
+                Want to learn <span className="text-white font-bold">trading, photography, or philosophy?</span> Just describe what you're curious about. 
+                Our AI instantly crafts a <span className="text-white font-bold">personalized, interactive course</span> with quizzes, simulations, and a 24/7 AI tutor.
               </p>
 
               {/* Primary CTAs */}
@@ -607,7 +601,7 @@ export default function Landing() {
                     className="group relative px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl font-bold text-lg overflow-hidden shadow-2xl"
                   >
                     <span className="relative z-10 flex items-center gap-3">
-                      Create Your First Course Free
+                      Start Learning Anything Today
                       <ArrowRight className="group-hover:translate-x-1 transition-transform" />
                     </span>
                     <motion.div 
@@ -621,34 +615,42 @@ export default function Landing() {
               <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Free to Start
+                  $3/month unlimited access
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  No Coding Required
+                  AI Tutor Included
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Embed AI Tutor in Courses
+                  Learn At Your Pace
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Share Instantly
+                  Any Topic, Any Time
                 </div>
               </div>
             </motion.div>
           </div>
 
-          {/* Live Educational Demos */}
+          {/* Live Learning Demos */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.8 }}
             className="relative max-w-7xl mx-auto"
           >
+            <div className="text-center mb-12">
+              <p className="text-sm text-purple-400 font-bold mb-2">👇 TRY THESE LIVE DEMOS</p>
+              <h3 className="text-2xl md:text-3xl font-black text-white">
+                This Is How You'll <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Actually Learn</span>
+              </h3>
+              <p className="text-gray-500 mt-2">Interactive quizzes, flashcards, and progress tracking in every course</p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Demo 1: Interactive Quiz */}
-              <FloatingEducationCard delay={0.1}>
+              <FloatingLearningCard delay={0.1}>
                 <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl overflow-hidden shadow-2xl hover:border-purple-500/50 transition-all group">
                   <div className="p-4 border-b border-gray-800 bg-black/50 backdrop-blur-sm flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -657,7 +659,7 @@ export default function Landing() {
                       </div>
                       <div>
                         <h4 className="font-bold text-sm">Interactive Quiz</h4>
-                        <p className="text-xs text-gray-500">Biology Chapter 3</p>
+                        <p className="text-xs text-gray-500">Trading Fundamentals</p>
                       </div>
                     </div>
                     <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 font-semibold">
@@ -670,18 +672,13 @@ export default function Landing() {
                   </div>
 
                   <div className="p-4 border-t border-gray-800 flex items-center justify-between text-xs bg-black/50 backdrop-blur-sm">
-                    <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1 text-gray-400">
-                        <Users size={14} className="text-green-400" /> 234 students
-                      </span>
-                    </div>
-                    <span className="text-gray-500">Built in 2 min</span>
+                    <span className="text-gray-500">Test your knowledge as you learn</span>
                   </div>
                 </div>
-              </FloatingEducationCard>
+              </FloatingLearningCard>
 
               {/* Demo 2: Flashcards */}
-              <FloatingEducationCard delay={0.2}>
+              <FloatingLearningCard delay={0.2}>
                 <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl overflow-hidden shadow-2xl hover:border-blue-500/50 transition-all group">
                   <div className="p-4 border-b border-gray-800 bg-black/50 backdrop-blur-sm flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -689,8 +686,8 @@ export default function Landing() {
                         📚
                       </div>
                       <div>
-                        <h4 className="font-bold text-sm">Study Flashcards</h4>
-                        <p className="text-xs text-gray-500">Key Terms Review</p>
+                        <h4 className="font-bold text-sm">Smart Flashcards</h4>
+                        <p className="text-xs text-gray-500">Key Concepts Review</p>
                       </div>
                     </div>
                     <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 font-semibold">
@@ -703,18 +700,13 @@ export default function Landing() {
                   </div>
 
                   <div className="p-4 border-t border-gray-800 flex items-center justify-between text-xs bg-black/50 backdrop-blur-sm">
-                    <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1 text-gray-400">
-                        <Users size={14} className="text-green-400" /> 567 students
-                      </span>
-                    </div>
-                    <span className="text-gray-500">Built in 90 sec</span>
+                    <span className="text-gray-500">Memorize faster with spaced repetition</span>
                   </div>
                 </div>
-              </FloatingEducationCard>
+              </FloatingLearningCard>
 
               {/* Demo 3: Progress Tracker */}
-              <FloatingEducationCard delay={0.3}>
+              <FloatingLearningCard delay={0.3}>
                 <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl overflow-hidden shadow-2xl hover:border-green-500/50 transition-all group">
                   <div className="p-4 border-b border-gray-800 bg-black/50 backdrop-blur-sm flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -722,8 +714,8 @@ export default function Landing() {
                         📊
                       </div>
                       <div>
-                        <h4 className="font-bold text-sm">Progress Dashboard</h4>
-                        <p className="text-xs text-gray-500">Student Analytics</p>
+                        <h4 className="font-bold text-sm">Progress Tracking</h4>
+                        <p className="text-xs text-gray-500">Your Learning Journey</p>
                       </div>
                     </div>
                     <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 font-semibold">
@@ -736,15 +728,10 @@ export default function Landing() {
                   </div>
 
                   <div className="p-4 border-t border-gray-800 flex items-center justify-between text-xs bg-black/50 backdrop-blur-sm">
-                    <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1 text-gray-400">
-                        <Users size={14} className="text-green-400" /> 423 students
-                      </span>
-                    </div>
-                    <span className="text-gray-500">Built in 3 min</span>
+                    <span className="text-gray-500">Watch yourself improve every day</span>
                   </div>
                 </div>
-              </FloatingEducationCard>
+              </FloatingLearningCard>
             </div>
           </motion.div>
         </div>
@@ -761,14 +748,14 @@ export default function Landing() {
           >
             <div className="inline-block mb-6">
               <span className="px-6 py-3 bg-gradient-to-r from-pink-500/20 to-orange-500/20 border border-pink-500/30 rounded-full text-sm font-bold text-pink-300 backdrop-blur-sm">
-                ⚡ From Idea to Interactive Course
+                ⚡ From Curiosity to Mastery
               </span>
             </div>
             <h2 className="text-5xl md:text-6xl font-black mb-6">
-              How Teachers Use Garliq
+              How Garliq Works
             </h2>
             <p className="text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
-              Traditional course creation takes 10-20 hours. With Garliq's AI, you go from concept to complete interactive course in minutes.
+              No more scattered YouTube videos or overpriced courses. Get structured, personalized learning in minutes.
             </p>
           </motion.div>
 
@@ -783,20 +770,20 @@ export default function Landing() {
                 {[
                   {
                     step: "01",
-                    title: "Describe Your Lesson",
-                    description: "Tell Garliq what you want to teach: 'Create an interactive course on the solar system for 5th graders with quizzes and 3D planet models'",
+                    title: "Tell Us What You're Curious About",
+                    description: "Type anything: 'I want to learn options trading,' 'Teach me Italian cooking,' or 'Help me understand stoic philosophy.' Be as specific or broad as you want.",
                     icon: "💭"
                   },
                   {
                     step: "02",
-                    title: "AI Generates Your Course",
-                    description: "Our AI analyzes curriculum standards, creates chapters, adds interactive elements, quizzes, flashcards, and even embeds an AI tutor",
+                    title: "AI Crafts Your Perfect Course",
+                    description: "Our AI analyzes the best learning path, creates structured lessons, adds interactive elements (quizzes, simulations, flashcards), and embeds a 24/7 AI tutor.",
                     icon: "🤖"
                   },
                   {
                     step: "03",
-                    title: "Customize & Share",
-                    description: "Review, edit, and instantly share with students via link. Track their progress and let the embedded AI tutor answer their questions 24/7",
+                    title: "Learn By Doing",
+                    description: "Dive into interactive lessons at your own pace. Ask your AI tutor questions anytime. Track your progress. Master the skill. All in one place.",
                     icon: "🚀"
                   }
                 ].map((item, i) => (
@@ -826,11 +813,11 @@ export default function Landing() {
                 <div className="flex items-start gap-4">
                   <Clock className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-1" />
                   <div>
-                    <p className="text-sm font-bold text-white mb-2">Time Saved Per Course</p>
+                    <p className="text-sm font-bold text-white mb-2">Course Ready In</p>
                     <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                      10+ Hours
+                      ~3 Minutes
                     </p>
-                    <p className="text-xs text-gray-500 mt-2">Traditional: 12-20 hours • Garliq: 3 minutes</p>
+                    <p className="text-xs text-gray-500 mt-2">While you grab coffee, your personalized course is being built</p>
                   </div>
                 </div>
               </div>
@@ -858,54 +845,65 @@ export default function Landing() {
           >
             <div className="inline-block mb-6">
               <span className="px-6 py-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-full text-sm font-bold text-orange-300 backdrop-blur-sm">
-                📚 Course Examples
+                🌍 Learn Absolutely Anything
               </span>
             </div>
             <h2 className="text-5xl md:text-6xl font-black mb-6">
-              Courses Created by
+              What Will You
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                Educators Like You
+                Master Next?
               </span>
             </h2>
             <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-              From elementary school to university level. Every subject. Every teaching style.
+              From career skills to creative hobbies. From philosophy to finance. If you're curious, we'll build it.
             </p>
           </motion.div>
 
           <AnimatedCourseShowcase />
 
-          {/* Subject Categories */}
+          {/* Topic Categories */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="flex flex-wrap justify-center gap-3 mt-16"
+            className="mt-20"
           >
-            {[
-              "🧪 Chemistry", 
-              "⚛️ Physics", 
-              "🧬 Biology", 
-              "📐 Mathematics",
-              "🌍 Geography",
-              "📚 Literature",
-              "🗣️ Languages",
-              "💻 Computer Science",
-              "🎨 Art & Design",
-              "🎵 Music Theory"
-            ].map((subject, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
-                whileHover={{ scale: 1.1 }}
-                className="px-5 py-2.5 bg-gray-900/50 hover:bg-gray-800/80 border border-gray-800 hover:border-purple-500/50 rounded-full text-sm font-medium transition-all cursor-pointer backdrop-blur-sm"
-              >
-                {subject}
-              </motion.div>
-            ))}
+            <h3 className="text-2xl font-bold text-center mb-8 text-gray-400">Popular Learning Paths</h3>
+            <div className="flex flex-wrap justify-center gap-3">
+              {[
+                "📈 Stock Trading", 
+                "💻 Programming", 
+                "📸 Photography", 
+                "🍳 Cooking",
+                "🎸 Music",
+                "✍️ Writing",
+                "🗣️ Languages",
+                "🎨 Digital Art",
+                "🧠 Philosophy",
+                "🏋️ Fitness",
+                "🎬 Video Editing",
+                "🌱 Gardening",
+                "♟️ Chess Strategy",
+                "💼 Business Skills",
+                "🎭 Public Speaking"
+              ].map((topic, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.05 }}
+                  whileHover={{ scale: 1.1 }}
+                  className="px-5 py-2.5 bg-gray-900/50 hover:bg-gray-800/80 border border-gray-800 hover:border-purple-500/50 rounded-full text-sm font-medium transition-all cursor-pointer backdrop-blur-sm"
+                >
+                  {topic}
+                </motion.div>
+              ))}
+            </div>
+            <p className="text-center text-sm text-gray-500 mt-8">
+              ...or literally anything else. Just ask.
+            </p>
           </motion.div>
         </div>
       </div>
@@ -922,18 +920,18 @@ export default function Landing() {
             <div className="inline-block mb-6">
               <span className="px-6 py-3 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-full text-sm font-bold text-cyan-300 backdrop-blur-sm flex items-center gap-2 mx-auto w-fit">
                 <Sparkles size={16} />
-                Our Killer Feature
+                Never Learn Alone Again
               </span>
             </div>
             <h2 className="text-5xl md:text-6xl font-black mb-6">
-              Every Course Gets
+              Every Course Includes
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400">
-                An AI Tutor Built-In
+                A Personal AI Tutor
               </span>
             </h2>
             <p className="text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
-              Students can ask questions, get explanations, and receive hints 24/7 — all within the course you created.
+              Stuck at 2 AM? Confused by a concept? Your AI tutor is always there—answering questions, explaining differently, and guiding you to breakthroughs.
             </p>
           </motion.div>
 
@@ -950,8 +948,8 @@ export default function Landing() {
                     🤖
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold mb-2">Context-Aware AI Assistant</h3>
-                    <p className="text-gray-400 text-sm">The AI understands the course content and adapts to each student's learning pace</p>
+                    <h3 className="text-2xl font-bold mb-2">Your 24/7 Learning Companion</h3>
+                    <p className="text-gray-400 text-sm">Understands your course, adapts to your pace, never judges your questions</p>
                   </div>
                 </div>
 
@@ -959,29 +957,29 @@ export default function Landing() {
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-1" />
                     <div>
-                      <p className="font-semibold text-white">Answers Questions in Real-Time</p>
-                      <p className="text-sm text-gray-500">Students get instant help without waiting for you</p>
+                      <p className="font-semibold text-white">Instant Answers</p>
+                      <p className="text-sm text-gray-500">No waiting for office hours or forum replies</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-1" />
                     <div>
-                      <p className="font-semibold text-white">Explains Concepts Differently</p>
-                      <p className="text-sm text-gray-500">"I don't understand" triggers alternative explanations</p>
+                      <p className="font-semibold text-white">Explains Concepts Multiple Ways</p>
+                      <p className="text-sm text-gray-500">If you don't understand, it tries a different approach</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-1" />
                     <div>
-                      <p className="font-semibold text-white">Provides Hints, Not Answers</p>
-                      <p className="text-sm text-gray-500">Guides students to discover solutions themselves</p>
+                      <p className="font-semibold text-white">Guides, Doesn't Spoonfeed</p>
+                      <p className="text-sm text-gray-500">Asks questions to help you discover answers yourself</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-1" />
                     <div>
-                      <p className="font-semibold text-white">Tracks Comprehension</p>
-                      <p className="text-sm text-gray-500">You see which concepts students struggle with</p>
+                      <p className="font-semibold text-white">Adapts To Your Learning Style</p>
+                      <p className="text-sm text-gray-500">Visual learner? Prefers examples? It adapts</p>
                     </div>
                   </div>
                 </div>
@@ -990,10 +988,10 @@ export default function Landing() {
               <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-3">
                   <Lightbulb className="w-6 h-6 text-yellow-400" />
-                  <p className="font-bold text-white">Teaching Philosophy</p>
+                  <p className="font-bold text-white">Learning Philosophy</p>
                 </div>
                 <p className="text-sm text-gray-400 leading-relaxed">
-                  The AI tutor follows Socratic method — asking guiding questions rather than giving direct answers. This promotes deeper learning and critical thinking.
+                  The AI uses Socratic method—asking guiding questions instead of giving direct answers. This builds deeper understanding and critical thinking skills.
                 </p>
               </div>
             </motion.div>
@@ -1008,8 +1006,8 @@ export default function Landing() {
               <div className="bg-gradient-to-r from-cyan-600 to-blue-600 p-4 flex items-center gap-3">
                 <BookOpen className="w-6 h-6 text-white" />
                 <div>
-                  <p className="font-bold text-white text-sm">Physics 101: Newton's Laws</p>
-                  <p className="text-xs text-cyan-100">Lesson 3: Force & Motion</p>
+                  <p className="font-bold text-white text-sm">Trading 101: Options Strategies</p>
+                  <p className="text-xs text-cyan-100">Lesson 5: Risk Management</p>
                 </div>
               </div>
 
@@ -1018,11 +1016,11 @@ export default function Landing() {
                 <div className="p-6 border-r border-gray-800 bg-gray-900/50">
                   <h4 className="text-sm font-bold mb-3 text-purple-400">📖 Lesson Content</h4>
                   <div className="space-y-3 text-xs text-gray-400">
-                    <p>Newton's Second Law states: F = ma</p>
+                    <p>Put options give you the right to sell at a strike price.</p>
                     <div className="bg-gray-800 rounded p-3">
-                      <p className="text-white font-mono text-[10px]">Force = Mass × Acceleration</p>
+                      <p className="text-white font-mono text-[10px]">Example: SPY $450 Put</p>
                     </div>
-                    <p>Example: A 10kg object accelerating at 5m/s² experiences 50N of force.</p>
+                    <p>Use protective puts to hedge your portfolio against downside risk.</p>
                   </div>
                 </div>
 
@@ -1030,22 +1028,22 @@ export default function Landing() {
                 <div className="p-6 bg-black/50">
                   <h4 className="text-sm font-bold mb-3 text-cyan-400 flex items-center gap-2">
                     <Brain size={14} />
-                    AI Tutor Chat
+                    AI Tutor
                   </h4>
                   <div className="space-y-2 text-xs mb-3">
                     <div className="bg-gray-800 rounded-lg p-2 text-gray-300">
-                      <p className="font-semibold text-cyan-400 mb-1">Student:</p>
-                      <p>I don't understand why mass affects force?</p>
+                      <p className="font-semibold text-white mb-1">You:</p>
+                      <p>Why would I buy a put if I think the price will fall?</p>
                     </div>
                     <div className="bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-lg p-2 text-gray-200">
-                      <p className="font-semibold text-cyan-300 mb-1">AI Tutor:</p>
-                      <p>Great question! Think of pushing a shopping cart vs. a car. Which requires more force? Why?</p>
+                      <p className="font-semibold text-cyan-300 mb-1">Tutor:</p>
+                      <p>Great question! Think about insurance. You buy it hoping you'll never need it, right? How is a put option similar?</p>
                     </div>
                   </div>
                   <div className="flex gap-1">
                     <input 
                       type="text" 
-                      placeholder="Ask a question..."
+                      placeholder="Ask anything..."
                       className="flex-1 px-2 py-1 bg-gray-800 rounded text-[10px] text-gray-400 border border-gray-700"
                       disabled
                     />
@@ -1070,35 +1068,35 @@ export default function Landing() {
             <h2 className="text-5xl md:text-6xl font-black mb-6">
               Built for{' '}
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                Every Educator
+                Curious Minds
               </span>
             </h2>
             <p className="text-xl text-gray-400">
-              Whether you teach kindergarten or PhD candidates, Garliq adapts to your needs
+              Whether you're 18 or 80, changing careers or exploring hobbies—Garliq adapts to you
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-4 gap-6">
             {[
               {
-                emoji: "👨‍🏫",
-                title: "K-12 Teachers",
-                description: "Create engaging lessons that make complex topics simple. Add games, quizzes, and interactive diagrams."
+                emoji: "🚀",
+                title: "Career Changers",
+                description: "Learning new skills to pivot careers. Master coding, marketing, data analysis, or design at your own pace."
               },
               {
-                emoji: "🎓",
-                title: "University Professors",
-                description: "Build comprehensive courses with research materials, simulations, and advanced problem sets."
+                emoji: "💡",
+                title: "Lifelong Learners",
+                description: "Curious about everything. Explore philosophy, art history, astronomy, or quantum physics—just because."
               },
               {
                 emoji: "💼",
-                title: "Corporate Trainers",
-                description: "Onboarding programs, compliance training, and skill development courses with tracking."
+                title: "Entrepreneurs",
+                description: "Building businesses and need to learn fast. Sales, finance, leadership, and growth strategies on demand."
               },
               {
-                emoji: "🌐",
-                title: "Online Tutors",
-                description: "Custom courses for each student. Share via link, track progress, monetize your expertise."
+                emoji: "🎨",
+                title: "Hobbyists & Creators",
+                description: "Pursuing passions outside work. Learn guitar, photography, cooking, chess, gardening—whatever sparks joy."
               }
             ].map((persona, i) => (
               <motion.div
@@ -1116,10 +1114,24 @@ export default function Landing() {
               </motion.div>
             ))}
           </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mt-16 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-2xl p-8 text-center"
+          >
+            <p className="text-lg text-gray-300 mb-4">
+              <span className="font-bold text-white">Teachers & Educators?</span> You're covered too.
+            </p>
+            <p className="text-sm text-gray-500">
+              Create courses for your students, share via link, and track their progress—all with the same $3/month subscription.
+            </p>
+          </motion.div>
         </div>
       </div>
 
-      {/* Pricing Teaser */}
+      {/* Pricing Section */}
       <div className="relative py-32 px-6 bg-gradient-to-b from-black via-purple-950/10 to-black">
         <div className="max-w-5xl mx-auto text-center">
           <motion.div
@@ -1129,96 +1141,96 @@ export default function Landing() {
           >
             <div className="inline-block mb-6">
               <span className="px-6 py-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-full text-sm font-bold text-green-300 backdrop-blur-sm">
-                💰 Simple, Fair Pricing
+                💰 Transparent, Fair Pricing
               </span>
             </div>
             <h2 className="text-5xl md:text-6xl font-black mb-6">
-              Free to Start.
+              Learn Everything
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                Pay Only for AI Usage.
+                For $3 Per Month
               </span>
             </h2>
             <p className="text-xl text-gray-400 mb-12 max-w-3xl mx-auto">
-              No monthly fees. No subscriptions. Create unlimited courses. Pay only for the AI tokens you use.
+              Unlimited access to all courses. Create your own courses with tokens. No hidden fees. Cancel anytime.
             </p>
 
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
+            <div className="grid md:grid-cols-2 gap-6 mb-12 max-w-4xl mx-auto">
               <div className="bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-800 rounded-2xl p-8">
-                <div className="text-4xl mb-4">🆓</div>
-                <h3 className="text-2xl font-bold mb-2">Free Tier</h3>
-                <p className="text-sm text-gray-400 mb-4">Perfect to get started</p>
-                <div className="text-left space-y-2 text-sm">
+                <div className="text-4xl mb-4">🎓</div>
+                <h3 className="text-2xl font-bold mb-2">Access All Courses</h3>
+                <div className="text-5xl font-black text-purple-400 mb-4">$3<span className="text-lg text-gray-500">/mo</span></div>
+                <p className="text-sm text-gray-400 mb-6">Unlock unlimited learning</p>
+                <div className="text-left space-y-3 text-sm">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-400" />
-                    <span>Unlimited courses</span>
+                    <span>Unlimited access to ALL courses</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-400" />
-                    <span>50 AI generations/day</span>
+                    <span>Learn at your own pace</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-400" />
-                    <span>Basic AI tutor access</span>
+                    <span>AI tutor included in every course</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-green-400" />
+                    <span>Track your progress</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-green-400" />
+                    <span>Share courses with friends</span>
                   </div>
                 </div>
               </div>
 
               <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-2 border-purple-500/50 rounded-2xl p-8 relative">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs px-4 py-1 rounded-full font-bold">
-                  MOST POPULAR
+                  FOR CREATORS
                 </div>
-                <div className="text-4xl mb-4">⚡</div>
-                <h3 className="text-2xl font-bold mb-2">Pay As You Go</h3>
-                <p className="text-sm text-gray-400 mb-4">For active educators</p>
-                <div className="text-left space-y-2 text-sm">
+                <div className="text-4xl mb-4">✨</div>
+                <h3 className="text-2xl font-bold mb-2">Create Your Own</h3>
+                <div className="text-3xl font-black text-purple-400 mb-4">Buy Tokens</div>
+                <p className="text-sm text-gray-400 mb-6">Pay only for what you create</p>
+                <div className="text-left space-y-3 text-sm">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-400" />
-                    <span>Everything in Free</span>
+                    <span>Everything in Access plan</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-400" />
-                    <span>Unlimited AI usage</span>
+                    <span>Create unlimited courses with tokens</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-400" />
-                    <span>Advanced AI tutor</span>
+                    <span>Share your courses with others</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-400" />
-                    <span>Student analytics</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-800 rounded-2xl p-8">
-                <div className="text-4xl mb-4">🏫</div>
-                <h3 className="text-2xl font-bold mb-2">Schools</h3>
-                <p className="text-sm text-gray-400 mb-4">Custom enterprise plans</p>
-                <div className="text-left space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-green-400" />
-                    <span>Everything in Pay As You Go</span>
+                    <span>Build your own learning library</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-green-400" />
-                    <span>LMS integration</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-green-400" />
-                    <span>White-label option</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-green-400" />
-                    <span>Priority support</span>
+                    <span>Customize course content</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <p className="text-sm text-gray-500">
-              Average course costs ~$0.50-$2.00 to generate (one-time) • AI tutor interactions: ~$0.01 each
-            </p>
+            <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-6 max-w-3xl mx-auto">
+              <div className="flex items-start gap-4">
+                <Lightbulb className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-1" />
+                <div className="text-left">
+                  <p className="font-bold text-white mb-2">How Tokens Work</p>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    Your $3/month subscription gives you access to all existing courses. To create your own personalized courses, 
+                    you'll need tokens (one-time purchase). Average course creation costs vary based on complexity and length. 
+                    Buy tokens in flexible packages as needed.
+                  </p>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -1253,14 +1265,14 @@ export default function Landing() {
               </div>
 
               <h2 className="text-5xl md:text-6xl font-black mb-6">
-                Start Teaching
+                What Will You
                 <br />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                  The Modern Way
+                  Learn Today?
                 </span>
               </h2>
               <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
-                Join thousands of educators who've saved 100+ hours with AI-powered course creation. Your first course is free.
+                Stop dreaming about learning. Stop wasting time on scattered resources. Start mastering skills that matter to you—right now.
               </p>
               
               <Link href="/auth">
@@ -1270,7 +1282,7 @@ export default function Landing() {
                   className="group relative px-12 py-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl font-bold text-xl overflow-hidden shadow-2xl"
                 >
                   <span className="relative z-10 flex items-center gap-3">
-                    Create Your First Course Free
+                    Start Learning for $3/Month
                     <motion.div
                       animate={{ x: [0, 5, 0] }}
                       transition={{ duration: 1.5, repeat: Infinity }}
@@ -1290,15 +1302,15 @@ export default function Landing() {
               <div className="flex items-center justify-center gap-8 mt-8 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  No credit card required
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Start creating in 30 seconds
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-400" />
                   Cancel anytime
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400" />
+                  Start learning in 30 seconds
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400" />
+                  Unlimited courses
                 </div>
               </div>
             </div>
@@ -1318,8 +1330,8 @@ export default function Landing() {
                 height={48}
               />
               <div>
-                <p className="font-bold text-white">Garliq for Education</p>
-                <p className="text-sm text-gray-600">AI-Powered Course Creation Platform</p>
+                <p className="font-bold text-white">Garliq</p>
+                <p className="text-sm text-gray-600">Your Personal AI Learning Architect</p>
               </div>
             </div>
             
@@ -1340,7 +1352,7 @@ export default function Landing() {
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-900 text-center text-gray-600 text-sm">
-            <p className="mb-2">© 2025 Garliq by Parasync Technologies. Empowering educators with AI.</p>
+            <p className="mb-2">© 2025 Garliq by Parasync Technologies. Empowering lifelong learners everywhere.</p>
             <p>
               Need help? <a href="mailto:team@parasync.in" className="text-purple-400 hover:text-purple-300 underline">team@parasync.in</a>
             </p>
