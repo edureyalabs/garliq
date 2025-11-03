@@ -270,43 +270,16 @@ export default function PostDetailPage() {
     );
   }
 
-  // LOGGED-OUT VIEW
+  // LOGGED-OUT VIEW - Glassmorphic Teaser
   if (!user) {
     return (
       <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
-        {/* Ultra Compact Header - ~2% */}
-        <div className="flex-shrink-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-40">
-          {/* Row 1: Logo + CTA */}
-          <div className="px-3 py-1.5 flex items-center justify-between border-b border-gray-800/50">
-            <Link href="/" className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-              <Image 
-                src="/logo.png" 
-                alt="Garliq" 
-                width={24} 
-                height={24}
-              />
-              <h1 className="text-sm font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-                Garliq
-              </h1>
-            </Link>
-
-            <Link href="/">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5"
-              >
-                <Sparkles size={12} />
-                Create Your Garliq
-              </motion.button>
-            </Link>
-          </div>
-
-          {/* Row 2: Creator + Caption + Prompt (Single Line) */}
-          <div className="px-3 py-1.5 flex items-center gap-3 text-xs">
-            {/* Creator */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold overflow-hidden">
+        {/* Compact Header - Creator Info + Login CTA */}
+        <div className="flex-shrink-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-50">
+          <div className="px-4 py-2.5 flex items-center justify-between">
+            {/* Left: Creator Info */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold overflow-hidden">
                 {profile?.avatar_url ? (
                   <img 
                     src={profile.avatar_url} 
@@ -317,131 +290,160 @@ export default function PostDetailPage() {
                   <span>{profile?.display_name?.[0]?.toUpperCase() || '?'}</span>
                 )}
               </div>
-              <span className="font-semibold text-white">{profile?.display_name || 'Anonymous'}</span>
+              <div>
+                <p className="font-bold text-sm">{profile?.display_name || 'Anonymous'}</p>
+                <p className="text-xs text-gray-400">@{profile?.username || 'unknown'}</p>
+              </div>
             </div>
 
-            {/* Divider */}
-            <div className="w-px h-4 bg-gray-700"></div>
-
-            {/* Caption (truncated) */}
-            <p className="text-gray-400 truncate flex-1">
-              {post.caption}
-            </p>
-
-            {/* Prompt Badge */}
-            {post.prompt_visible && post.prompt && (
-              <>
-                <div className="w-px h-4 bg-gray-700"></div>
-                <div className="flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/20 rounded px-2 py-0.5 flex-shrink-0">
-                  <Code2 size={10} className="text-purple-400" />
-                  <span className="text-xs text-purple-400 font-mono truncate max-w-[200px]">{post.prompt}</span>
-                </div>
-              </>
-            )}
-
-            {/* Pages Badge */}
-            {pages.length > 0 && (
-              <>
-                <div className="w-px h-4 bg-gray-700"></div>
-                <div className="flex items-center gap-1 bg-blue-500/10 border border-blue-500/20 rounded px-2 py-0.5 flex-shrink-0">
-                  <FileText size={10} className="text-blue-400" />
-                  <span className="text-xs text-blue-400 font-bold">{pages.length}</span>
-                </div>
-              </>
-            )}
+            {/* Right: Login CTA */}
+            <Link href="/auth">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg"
+              >
+                <Sparkles size={16} />
+                Login to View Course
+              </motion.button>
+            </Link>
           </div>
         </div>
 
-        {/* Full Width Preview - ~98% */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left: Pages Sidebar (if multi-page) */}
-          {pages.length > 0 && (
-            <div className="hidden lg:block w-48 border-r border-gray-800 bg-gray-900/50 overflow-y-auto">
-              <div className="p-2 border-b border-gray-800">
-                <h3 className="text-xs font-bold flex items-center gap-1.5">
-                  <FileText size={12} className="text-purple-400" />
-                  Pages ({pages.length})
-                </h3>
-              </div>
-              <div className="p-1.5 space-y-0.5">
-                {pages.map((page, idx) => (
-                  <button
-                    key={page.id}
-                    onClick={() => setCurrentPageIndex(idx)}
-                    className={`w-full text-left p-2 rounded transition-all text-xs ${
-                      currentPageIndex === idx
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm">{getPageIcon(page)}</span>
-                      <span className="font-semibold flex-1 truncate">
-                        {page.page_title}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Preview Container */}
-          <div className="flex-1 flex flex-col">
-            {pages.length > 0 ? (
-              <>
-                {/* Page Navigation Header */}
-                <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-black">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
-                      disabled={currentPageIndex === 0}
-                      className="p-1 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <div className="flex items-center gap-1.5">
-                      <Eye size={12} className="text-purple-400" />
-                      <span className="text-xs text-gray-400">
-                        {pages[currentPageIndex]?.page_title || 'No page'}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setCurrentPageIndex(prev => Math.min(pages.length - 1, prev + 1))}
-                      disabled={currentPageIndex === pages.length - 1}
-                      className="p-1 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {currentPageIndex + 1}/{pages.length}
-                  </span>
+        {/* Preview Container with Glassmorphic Overlay */}
+        <div className="flex-1 relative overflow-hidden">
+          {/* Blurred Preview Background */}
+          <div className="absolute inset-0 flex">
+            {/* Left: Pages Sidebar (if multi-page) - Blurred */}
+            {pages.length > 0 && (
+              <div className="hidden lg:block w-48 border-r border-gray-800 bg-gray-900/50 overflow-y-auto blur-sm pointer-events-none">
+                <div className="p-2 border-b border-gray-800">
+                  <h3 className="text-xs font-bold flex items-center gap-1.5">
+                    <FileText size={12} className="text-purple-400" />
+                    Pages ({pages.length})
+                  </h3>
                 </div>
-
-                {/* Page Content */}
-                <div className="flex-1 bg-white overflow-auto">
-                  {pages[currentPageIndex] && (
-                    <iframe
-                      key={pages[currentPageIndex].id}
-                      srcDoc={pages[currentPageIndex].html_content}
-                      className="w-full h-full"
-                      sandbox="allow-scripts allow-same-origin"
-                      title="course-page"
-                    />
-                  )}
+                <div className="p-1.5 space-y-0.5">
+                  {pages.map((page, idx) => (
+                    <div
+                      key={page.id}
+                      className="w-full text-left p-2 rounded bg-gray-800 text-gray-300 text-xs"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">{getPageIcon(page)}</span>
+                        <span className="font-semibold flex-1 truncate">
+                          {page.page_title}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </>
-            ) : (
-              <div className="flex-1 bg-white">
-                <iframe
-                  srcDoc={post.html_code}
-                  className="w-full h-full"
-                  sandbox="allow-scripts allow-same-origin"
-                  title="legacy-preview"
-                />
               </div>
             )}
+
+            {/* Preview Content - Blurred */}
+            <div className="flex-1 flex flex-col">
+              {pages.length > 0 ? (
+                <>
+                  <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-black blur-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 bg-gray-800 rounded">
+                        <ChevronLeft size={14} />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Eye size={12} className="text-purple-400" />
+                        <span className="text-xs text-gray-400">
+                          {pages[currentPageIndex]?.page_title || 'Page Title'}
+                        </span>
+                      </div>
+                      <div className="p-1 bg-gray-800 rounded">
+                        <ChevronRight size={14} />
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      1/{pages.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 bg-white blur-sm">
+                    {pages[currentPageIndex] && (
+                      <iframe
+                        srcDoc={pages[currentPageIndex].html_content}
+                        className="w-full h-full pointer-events-none"
+                        sandbox="allow-scripts allow-same-origin"
+                        title="course-page-preview"
+                      />
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 bg-white blur-sm">
+                  <iframe
+                    srcDoc={post.html_code}
+                    className="w-full h-full pointer-events-none"
+                    sandbox="allow-scripts allow-same-origin"
+                    title="legacy-preview"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Glassmorphic Overlay with CTA */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-40">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center max-w-md mx-4"
+            >
+              {/* Lock Icon */}
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="mb-6 flex justify-center"
+              >
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-2xl">
+                  <Image 
+                    src="/logo.png" 
+                    alt="Garliq" 
+                    width={48} 
+                    height={48}
+                  />
+                </div>
+              </motion.div>
+
+              {/* Title */}
+              <h2 className="text-3xl font-black mb-3 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                Premium Content
+              </h2>
+              
+              {/* Description */}
+              <p className="text-gray-300 mb-2 text-sm leading-relaxed">
+                {post.caption}
+              </p>
+              
+              {pages.length > 0 && (
+                <p className="text-purple-400 font-semibold mb-6 text-sm">
+                  🎓 {pages.length} Course Pages Available
+                </p>
+              )}
+
+              {/* Main CTA Button */}
+              <Link href="/auth">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-4 rounded-full text-lg font-bold shadow-2xl hover:shadow-purple-500/50 transition-all mb-4 w-full"
+                >
+                  🔓 Login to Access Full Course
+                </motion.button>
+              </Link>
+
+              {/* Secondary Info */}
+              <p className="text-xs text-gray-400">
+                Join thousands learning with Garliq
+              </p>
+            </motion.div>
           </div>
         </div>
       </div>

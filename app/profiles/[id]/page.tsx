@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, Share2, ExternalLink, Trash2, Eye, Zap, Sparkles, MessageCircle, Plus, Crown, Clock } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, Heart, Code2, Bookmark, Share2, ExternalLink, Trash2, Eye, Zap, Sparkles, MessageCircle, Plus, Crown, Clock, User, Folder } from 'lucide-react';
 import Link from 'next/link';
 import TokenPurchaseModal from '@/components/TokenPurchaseModal';
 import SubscriptionModal from '@/components/SubscriptionModal';
@@ -181,23 +181,23 @@ export default function ProfilePage() {
     if (!subscriptionStatus) return null;
 
     const colors = {
-      active: 'bg-green-100 text-green-800 border-green-300',
-      trial: 'bg-purple-100 text-purple-800 border-purple-300',
-      expired: 'bg-red-100 text-red-800 border-red-300',
-      cancelled: 'bg-orange-100 text-orange-800 border-orange-300',
-      none: 'bg-gray-100 text-gray-800 border-gray-300',
+      active: 'bg-green-500/20 text-green-400 border-green-500/30',
+      trial: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+      expired: 'bg-red-500/20 text-red-400 border-red-500/30',
+      cancelled: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+      none: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
     };
 
     const labels = {
-      active: 'Active Subscriber',
-      trial: 'Trial Period',
-      expired: 'Subscription Expired',
-      cancelled: 'Subscription Cancelled',
-      none: 'No Subscription',
+      active: '✓ Active',
+      trial: '⚡ Trial',
+      expired: '✗ Expired',
+      cancelled: '⊘ Cancelled',
+      none: '○ None',
     };
 
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colors[subscriptionStatus.status as keyof typeof colors]}`}>
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${colors[subscriptionStatus.status as keyof typeof colors]}`}>
         {labels[subscriptionStatus.status as keyof typeof labels]}
       </span>
     );
@@ -206,7 +206,6 @@ export default function ProfilePage() {
   const fetchAllStats = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     
-    // Fetch posts count and total likes
     const { count: postsCount, data: postsData } = await supabase
       .from('posts')
       .select('likes_count', { count: 'exact' })
@@ -214,13 +213,11 @@ export default function ProfilePage() {
     
     const totalLikes = postsData?.reduce((sum, post) => sum + (post.likes_count || 0), 0) || 0;
     
-    // Fetch projects count
     const { count: projectsCount } = await supabase
       .from('projects')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
     
-    // Fetch saved count (only if viewing own profile)
     let savesCount = 0;
     if (session && session.user.id === userId) {
       const { count } = await supabase
@@ -273,7 +270,6 @@ export default function ProfilePage() {
     }
 
     if (data) {
-      // Fetch interactions if user is logged in
       const { data: { session } } = await supabase.auth.getSession();
       
       let postsWithInteractions = data;
@@ -378,7 +374,6 @@ export default function ProfilePage() {
       .order('created_at', { ascending: false });
 
     if (posts) {
-      // Fetch profiles for post creators
       const userIds = [...new Set(posts.map(p => p.user_id))];
       const { data: profilesData } = await supabase
         .from('profiles')
@@ -387,7 +382,6 @@ export default function ProfilePage() {
 
       const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
 
-      // Add interaction data and profiles
       const postsWithInteractions = await Promise.all(
         posts.map(async (post) => {
           const [likeData, saveData] = await Promise.all([
@@ -694,190 +688,730 @@ export default function ProfilePage() {
   // LOGGED OUT VIEW
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-black text-white">
-        {/* Header */}
-        <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3 hover:opacity-70 transition-opacity">
+      <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+        {/* Compact Header */}
+        <div className="flex-shrink-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-40">
+          <div className="px-3 py-2 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2 hover:opacity-70 transition-opacity">
               <Image 
                 src="/logo.png" 
                 alt="Garliq" 
-                width={48} 
-                height={48}
+                width={28} 
+                height={28}
               />
-              <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+              <h1 className="text-sm font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
                 Garliq
               </h1>
             </Link>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleShare}
-                className="p-2.5 hover:bg-gray-800 rounded-full transition-colors"
+                className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
               >
-                <Share2 size={20} className="text-gray-400" />
+                <Share2 size={16} className="text-gray-400" />
               </button>
 
               <Link href="/">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-bold flex items-center gap-2 text-sm sm:text-base"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5"
                 >
-                  <Sparkles size={18} />
-                  <span className="hidden sm:inline">Create Your Garliq</span>
-                  <span className="sm:hidden">Create</span>
+                  <Sparkles size={14} />
+                  Create
                 </motion.button>
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Profile Header */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-          <div className="flex flex-col md:flex-row gap-6 sm:gap-8 items-start mb-8">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl sm:text-6xl font-black flex-shrink-0 overflow-hidden">
-              {profile.avatar_url ? (
-                <img 
-                  src={profile.avatar_url} 
-                  alt={profile.display_name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span>{profile.display_name[0].toUpperCase()}</span>
-              )}
-            </div>
-
-            <div className="flex-1">
-              <h1 className="text-3xl sm:text-4xl font-black mb-2">{profile.display_name}</h1>
-              <p className="text-gray-500 mb-4 text-sm sm:text-base">@{profile.username}</p>
-              
-              {profile.bio && (
-                <p className="text-gray-300 mb-6 leading-relaxed max-w-2xl text-sm sm:text-base">{profile.bio}</p>
-              )}
-
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8">
-                <Calendar size={16} />
-                <span>
-                  Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </span>
+        {/* Profile Section */}
+        <div className="flex-shrink-0 bg-gradient-to-b from-gray-900/50 to-black border-b border-gray-800">
+          <div className="max-w-5xl mx-auto px-4 py-6">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl font-bold overflow-hidden flex-shrink-0">
+                {profile.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt={profile.display_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span>{profile.display_name[0].toUpperCase()}</span>
+                )}
               </div>
 
-              <div className="flex items-center gap-3 sm:gap-4">
-                {[
-                  { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
-                  { label: 'Garliqs', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' }
-                ].map((stat, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 sm:p-4 w-32 sm:w-36"
-                  >
-                    <stat.icon className={`${stat.color} mb-2`} size={18} />
-                    <div className="text-xl sm:text-2xl font-black">{stat.value}</div>
-                    <div className="text-[10px] sm:text-xs text-gray-500 font-medium">{stat.label}</div>
-                  </motion.div>
-                ))}
+              <div className="flex-1">
+                <h1 className="text-2xl font-black mb-1">{profile.display_name}</h1>
+                <p className="text-sm text-gray-400 mb-2">@{profile.username}</p>
+                
+                {profile.bio && (
+                  <p className="text-sm text-gray-300 leading-relaxed mb-3">{profile.bio}</p>
+                )}
+
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Calendar size={14} />
+                  <span>
+                    Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Posts Tab */}
-          <div className="flex items-center gap-2 mb-6 sm:mb-8 border-b border-gray-800">
-            <button className="flex items-center gap-2 px-4 sm:px-6 py-3 font-semibold transition-all border-b-2 border-purple-500 text-white text-sm sm:text-base">
-              <Code2 size={18} />
-              Posts
+        {/* Tabs with Stats */}
+        <div className="flex-shrink-0 bg-black border-b border-gray-800">
+          <div className="max-w-5xl mx-auto px-4">
+            <div className="flex items-center gap-1">
+              <button className="flex items-center gap-2 px-4 py-3 font-semibold transition-all border-b-2 border-purple-500 text-white text-sm">
+                <User size={16} />
+                Posts
+                <span className="ml-1 px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">
+                  {stats.posts}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-5xl mx-auto px-4 py-4">
+            {posts.length === 0 && !loading ? (
+              <div className="text-center py-16">
+                <div className="mb-4 flex justify-center">
+                  <Image 
+                    src="/logo.png" 
+                    alt="Garliq" 
+                    width={80} 
+                    height={80}
+                  />
+                </div>
+                <h2 className="text-xl font-bold mb-2">No Posts Yet</h2>
+                <p className="text-gray-500 text-sm">This user hasn't shared any creations yet</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {posts.map((post, index) => (
+                    <motion.div
+                      key={`${post.id}-${index}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                    >
+                      <Link href={`/post/${post.id}`}>
+                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
+                          <iframe
+                            srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
+                            className="w-full h-full pointer-events-none"
+                            sandbox=""
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        </div>
+                      </Link>
+
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+
+                        {post.prompt_visible && post.prompt && (
+                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Code2 size={9} className="text-purple-400" />
+                              <span className="text-[9px] font-bold text-purple-400 uppercase">Prompt</span>
+                            </div>
+                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <Heart size={15} className="text-gray-500" />
+                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
+                            </div>
+
+                            <Link href={`/post/${post.id}#comments`}>
+                              <div className="flex items-center gap-1 text-gray-500">
+                                <MessageCircle size={15} />
+                                <span className="text-xs font-bold">{post.comments_count || 0}</span>
+                              </div>
+                            </Link>
+                          </div>
+
+                          <button 
+                            onClick={() => handleSharePost(post)} 
+                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                          >
+                            <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div ref={observerTarget} className="py-8 flex justify-center">
+                  {loadingMore && (
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        className="text-2xl"
+                      >
+                        🧄
+                      </motion.div>
+                      <span className="text-sm">Loading...</span>
+                    </div>
+                  )}
+                  {!hasMore && posts.length > 0 && (
+                    <p className="text-gray-500 text-sm">End of posts</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // LOGGED IN VIEW - COMPACT PROFILE PAGE
+  return (
+    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+      {/* Top Navigation Bar */}
+      <div className="flex-shrink-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-40">
+        <div className="px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/feed')} className="p-1.5 hover:bg-gray-800 rounded-full transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h2 className="text-sm font-bold flex items-center gap-2">
+                <User size={16} className="text-purple-400" />
+                {isOwnProfile ? 'My Profile' : `${profile.display_name}'s Profile`}
+              </h2>
+              <p className="text-xs text-gray-500">@{profile.username}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isOwnProfile && (
+              <>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 rounded-full border border-gray-800">
+                  <Zap size={16} className="text-yellow-400" />
+                  <span className="text-sm font-bold">{tokenBalance.toLocaleString()}</span>
+                </div>
+                
+                <motion.button
+                  onClick={() => setShowTokenModal(true)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-1.5 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-full font-semibold flex items-center gap-2 text-sm"
+                >
+                  <Zap size={16} />
+                  Buy Tokens
+                </motion.button>
+
+                <Link href={`/profiles/${userId}/edit`}>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-full font-semibold flex items-center gap-2 text-sm"
+                  >
+                    <Edit size={16} />
+                    Edit
+                  </motion.button>
+                </Link>
+              </>
+            )}
+
+            <button
+              onClick={handleShare}
+              className="p-2 hover:bg-gray-800 rounded-full transition-colors"
+            >
+              <Share2 size={18} className="text-gray-400" />
             </button>
           </div>
+        </div>
+      </div>
 
-          {/* Posts Grid - Feed Style */}
-          {posts.length === 0 && !loading ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-16 sm:py-20"
-            >
-              <div className="mb-4 sm:mb-6 flex justify-center">
+      {/* COMPACT Profile Info Section - Side by Side Layout */}
+      <div className="flex-shrink-0 bg-gradient-to-b from-gray-900/50 to-black border-b border-gray-800">
+        <div className="max-w-5xl mx-auto px-4 py-3">
+          <div className="flex items-start gap-4">
+            {/* Left: Avatar + Basic Info */}
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xl font-bold overflow-hidden flex-shrink-0">
+                {profile.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt={profile.display_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span>{profile.display_name[0].toUpperCase()}</span>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h1 className="text-lg font-black mb-0.5 truncate">{profile.display_name}</h1>
+                <p className="text-xs text-gray-400 mb-1.5 truncate">@{profile.username}</p>
+                
+                {profile.bio && (
+                  <p className="text-xs text-gray-300 leading-relaxed mb-2 line-clamp-2">{profile.bio}</p>
+                )}
+
+                <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                  <Calendar size={11} />
+                  <span>
+                    Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Subscription Panel (Only for Own Profile) */}
+            {isOwnProfile && subscriptionStatus && (
+              <div className="w-72 flex-shrink-0 bg-gray-900/70 border border-gray-800 rounded-lg p-2.5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Crown size={13} className="text-purple-400" />
+                    <span className="font-bold text-xs">Subscription</span>
+                  </div>
+                  {getSubscriptionBadge()}
+                </div>
+
+                <div className="space-y-1 text-[10px] mb-2">
+                  {subscriptionStatus.expires_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 flex items-center gap-1">
+                        <Clock size={10} />
+                        {subscriptionStatus.is_active ? 'Expires' : 'Expired'}:
+                      </span>
+                      <span className="font-medium text-[10px]">
+                        {new Date(subscriptionStatus.expires_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  )}
+
+                  {subscriptionStatus.is_active && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Days Left:</span>
+                      <span className={`font-bold text-[10px] ${
+                        subscriptionStatus.days_remaining <= 3 ? 'text-red-400' :
+                        subscriptionStatus.days_remaining <= 7 ? 'text-orange-400' :
+                        'text-green-400'
+                      }`}>
+                        {subscriptionStatus.days_remaining}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Compact Button */}
+                {!subscriptionStatus.is_active ? (
+                  <motion.button
+                    onClick={() => setShowSubscriptionModal(true)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-md hover:from-purple-700 hover:to-pink-700 font-semibold flex items-center justify-center gap-1.5 text-[11px]"
+                  >
+                    <Crown size={12} />
+                    Renew - $3/mo
+                  </motion.button>
+                ) : subscriptionStatus.days_remaining <= 7 && (
+                  <motion.button
+                    onClick={() => setShowSubscriptionModal(true)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full px-3 py-1.5 border border-purple-600 text-purple-400 rounded-md hover:bg-purple-600/10 font-semibold flex items-center justify-center gap-1.5 text-[11px]"
+                  >
+                    <Crown size={12} />
+                    Extend
+                  </motion.button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs with Stats */}
+      <div className="flex-shrink-0 bg-black border-b border-gray-800">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="flex items-center gap-1">
+            {[
+              { id: 'posts', label: 'My Posts', icon: User, count: stats.posts },
+              { id: 'projects', label: 'Projects', icon: Folder, count: stats.projects },
+              ...(isOwnProfile ? [{ id: 'saved', label: 'Saved', icon: Bookmark, count: stats.saves }] : [])
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as TabType)}
+                className={`flex items-center gap-2 px-4 py-3 font-semibold transition-all border-b-2 whitespace-nowrap text-sm ${
+                  activeTab === tab.id
+                    ? 'border-purple-500 text-white'
+                    : 'border-transparent text-gray-500 hover:text-white'
+                }`}
+              >
+                <tab.icon size={16} />
+                {tab.label}
+                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === tab.id
+                    ? 'bg-purple-500/20 text-purple-400'
+                    : 'bg-gray-800 text-gray-500'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          {displayItems.length === 0 && !loading ? (
+            <div className="text-center py-16">
+              <div className="mb-6 flex justify-center">
                 <Image 
                   src="/logo.png" 
                   alt="Garliq" 
-                  width={100} 
-                  height={100}
-                  className="sm:w-[120px] sm:h-[120px]"
+                  width={80} 
+                  height={80}
                 />
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">No Posts Yet</h2>
-              <p className="text-gray-500 text-sm sm:text-base">This user hasn't shared any creations yet</p>
-            </motion.div>
+              <h2 className="text-xl font-bold mb-2">
+                {activeTab === 'posts' ? 'No Posts Yet' : activeTab === 'projects' ? 'No Projects Yet' : 'No Saved Posts'}
+              </h2>
+              <p className="text-gray-500 mb-6 text-sm">
+                {activeTab === 'posts' 
+                  ? 'Share your first creation' 
+                  : activeTab === 'projects' 
+                  ? 'Start building something'
+                  : 'Save posts to view here'}
+              </p>
+              {isOwnProfile && activeTab !== 'saved' && (
+                <Link href="/create">
+                  <button className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 rounded-full font-bold flex items-center gap-2 mx-auto">
+                    <Plus size={18} />
+                    Start Creating
+                  </button>
+                </Link>
+              )}
+            </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                {posts.map((post, index) => (
-                  <motion.div
-                    key={`${post.id}-${index}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
-                  >
-                    {/* Preview */}
-                    <Link href={`/post/${post.id}`}>
-                      <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
+              {/* Posts Grid */}
+              {activeTab === 'posts' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {posts.map((post, index) => (
+                    <motion.div
+                      key={`${post.id}-${index}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                    >
+                      <Link href={`/post/${post.id}`}>
+                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
+                          <iframe
+                            srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
+                            className="w-full h-full pointer-events-none"
+                            sandbox=""
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        </div>
+                      </Link>
+
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+
+                        {post.prompt_visible && post.prompt && (
+                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Code2 size={9} className="text-purple-400" />
+                              <span className="text-[9px] font-bold text-purple-400 uppercase">Prompt</span>
+                            </div>
+                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleLike(post.id, post.is_liked || false)}
+                              className="flex items-center gap-1 hover:scale-110 transition-transform"
+                            >
+                              {post.is_liked ? (
+                                <Image 
+                                  src="/logo.png" 
+                                  alt="Liked" 
+                                  width={16} 
+                                  height={16}
+                                />
+                              ) : (
+                                <Heart size={15} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                              )}
+                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
+                            </button>
+
+                            <Link href={`/post/${post.id}#comments`}>
+                              <button className="flex items-center gap-1 text-gray-500 hover:text-pink-400 transition-colors">
+                                <MessageCircle size={15} />
+                                <span className="text-xs font-bold">{post.comments_count || 0}</span>
+                              </button>
+                            </Link>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleSave(post.id, post.is_saved || false)}
+                              className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                            >
+                              <Bookmark 
+                                size={15} 
+                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
+                              />
+                            </button>
+
+                            <button 
+                              onClick={() => handleSharePost(post)} 
+                              className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                            >
+                              <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                            </button>
+
+                            {isOwnProfile && (
+                              <button
+                                onClick={() => handleDeletePost(post.id)}
+                                className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                              >
+                                <Trash2 size={15} className="text-gray-500 hover:text-red-400 transition-colors" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {/* Projects Grid */}
+              {activeTab === 'projects' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projects.map((project, index) => (
+                    <motion.div
+                      key={`${project.id}-${index}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                    >
+                      {isOwnProfile && (
+                        <div className="absolute top-2 right-2 z-10">
+                          <span className={`text-[10px] px-2 py-1 rounded-full font-bold shadow-lg ${
+                            project.is_draft 
+                              ? 'bg-yellow-500/90 text-black' 
+                              : 'bg-green-500/90 text-black'
+                          }`}>
+                            {project.is_draft ? 'Draft' : 'Live'}
+                          </span>
+                        </div>
+                      )}
+
+                      <div 
+                        className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer"
+                        onClick={() => setSelectedItem(project)}
+                      >
                         <iframe
-                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
+                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${project.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
                           className="w-full h-full pointer-events-none"
                           sandbox=""
                           loading="lazy"
                         />
                         
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                      </div>
-                    </Link>
-
-                    {/* Post Info */}
-                    <div className="p-3 sm:p-4 space-y-3">
-                      <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
-
-                      {post.prompt_visible && post.prompt && (
-                        <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
-                          <div className="flex items-center gap-1 mb-1">
-                            <Code2 size={10} className="text-purple-400" />
-                            <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
-                          </div>
-                          <p className="text-[10px] sm:text-[11px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
+                          <Eye className="text-white drop-shadow-lg" size={28} />
                         </div>
-                      )}
+                      </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <div className="flex items-center gap-1.5">
-                            <Heart size={18} className="text-gray-500" />
-                            <span className="text-xs sm:text-sm font-bold text-gray-400">{post.likes_count || 0}</span>
+                      <div className="p-3">
+                        <p className="text-sm font-bold mb-1 line-clamp-1">{project.title || 'Untitled Project'}</p>
+                        <p className="text-xs text-gray-500 mb-2">
+                          {new Date(project.updated_at).toLocaleDateString()}
+                        </p>
+
+                        {isOwnProfile && (
+                          <div className="flex gap-2 pt-2 border-t border-gray-800/50">
+                            {project.session_id && (
+                              <Link href={`/studio/${project.session_id}`} className="flex-1">
+                                <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold transition-colors">
+                                  <Edit size={14} />
+                                  Edit
+                                </button>
+                              </Link>
+                            )}
+                            
+                            {project.is_draft && project.session_id && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleShareClick(project);
+                                }}
+                                className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                                title="Share"
+                              >
+                                <Share2 size={14} />
+                              </button>
+                            )}
+                            
+                            {!project.is_draft && project.post_id && (
+                              <Link href={`/post/${project.post_id}`} onClick={(e) => e.stopPropagation()}>
+                                <button className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors" title="View">
+                                  <ExternalLink size={14} />
+                                </button>
+                              </Link>
+                            )}
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteProject(project);
+                              }}
+                              className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
 
-                          <Link href={`/post/${post.id}#comments`}>
-                            <div className="flex items-center gap-1.5 text-gray-500">
-                              <MessageCircle size={18} />
-                              <span className="text-xs sm:text-sm font-bold">{post.comments_count || 0}</span>
+              {/* Saved Posts Grid */}
+              {activeTab === 'saved' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {savedPosts.map((post, index) => (
+                    <motion.div
+                      key={`${post.id}-${index}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                    >
+                      <div className="p-2.5 border-b border-gray-800/50 bg-black/40">
+                        <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold overflow-hidden">
+                            {post.profiles?.avatar_url ? (
+                              <img 
+                                src={post.profiles.avatar_url} 
+                                alt={post.profiles.display_name || 'User'}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
+                            <p className="text-[10px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
+                          </div>
+                        </Link>
+                      </div>
+
+                      <Link href={`/post/${post.id}`}>
+                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
+                          <iframe
+                            srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
+                            className="w-full h-full pointer-events-none"
+                            sandbox=""
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        </div>
+                      </Link>
+
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+
+                        {post.prompt_visible && post.prompt && (
+                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Code2 size={9} className="text-purple-400" />
+                              <span className="text-[9px] font-bold text-purple-400 uppercase">Prompt</span>
                             </div>
-                          </Link>
+                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleLike(post.id, post.is_liked || false)}
+                              className="flex items-center gap-1 hover:scale-110 transition-transform"
+                            >
+                              {post.is_liked ? (
+                                <Image 
+                                  src="/logo.png" 
+                                  alt="Liked" 
+                                  width={16} 
+                                  height={16}
+                                />
+                              ) : (
+                                <Heart size={15} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                              )}
+                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
+                            </button>
+
+                            <Link href={`/post/${post.id}#comments`}>
+                              <button className="flex items-center gap-1 text-gray-500 hover:text-pink-400 transition-colors">
+                                <MessageCircle size={15} />
+                                <span className="text-xs font-bold">{post.comments_count || 0}</span>
+                              </button>
+                            </Link>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleSave(post.id, post.is_saved || false)}
+                              className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                            >
+                              <Bookmark 
+                                size={15} 
+                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
+                              />
+                            </button>
+
+                            <button 
+                              onClick={() => handleSharePost(post)} 
+                              className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
+                            >
+                              <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                            </button>
+                          </div>
                         </div>
-
-                        <button 
-                          onClick={() => handleSharePost(post)} 
-                          className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
-                        >
-                          <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                        </button>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
 
-              {/* Infinite Scroll Trigger */}
               <div ref={observerTarget} className="py-8 flex justify-center">
                 {loadingMore && (
                   <div className="flex items-center gap-2 text-gray-400">
@@ -888,590 +1422,16 @@ export default function ProfilePage() {
                     >
                       🧄
                     </motion.div>
-                    <span className="text-sm">Loading more...</span>
+                    <span className="text-sm">Loading...</span>
                   </div>
                 )}
-                {!hasMore && posts.length > 0 && (
-                  <p className="text-gray-500 text-sm">You've reached the end!</p>
+                {!hasMore && displayItems.length > 0 && (
+                  <p className="text-gray-500 text-sm">End of {activeTab}</p>
                 )}
               </div>
             </>
           )}
         </div>
-      </div>
-    );
-  }
-
-  // LOGGED IN VIEW
-  return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <button onClick={() => router.push('/feed')} className="flex items-center gap-3 hover:opacity-70 transition-opacity">
-            <ArrowLeft size={24} />
-            <Image 
-              src="/logo.png" 
-              alt="Garliq" 
-              width={48} 
-              height={48}
-            />
-          </button>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            {isOwnProfile && (
-              <>
-                <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
-                  <Zap size={16} className="text-yellow-400" />
-                  <span className="text-xs sm:text-sm font-bold">{tokenBalance.toLocaleString()}</span>
-                </div>
-                
-                <motion.button
-                  onClick={() => setShowTokenModal(true)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-3 sm:px-5 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-full font-semibold flex items-center gap-2 text-xs sm:text-sm"
-                >
-                  <Zap size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="hidden sm:inline">Buy Tokens</span>
-                  <span className="sm:hidden">Buy</span>
-                </motion.button>
-              </>
-            )}
-
-            {isOwnProfile && (
-              <Link href={`/profiles/${userId}/edit`}>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-3 sm:px-5 py-2 bg-purple-600 hover:bg-purple-700 rounded-full font-semibold flex items-center gap-2 text-xs sm:text-sm"
-                >
-                  <Edit size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="hidden sm:inline">Edit Profile</span>
-                  <span className="sm:hidden">Edit</span>
-                </motion.button>
-              </Link>
-            )}
-
-            <button
-              onClick={handleShare}
-              className="p-2.5 hover:bg-gray-800 rounded-full transition-colors"
-            >
-              <Share2 size={20} className="text-gray-400" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Profile Header */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="flex flex-col md:flex-row gap-6 sm:gap-8 items-start mb-8">
-          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl sm:text-6xl font-black flex-shrink-0 overflow-hidden">
-            {profile.avatar_url ? (
-              <img 
-                src={profile.avatar_url} 
-                alt={profile.display_name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span>{profile.display_name[0].toUpperCase()}</span>
-            )}
-          </div>
-
-          <div className="flex-1">
-            <h1 className="text-3xl sm:text-4xl font-black mb-2">{profile.display_name}</h1>
-            <p className="text-gray-500 mb-4 text-sm sm:text-base">@{profile.username}</p>
-            
-            {profile.bio && (
-              <p className="text-gray-300 mb-6 leading-relaxed max-w-2xl text-sm sm:text-base">{profile.bio}</p>
-            )}
-
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8">
-              <Calendar size={16} />
-              <span>
-                Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </span>
-            </div>
-
-            {/* SUBSCRIPTION STATUS CARD - Only for own profile */}
-            {isOwnProfile && subscriptionStatus && (
-              <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-gray-900/50 border border-gray-800 rounded-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
-                    <Crown size={20} className="text-purple-400" />
-                    Subscription Status
-                  </h3>
-                  {getSubscriptionBadge()}
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  {subscriptionStatus.expires_at && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400 flex items-center gap-2">
-                        <Clock size={14} />
-                        {subscriptionStatus.is_active ? 'Expires' : 'Expired'}:
-                      </span>
-                      <span className="font-medium">
-                        {new Date(subscriptionStatus.expires_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </span>
-                    </div>
-                  )}
-
-                  {subscriptionStatus.is_active && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Days Remaining:</span>
-                      <span className={`font-bold ${
-                        subscriptionStatus.days_remaining <= 3 ? 'text-red-400' :
-                        subscriptionStatus.days_remaining <= 7 ? 'text-orange-400' :
-                        'text-green-400'
-                      }`}>
-                        {subscriptionStatus.days_remaining} days
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {!subscriptionStatus.is_active && (
-                  <button
-                    onClick={() => setShowSubscriptionModal(true)}
-                    className="w-full mt-4 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 font-semibold flex items-center justify-center gap-2"
-                  >
-                    <Crown size={18} />
-                    Renew Subscription - $3/month
-                  </button>
-                )}
-
-                {subscriptionStatus.is_active && subscriptionStatus.days_remaining <= 7 && (
-                  <button
-                    onClick={() => setShowSubscriptionModal(true)}
-                    className="w-full mt-4 px-4 py-3 border-2 border-purple-600 text-purple-400 rounded-lg hover:bg-purple-600/10 font-semibold flex items-center justify-center gap-2"
-                  >
-                    <Crown size={18} />
-                    Extend Subscription
-                  </button>
-                )}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-              {[
-                { label: 'Posts', value: stats.posts, icon: Code2, color: 'text-purple-400' },
-                { label: 'Garliqs', value: stats.totalLikes, icon: Heart, color: 'text-pink-400' },
-                { label: 'Projects', value: stats.projects, icon: Code2, color: 'text-green-400' },
-                { label: 'Saved', value: stats.saves, icon: Bookmark, color: 'text-orange-400', hideForOthers: true }
-              ].map((stat, i) => (
-                (!stat.hideForOthers || isOwnProfile) && (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 sm:p-4"
-                  >
-                    <stat.icon className={`${stat.color} mb-2`} size={18} />
-                    <div className="text-xl sm:text-2xl font-black">{stat.value}</div>
-                    <div className="text-[10px] sm:text-xs text-gray-500 font-medium">{stat.label}</div>
-                  </motion.div>
-                )
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-2 mb-6 sm:mb-8 border-b border-gray-800 overflow-x-auto">
-          {[
-            { id: 'posts', label: 'My Posts', icon: Code2 },
-            { id: 'projects', label: 'Projects', icon: Code2 },
-            ...(isOwnProfile ? [{ id: 'saved', label: 'Saved', icon: Bookmark }] : [])
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as TabType)}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-3 font-semibold transition-all border-b-2 whitespace-nowrap text-sm sm:text-base ${
-                activeTab === tab.id
-                  ? 'border-purple-500 text-white'
-                  : 'border-transparent text-gray-500 hover:text-white'
-              }`}
-            >
-              <tab.icon size={18} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Content Grid */}
-        {displayItems.length === 0 && !loading ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16 sm:py-20"
-          >
-            <div className="mb-4 sm:mb-6 flex justify-center">
-              <Image 
-                src="/logo.png" 
-                alt="Garliq" 
-                width={100} 
-                height={100}
-                className="sm:w-[120px] sm:h-[120px]"
-              />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">
-              {activeTab === 'posts' ? 'No Posts Yet' : activeTab === 'projects' ? 'No Projects Yet' : 'No Saved Posts'}
-            </h2>
-            <p className="text-gray-500 mb-6 sm:mb-8 text-sm sm:text-base">
-              {activeTab === 'posts' 
-                ? 'Share your first creation with the world' 
-                : activeTab === 'projects' 
-                ? 'Start building something amazing'
-                : 'Save posts you love to view them here'}
-            </p>
-            {isOwnProfile && activeTab !== 'saved' && (
-              <Link href="/create">
-                <button className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 sm:px-8 py-3 rounded-full font-bold flex items-center gap-2 mx-auto text-sm sm:text-base">
-                  <Plus size={18} />
-                  Start Creating
-                </button>
-              </Link>
-            )}
-          </motion.div>
-        ) : (
-          <>
-            {/* Posts Grid - Feed Style */}
-            {activeTab === 'posts' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                {posts.map((post, index) => (
-                  <motion.div
-                    key={`${post.id}-${index}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
-                  >
-
-                    {/* Preview */}
-                    <Link href={`/post/${post.id}`}>
-                      <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
-                        <iframe
-                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
-                          className="w-full h-full pointer-events-none"
-                          sandbox=""
-                          loading="lazy"
-                        />
-                        
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                      </div>
-                    </Link>
-
-                    {/* Post Info */}
-                    <div className="p-3 sm:p-4 space-y-3">
-                      <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
-
-                      {post.prompt_visible && post.prompt && (
-                        <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
-                          <div className="flex items-center gap-1 mb-1">
-                            <Code2 size={10} className="text-purple-400" />
-                            <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
-                          </div>
-                          <p className="text-[10px] sm:text-[11px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <button
-                            onClick={() => handleLike(post.id, post.is_liked || false)}
-                            className="flex items-center gap-1.5 hover:scale-110 transition-transform"
-                          >
-                            {post.is_liked ? (
-                              <Image 
-                                src="/logo.png" 
-                                alt="Liked" 
-                                width={20} 
-                                height={20}
-                              />
-                            ) : (
-                              <Heart size={18} className="text-gray-500 hover:text-purple-400 transition-colors" />
-                            )}
-                            <span className="text-xs sm:text-sm font-bold text-gray-400">{post.likes_count || 0}</span>
-                          </button>
-
-                          <Link href={`/post/${post.id}#comments`}>
-                            <button className="flex items-center gap-1.5 text-gray-500 hover:text-pink-400 transition-colors">
-                              <MessageCircle size={18} />
-                              <span className="text-xs sm:text-sm font-bold">{post.comments_count || 0}</span>
-                            </button>
-                          </Link>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleSave(post.id, post.is_saved || false)}
-                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
-                          >
-                            <Bookmark 
-                              size={18} 
-                              className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
-                            />
-                          </button>
-
-                          <button 
-                            onClick={() => handleSharePost(post)} 
-                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
-                          >
-                            <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                          </button>
-
-                          {isOwnProfile && (
-                            <button
-                              onClick={() => handleDeletePost(post.id)}
-                              className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Trash2 size={18} className="text-gray-500 hover:text-red-400 transition-colors" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Projects Grid */}
-            {activeTab === 'projects' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                {projects.map((project, index) => (
-                  <motion.div
-                    key={`${project.id}-${index}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
-                  >
-                    {/* Status Badge */}
-                    {isOwnProfile && (
-                      <div className="absolute top-3 right-3 z-10">
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-bold shadow-lg ${
-                          project.is_draft 
-                            ? 'bg-yellow-500/90 text-black' 
-                            : 'bg-green-500/90 text-black'
-                        }`}>
-                          {project.is_draft ? 'Draft' : 'Live'}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Preview */}
-                    <div 
-                      className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all"
-                      onClick={() => setSelectedItem(project)}
-                    >
-                      <iframe
-                        srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${project.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
-                        className="w-full h-full pointer-events-none"
-                        sandbox=""
-                        loading="lazy"
-                      />
-                      
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
-                        <Eye className="text-white drop-shadow-lg" size={32} />
-                      </div>
-                    </div>
-
-                    {/* Project Info */}
-                    <div className="p-3 sm:p-4">
-                      <p className="text-sm sm:text-base font-bold mb-2 line-clamp-1">{project.title || 'Untitled Project'}</p>
-                      <p className="text-xs text-gray-500 mb-3">
-                        Updated {new Date(project.updated_at).toLocaleDateString()}
-                      </p>
-
-                      {isOwnProfile && (
-                        <div className="flex gap-2 pt-3 border-t border-gray-800/50">
-                          {project.session_id && (
-                            <Link href={`/studio/${project.session_id}`} className="flex-1">
-                              <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs font-semibold transition-colors">
-                                <Edit size={14} />
-                                Edit
-                              </button>
-                            </Link>
-                          )}
-                          
-                          {project.is_draft && project.session_id && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleShareClick(project);
-                              }}
-                              className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                              title="Share to Feed"
-                            >
-                              <Share2 size={14} />
-                            </button>
-                          )}
-                          
-                          {!project.is_draft && project.post_id && (
-                            <Link href={`/post/${project.post_id}`} onClick={(e) => e.stopPropagation()}>
-                              <button className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors" title="View Post">
-                                <ExternalLink size={14} />
-                              </button>
-                            </Link>
-                          )}
-                          
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteProject(project);
-                            }}
-                            className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                            title="Delete Project"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Saved Posts Grid - Feed Style */}
-            {activeTab === 'saved' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                {savedPosts.map((post, index) => (
-                  <motion.div
-                    key={`${post.id}-${index}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                    className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all hover:shadow-xl hover:shadow-purple-500/10"
-                  >
-                    {/* User Info Header */}
-                    <div className="p-3 sm:p-4 border-b border-gray-800/50 bg-black/40 backdrop-blur-sm">
-                      <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 sm:gap-3 hover:opacity-70 transition-opacity">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0 overflow-hidden">
-                          {post.profiles?.avatar_url ? (
-                            <img 
-                              src={post.profiles.avatar_url} 
-                              alt={post.profiles.display_name || 'User'}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs sm:text-sm font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
-                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
-                        </div>
-                      </Link>
-                    </div>
-
-                    {/* Preview */}
-                    <Link href={`/post/${post.id}`}>
-                      <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer group-hover:ring-2 group-hover:ring-purple-500/30 transition-all">
-                        <iframe
-                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
-                          className="w-full h-full pointer-events-none"
-                          sandbox=""
-                          loading="lazy"
-                        />
-                        
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                      </div>
-                    </Link>
-
-                    {/* Post Info */}
-                    <div className="p-3 sm:p-4 space-y-3">
-                      <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
-
-                      {post.prompt_visible && post.prompt && (
-                        <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
-                          <div className="flex items-center gap-1 mb-1">
-                            <Code2 size={10} className="text-purple-400" />
-                            <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
-                          </div>
-                          <p className="text-[10px] sm:text-[11px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-800/50">
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <button
-                            onClick={() => handleLike(post.id, post.is_liked || false)}
-                            className="flex items-center gap-1.5 hover:scale-110 transition-transform"
-                          >
-                            {post.is_liked ? (
-                              <Image 
-                                src="/logo.png" 
-                                alt="Liked" 
-                                width={20} 
-                                height={20}
-                              />
-                            ) : (
-                              <Heart size={18} className="text-gray-500 hover:text-purple-400 transition-colors" />
-                            )}
-                            <span className="text-xs sm:text-sm font-bold text-gray-400">{post.likes_count || 0}</span>
-                          </button>
-
-                          <Link href={`/post/${post.id}#comments`}>
-                            <button className="flex items-center gap-1.5 text-gray-500 hover:text-pink-400 transition-colors">
-                              <MessageCircle size={18} />
-                              <span className="text-xs sm:text-sm font-bold">{post.comments_count || 0}</span>
-                            </button>
-                          </Link>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleSave(post.id, post.is_saved || false)}
-                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
-                          >
-                            <Bookmark 
-                              size={18} 
-                              className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
-                            />
-                          </button>
-
-                          <button 
-                            onClick={() => handleSharePost(post)} 
-                            className="p-1.5 hover:bg-gray-800 rounded-full transition-colors"
-                          >
-                            <Share2 size={18} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Infinite Scroll Trigger */}
-            <div ref={observerTarget} className="py-8 flex justify-center">
-              {loadingMore && (
-                <div className="flex items-center gap-2 text-gray-400">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    className="text-2xl"
-                  >
-                    🧄
-                  </motion.div>
-                  <span className="text-sm">Loading more...</span>
-                </div>
-              )}
-              {!hasMore && displayItems.length > 0 && (
-                <p className="text-gray-500 text-sm">You've reached the end!</p>
-              )}
-            </div>
-          </>
-        )}
       </div>
 
       {/* Preview Modal */}
@@ -1479,7 +1439,7 @@ export default function ProfilePage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
           onClick={() => setSelectedItem(null)}
         >
           <motion.div
@@ -1489,9 +1449,9 @@ export default function ProfilePage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-full flex flex-col">
-              <div className="p-3 sm:p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
+              <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
                 <div>
-                  <h3 className="font-bold text-sm sm:text-base">
+                  <h3 className="font-bold text-base">
                     {'caption' in selectedItem ? selectedItem.caption : 'title' in selectedItem ? selectedItem.title : 'Preview'}
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -1501,9 +1461,9 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2">
                   {'session_id' in selectedItem && selectedItem.session_id && isOwnProfile && (
                     <Link href={`/studio/${selectedItem.session_id}`}>
-                      <button className="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center gap-2 text-xs sm:text-sm">
+                      <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center gap-2 text-sm">
                         <Edit size={16} />
-                        <span className="hidden sm:inline">Edit</span>
+                        Edit
                       </button>
                     </Link>
                   )}
@@ -1516,7 +1476,7 @@ export default function ProfilePage() {
                   )}
                   <button 
                     onClick={() => setSelectedItem(null)} 
-                    className="text-gray-400 hover:text-white text-xl sm:text-2xl w-8 h-8 flex items-center justify-center hover:bg-gray-800 rounded-full transition-colors"
+                    className="text-gray-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center hover:bg-gray-800 rounded-full transition-colors"
                   >
                     ✕
                   </button>
@@ -1540,7 +1500,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 sm:p-6"
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
             onClick={() => !sharing && setShowShareModal(false)}
           >
             <motion.div
@@ -1548,12 +1508,12 @@ export default function ProfilePage() {
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-2xl"
+              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl"
             >
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl font-bold">📢 Share to Feed</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold">📢 Share to Feed</h3>
                 <button onClick={() => !sharing && setShowShareModal(false)} disabled={sharing}>
-                  <span className="text-xl sm:text-2xl text-gray-400 hover:text-white">✕</span>
+                  <span className="text-2xl text-gray-400 hover:text-white">✕</span>
                 </button>
               </div>
 
@@ -1562,11 +1522,11 @@ export default function ProfilePage() {
                 value={shareCaption}
                 onChange={(e) => setShareCaption(e.target.value)}
                 placeholder="Add a caption..."
-                className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4 text-sm sm:text-base"
+                className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4"
                 disabled={sharing}
               />
 
-              <label className="flex items-center gap-3 mb-4 sm:mb-6 cursor-pointer">
+              <label className="flex items-center gap-3 mb-6 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={promptVisible}
@@ -1574,7 +1534,7 @@ export default function ProfilePage() {
                   className="w-5 h-5"
                   disabled={sharing}
                 />
-                <span className="text-xs sm:text-sm text-gray-400">Share prompt publicly</span>
+                <span className="text-sm text-gray-400">Share prompt publicly</span>
               </label>
 
               <motion.button
@@ -1582,7 +1542,7 @@ export default function ProfilePage() {
                 disabled={!shareCaption.trim() || sharing}
                 whileHover={!sharing ? { scale: 1.02 } : {}}
                 whileTap={!sharing ? { scale: 0.98 } : {}}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {sharing ? (
                   <>
@@ -1606,7 +1566,6 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
-      {/* Token Purchase Modal */}
       <TokenPurchaseModal
         isOpen={showTokenModal}
         onClose={() => setShowTokenModal(false)}
@@ -1615,7 +1574,6 @@ export default function ProfilePage() {
         onSuccess={fetchTokenBalance}
       />
 
-      {/* Subscription Modal */}
       <SubscriptionModal
         isOpen={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
