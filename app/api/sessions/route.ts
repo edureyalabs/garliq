@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const user = authCheck.user;
 
   try {
-    const { initialPrompt, userId, selectedModel, courseSettings } = await request.json();
+    const { initialPrompt, userId, courseSettings } = await request.json();
 
     if (!initialPrompt || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -51,10 +51,10 @@ export async function POST(request: Request) {
         title: initialPrompt.substring(0, 50) + '...',
         initial_prompt: initialPrompt,
         generation_status: 'pending',
-        selected_model: selectedModel || 'llama-3.3-70b',
+        selected_model: 'llama-3.3-70b', // Hardcoded to Basic Agent (Groq)
         retry_count: 0,
-        chapter_count: chapterCount,           // ← NEW
-        course_depth: courseDepth              // ← NEW
+        chapter_count: chapterCount,
+        course_depth: courseDepth
       })
       .select()
       .single();

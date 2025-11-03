@@ -24,13 +24,13 @@ export async function POST(request: Request) {
   const user = authCheck.user;
 
   try {
-    const { sessionId, message, userId, model } = await request.json();
+    const { sessionId, message, userId } = await request.json();
 
     if (!sessionId || !message || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    console.log('🚀 Generation request received:', { sessionId, model });
+    console.log('🚀 Generation request received:', { sessionId });
 
     // Get session with multi-page settings
     const { data: session } = await supabase
@@ -43,72 +43,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    const selectedModel = model || session?.selected_model || 'llama-3.3-70b';
     const chapterCount = session.chapter_count || 5;
     const courseDepth = session.course_depth || 'basic';
 
     console.log(`📚 Multi-page settings: ${chapterCount} chapters, ${courseDepth} depth`);
 
-    // ==================== LLAMA FREE TIER LIMIT CHECK ====================
-    if (selectedModel === 'llama-3.3-70b') {
-      const { data: limitCheck, error: limitError } = await supabase
-        .rpc('check_and_increment_daily_limit', {
-          p_user_id: userId,
-          p_max_limit: 50
-        });
+    // ==================== TOKEN BALANCE CHECK (MINIMUM 4000) ====================
+    const MINIMUM_TOKENS = 4000;
+    
+    const { data: wallet } = await supabase
+      .from('user_wallets')
+      .select('token_balance')
+      .eq('user_id', userId)
+      .single();
 
-      if (limitError) {
-        console.error('Daily limit check error:', limitError);
-      } else if (limitCheck && !limitCheck.allowed) {
-        await supabase
-          .from('sessions')
-          .update({ 
-            generation_status: 'failed',
-            generation_error: limitCheck.message || 'Daily free generation limit reached (50/day).'
-          })
-          .eq('id', sessionId);
+    const balance = wallet?.token_balance || 0;
 
-        return NextResponse.json({ 
-          error: limitCheck.message || 'Daily limit reached',
-          success: false 
-        }, { status: 429 });
-      }
-    }
+    if (balance < MINIMUM_TOKENS) {
+      await supabase
+        .from('sessions')
+        .update({ 
+          generation_status: 'failed',
+          generation_error: `Insufficient tokens. You need at least ${MINIMUM_TOKENS.toLocaleString()} tokens to generate a course.`
+        })
+        .eq('id', sessionId);
 
-    // ==================== CLAUDE TOKEN BALANCE CHECK ====================
-    if (selectedModel === 'claude-sonnet-4.5') {
-      const { data: wallet } = await supabase
-        .from('user_wallets')
-        .select('token_balance')
-        .eq('user_id', userId)
-        .single();
-
-      const balance = wallet?.token_balance || 0;
-
-      // Calculate required tokens based on settings
-      const tokenRequirements = {
-        basic: 15000,
-        intermediate: 22000,
-        advanced: 30000
-      };
-      const chapterTokens = chapterCount * tokenRequirements[courseDepth as keyof typeof tokenRequirements];
-      const otherTokens = 28000; // intro + toc + conclusion
-      const totalRequired = chapterTokens + otherTokens;
-
-      if (balance < totalRequired) {
-        await supabase
-          .from('sessions')
-          .update({ 
-            generation_status: 'failed',
-            generation_error: `Insufficient tokens. You need at least ${totalRequired.toLocaleString()} tokens for this course (${chapterCount} chapters, ${courseDepth} depth).`
-          })
-          .eq('id', sessionId);
-
-        return NextResponse.json({ 
-          error: `Insufficient tokens. Required: ${totalRequired.toLocaleString()}, Available: ${balance.toLocaleString()}`,
-          success: false 
-        }, { status: 402 });
-      }
+      return NextResponse.json({ 
+        error: `Insufficient tokens. Required: ${MINIMUM_TOKENS.toLocaleString()}, Available: ${balance.toLocaleString()}`,
+        success: false 
+      }, { status: 402 });
     }
 
     // ==================== UPDATE STATUS TO GENERATING ====================
@@ -135,11 +98,11 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: message,
-        model: selectedModel,
+        model: 'llama-3.3-70b', // Hardcoded to Basic Agent (Groq)
         user_id: userId,
         session_id: sessionId,
-        chapter_count: chapterCount,      // ← NEW
-        course_depth: courseDepth         // ← NEW
+        chapter_count: chapterCount,
+        course_depth: courseDepth
       })
     }).catch(err => {
       console.error('Failed to trigger async generation:', err);
