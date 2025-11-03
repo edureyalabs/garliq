@@ -1,11 +1,10 @@
 'use client';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Trash2, Sparkles, Code2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, ArrowLeft, Send, Bookmark, Trash2, Sparkles, Code2, ChevronLeft, ChevronRight, FileText, Loader2, Eye } from 'lucide-react';
 import Link from 'next/link';
-import GarliqWebContainer from '@/components/GarliqWebContainer';
 import Image from 'next/image';
 import { useSubscription } from '@/hooks/useSubscription';
 import SubscriptionModal from '@/components/SubscriptionModal';
@@ -20,6 +19,7 @@ interface Post {
   comments_count: number;
   created_at: string;
   user_id: string;
+  session_id: string | null;
   is_liked?: boolean;
   is_saved?: boolean;
 }
@@ -39,6 +39,16 @@ interface Comment {
   profiles?: Profile;
 }
 
+interface CoursePage {
+  id: string;
+  page_number: number;
+  page_type: 'intro' | 'toc' | 'chapter' | 'conclusion';
+  page_title: string;
+  html_content: string;
+  generation_status: 'pending' | 'generating' | 'completed' | 'failed';
+  error_message: string | null;
+}
+
 const COMMENTS_PER_PAGE = 10;
 
 export default function PostDetailPage() {
@@ -49,7 +59,10 @@ export default function PostDetailPage() {
   const [post, setPost] = useState<Post | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [pages, setPages] = useState<CoursePage[]>([]);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingPages, setLoadingPages] = useState(false);
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -61,14 +74,6 @@ export default function PostDetailPage() {
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const { subscription, loading: subLoading, refetch: refetchSubscription } = useSubscription();
-
-  // Memoize container props to prevent re-renders when comments change
-  const containerProps = useMemo(() => ({
-    htmlCode: post?.html_code || '',
-    username: profile?.username || 'unknown',
-    displayName: profile?.display_name || 'Anonymous',
-    timestamp: post?.created_at || new Date().toISOString()
-  }), [post?.html_code, post?.created_at, profile?.username, profile?.display_name]);
 
   useEffect(() => {
     checkUser();
@@ -115,7 +120,7 @@ export default function PostDetailPage() {
     try {
       const { data: postData, error } = await supabase
         .from('posts')
-        .select('*, current_commit_id')
+        .select('*')
         .eq('id', postId)
         .single();
 
@@ -123,19 +128,6 @@ export default function PostDetailPage() {
 
       if (postData) {
         console.log('Fetched post data:', postData);
-
-        if (postData.current_commit_id) {
-          const { data: latestCommit } = await supabase
-            .from('commits')
-            .select('html_code')
-            .eq('id', postData.current_commit_id)
-            .single();
-          
-          if (latestCommit) {
-            postData.html_code = latestCommit.html_code;
-            console.log('✅ Loaded latest commit code');
-          }
-        }
 
         const { data: profileData } = await supabase
           .from('profiles')
@@ -166,11 +158,43 @@ export default function PostDetailPage() {
             comments_count: postData.comments_count || 0
           });
         }
+
+        // ✅ NEW: Fetch pages if session_id exists
+        if (postData.session_id) {
+          await fetchPages(postData.session_id);
+        }
       }
     } catch (error) {
       console.error('Error fetching post:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPages = async (sessionId: string) => {
+    try {
+      setLoadingPages(true);
+      console.log('📨 Loading course pages for session:', sessionId);
+      
+      const { data, error } = await supabase
+        .from('course_pages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('generation_status', 'completed') // Only fetch completed pages
+        .order('page_number', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setPages(data);
+        console.log(`✅ Loaded ${data.length} pages`);
+      } else {
+        console.log('⚠️ No pages found, will use legacy html_code');
+      }
+    } catch (error) {
+      console.error('Load pages error:', error);
+    } finally {
+      setLoadingPages(false);
     }
   };
 
@@ -247,7 +271,6 @@ export default function PostDetailPage() {
   const handleLike = async () => {
     if (!user || !post) return;
 
-    // Check subscription for logged-in users
     if (!subLoading && !subscription?.is_active) {
       setShowSubscriptionModal(true);
       return;
@@ -297,7 +320,6 @@ export default function PostDetailPage() {
   const handleSave = async () => {
     if (!user || !post) return;
 
-    // Check subscription for logged-in users
     if (!subLoading && !subscription?.is_active) {
       setShowSubscriptionModal(true);
       return;
@@ -366,7 +388,6 @@ export default function PostDetailPage() {
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !user || submittingComment) return;
 
-    // Check subscription for logged-in users
     if (!subLoading && !subscription?.is_active) {
       setShowSubscriptionModal(true);
       return;
@@ -421,8 +442,11 @@ export default function PostDetailPage() {
     }
   };
 
-  const handleInteractionPrompt = () => {
-    setShowSubscriptionModal(true);
+  const getPageIcon = (page: CoursePage) => {
+    if (page.page_type === 'intro') return '📖';
+    if (page.page_type === 'toc') return '📋';
+    if (page.page_type === 'conclusion') return '✅';
+    return page.page_number - 1; // Chapter number
   };
 
   if (loading || subLoading) {
@@ -485,15 +509,63 @@ export default function PostDetailPage() {
 
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row h-[calc(100vh-73px)]">
-            {/* Left: Preview with Garliq Container (70%) */}
-            <div className="lg:w-[70%] h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800">
-              <GarliqWebContainer
-                htmlCode={containerProps.htmlCode}
-                username={containerProps.username}
-                displayName={containerProps.displayName}
-                timestamp={containerProps.timestamp}
-                className="h-full"
-              />
+            {/* Left: Multi-Page Preview or Legacy HTML */}
+            <div className="lg:w-[70%] h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800 flex flex-col">
+              {pages.length > 0 ? (
+                <>
+                  {/* Page Navigation Header */}
+                  <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-black">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
+                        disabled={currentPageIndex === 0}
+                        className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <Eye size={16} className="text-purple-400" />
+                        <span className="text-sm font-mono text-gray-400">
+                          {pages[currentPageIndex]?.page_title || 'No page'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setCurrentPageIndex(prev => Math.min(pages.length - 1, prev + 1))}
+                        disabled={currentPageIndex === pages.length - 1}
+                        className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      Page {currentPageIndex + 1} of {pages.length}
+                    </span>
+                  </div>
+
+                  {/* Page Content */}
+                  <div className="flex-1 bg-white min-h-0 overflow-auto">
+                    {pages[currentPageIndex] && (
+                      <iframe
+                        key={pages[currentPageIndex].id}
+                        srcDoc={pages[currentPageIndex].html_content}
+                        className="w-full h-full"
+                        sandbox="allow-scripts allow-same-origin"
+                        title="course-page"
+                      />
+                    )}
+                  </div>
+                </>
+              ) : (
+                // Legacy single-page HTML fallback
+                <div className="flex-1 bg-white">
+                  <iframe
+                    srcDoc={post.html_code}
+                    className="w-full h-full"
+                    sandbox="allow-scripts allow-same-origin"
+                    title="legacy-preview"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Right: Info & CTA (30%) */}
@@ -529,6 +601,16 @@ export default function PostDetailPage() {
                   </div>
                 )}
 
+                {/* Multi-page indicator */}
+                {pages.length > 0 && (
+                  <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-3 mb-4">
+                    <div className="flex items-center gap-2 text-blue-400 text-xs">
+                      <FileText size={14} />
+                      <span className="font-bold">Multi-page course • {pages.length} pages</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-4 pb-4 border-b border-gray-800">
                   <div className="flex items-center gap-2 text-gray-500">
                     <Heart size={24} />
@@ -552,7 +634,7 @@ export default function PostDetailPage() {
                       height={80}
                     />
                   </div>
-                  <h3 className="text-2xl font-bold mb-2">Love this micro-app?</h3>
+                  <h3 className="text-2xl font-bold mb-2">Love this course?</h3>
                   <p className="text-gray-400 text-sm mb-6">
                     Create your own in just minutes with AI-powered Garliq
                   </p>
@@ -565,12 +647,12 @@ export default function PostDetailPage() {
                     className="w-full bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg"
                   >
                     <Sparkles size={20} />
-                    Create Your Garliq Now
+                    Create Your Course Now
                   </motion.button>
                 </Link>
 
                 <p className="text-xs text-gray-600 mt-4">
-                  Free to Start • Powerful Agentic Design • Instant Creation
+                  Free to Start • Powerful AI • Instant Creation
                 </p>
               </div>
             </div>
@@ -661,15 +743,103 @@ export default function PostDetailPage() {
 
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row h-[calc(100vh-73px)]">
-          {/* Left: Preview with Garliq Container (70%) */}
-          <div className="lg:w-[70%] h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800">
-            <GarliqWebContainer
-              htmlCode={containerProps.htmlCode}
-              username={containerProps.username}
-              displayName={containerProps.displayName}
-              timestamp={containerProps.timestamp}
-              className="h-full"
-            />
+          {/* Left: Pages Sidebar (20%) - Only show if multi-page */}
+          {pages.length > 0 && (
+            <div className="hidden lg:block lg:w-[20%] border-r border-gray-800 bg-gray-900/50 overflow-y-auto">
+              <div className="p-4 border-b border-gray-800">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <FileText size={16} className="text-purple-400" />
+                  Course Pages ({pages.length})
+                </h3>
+              </div>
+              <div className="p-2 space-y-1">
+                {pages.map((page, idx) => (
+                  <button
+                    key={page.id}
+                    onClick={() => setCurrentPageIndex(idx)}
+                    className={`w-full text-left p-3 rounded-lg transition-all ${
+                      currentPageIndex === idx
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{getPageIcon(page)}</span>
+                      <span className="text-xs font-bold flex-1 truncate">
+                        {page.page_title}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Center: Preview */}
+          <div className={`${pages.length > 0 ? 'lg:w-[50%]' : 'lg:w-[70%]'} h-[50vh] lg:h-full border-b lg:border-b-0 lg:border-r border-gray-800 flex flex-col`}>
+            {pages.length > 0 ? (
+              <>
+                {/* Page Navigation Header */}
+                <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-black">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
+                      disabled={currentPageIndex === 0}
+                      className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <Eye size={16} className="text-purple-400" />
+                      <span className="text-sm font-mono text-gray-400">
+                        {pages[currentPageIndex]?.page_title || 'No page'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setCurrentPageIndex(prev => Math.min(pages.length - 1, prev + 1))}
+                      disabled={currentPageIndex === pages.length - 1}
+                      className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    Page {currentPageIndex + 1} of {pages.length}
+                  </span>
+                </div>
+
+                {/* Page Content */}
+                <div className="flex-1 bg-white min-h-0 overflow-auto">
+                  {loadingPages ? (
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="animate-spin text-purple-400" size={48} />
+                    </div>
+                  ) : pages[currentPageIndex] ? (
+                    <iframe
+                      key={pages[currentPageIndex].id}
+                      srcDoc={pages[currentPageIndex].html_content}
+                      className="w-full h-full"
+                      sandbox="allow-scripts allow-same-origin"
+                      title="course-page"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400">
+                      <p>No page selected</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              // Legacy single-page HTML fallback
+              <div className="flex-1 bg-white">
+                <iframe
+                  srcDoc={post.html_code}
+                  className="w-full h-full"
+                  sandbox="allow-scripts allow-same-origin"
+                  title="legacy-preview"
+                />
+              </div>
+            )}
           </div>
 
           {/* Right: Comments & Actions (30%) */}
@@ -702,6 +872,16 @@ export default function PostDetailPage() {
                     <span className="text-xs font-bold text-purple-400 uppercase">Prompt</span>
                   </div>
                   <p className="text-xs text-gray-400 font-mono leading-relaxed">{post.prompt}</p>
+                </div>
+              )}
+
+              {/* Multi-page indicator */}
+              {pages.length > 0 && (
+                <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2 text-blue-400 text-xs">
+                    <FileText size={14} />
+                    <span className="font-bold">Multi-page course • {pages.length} pages</span>
+                  </div>
                 </div>
               )}
 
