@@ -3,7 +3,11 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Loader2, Share2, Maximize2, X, Eye, Crown, Zap, Save, RefreshCw, CheckCircle, AlertCircle, RotateCcw, Sparkles } from 'lucide-react';
+import { 
+  ArrowLeft, Send, Loader2, Share2, X, Eye, Crown, Zap, Save, 
+  RefreshCw, CheckCircle, AlertCircle, RotateCcw, Sparkles, 
+  BookOpen, FileText, ChevronRight, ChevronLeft 
+} from 'lucide-react';
 import Image from 'next/image';
 import SubscriptionGuard from '@/components/SubscriptionGuard';
 
@@ -14,11 +18,28 @@ interface Message {
   created_at: string;
 }
 
+interface CoursePage {
+  id: string;
+  page_number: number;
+  page_type: 'intro' | 'toc' | 'chapter' | 'conclusion';
+  page_title: string;
+  html_content: string;
+  generation_status: 'pending' | 'generating' | 'completed' | 'failed';
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface Project {
   id: string;
   post_id: string | null;
   html_code: string;
   is_shared: boolean;
+  is_multi_page: boolean;
+  total_pages: number;
+  expected_pages: number;
+  completed_pages: number;
+  failed_pages: number;
   updated_at: string;
 }
 
@@ -26,10 +47,21 @@ interface Session {
   id: string;
   title: string;
   initial_prompt: string;
-  generation_status: 'pending' | 'generating' | 'completed' | 'failed';
+  generation_status: 'pending' | 'generating' | 'completed' | 'failed' | 'partial';
   generation_error: string | null;
   retry_count: number;
   selected_model: string;
+  chapter_count: number;
+  course_depth: 'basic' | 'intermediate' | 'advanced';
+}
+
+interface GenerationProgress {
+  expected: number;
+  completed: number;
+  failed: number;
+  pending: number;
+  generating: number;
+  percentage: number;
 }
 
 export default function StudioPage() {
@@ -40,27 +72,36 @@ export default function StudioPage() {
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentHtml, setCurrentHtml] = useState('');
+  const [pages, setPages] = useState<CoursePage[]>([]);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishCaption, setPublishCaption] = useState('');
   const [promptVisible, setPromptVisible] = useState(true);
-  const [fullscreen, setFullscreen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number>(0);
   const [showInsufficientTokens, setShowInsufficientTokens] = useState(false);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
-  const justSavedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [regeneratingPage, setRegeneratingPage] = useState<number | null>(null);
+  const [generationProgress, setGenerationProgress] = useState<GenerationProgress>({
+    expected: 0,
+    completed: 0,
+    failed: 0,
+    pending: 0,
+    generating: 0,
+    percentage: 0
+  });
   const [project, setProject] = useState<Project | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const generationTriggeredRef = useRef(false);
   const previousStatusRef = useRef<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const justSavedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     checkUser();
@@ -70,10 +111,19 @@ export default function StudioPage() {
     if (user) {
       loadSession();
       loadProject();
+      loadPages();
       fetchTokenBalance();
       
-      const unsubscribe = subscribeToSessionStatus();
-      return unsubscribe;
+      // Subscribe to realtime updates
+      const unsubscribeSession = subscribeToSessionStatus();
+      const unsubscribePages = subscribeToPageUpdates();
+      const unsubscribeProject = subscribeToProjectProgress();
+      
+      return () => {
+        unsubscribeSession();
+        unsubscribePages();
+        unsubscribeProject();
+      };
     }
   }, [user, sessionId]);
 
@@ -90,11 +140,12 @@ export default function StudioPage() {
   }, [session, user, loading]);
 
   useEffect(() => {
-    if (session && previousStatusRef.current === 'generating' && session.generation_status === 'completed') {
-      console.log('✅ Generation completed, reloading project and messages...');
-      
+    if (session && previousStatusRef.current === 'generating' && 
+        (session.generation_status === 'completed' || session.generation_status === 'partial')) {
+      console.log('✅ Generation completed, reloading...');
       setLoading(false);
       loadProject();
+      loadPages();
       loadMessages();
     }
     
@@ -162,13 +213,13 @@ export default function StudioPage() {
           filter: `id=eq.${sessionId}`
         },
         (payload) => {
-          console.log('🔄 Realtime session update received:', payload.new);
+          console.log('🔄 Session update:', payload.new);
           const updatedSession = payload.new as Session;
           setSession(updatedSession);
         }
       )
       .subscribe((status) => {
-        console.log('📡 Realtime subscription status:', status);
+        console.log('📡 Session subscription status:', status);
       });
 
     return () => {
@@ -177,23 +228,141 @@ export default function StudioPage() {
     };
   };
 
+  const subscribeToPageUpdates = () => {
+    console.log('🔔 Subscribing to page updates:', sessionId);
+    
+    const channel = supabase
+      .channel(`pages-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'course_pages',
+          filter: `session_id=eq.${sessionId}`
+        },
+        (payload) => {
+          console.log('📄 New page created:', payload.new);
+          const newPage = payload.new as CoursePage;
+          setPages(prev => [...prev, newPage].sort((a, b) => a.page_number - b.page_number));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'course_pages',
+          filter: `session_id=eq.${sessionId}`
+        },
+        (payload) => {
+          console.log('🔄 Page updated:', payload.new);
+          const updatedPage = payload.new as CoursePage;
+          setPages(prev => prev.map(p => 
+            p.page_number === updatedPage.page_number ? updatedPage : p
+          ));
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Pages subscription status:', status);
+      });
+
+    return () => {
+      console.log('🔕 Unsubscribing from page updates');
+      supabase.removeChannel(channel);
+    };
+  };
+
+  const subscribeToProjectProgress = () => {
+    console.log('🔔 Subscribing to project progress:', sessionId);
+    
+    const channel = supabase
+      .channel(`project-progress-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'projects',
+          filter: `session_id=eq.${sessionId}`
+        },
+        (payload) => {
+          console.log('📊 Project progress update:', payload.new);
+          const updatedProject = payload.new as Project;
+          
+          setGenerationProgress({
+            expected: updatedProject.expected_pages,
+            completed: updatedProject.completed_pages,
+            failed: updatedProject.failed_pages,
+            pending: updatedProject.expected_pages - updatedProject.completed_pages - updatedProject.failed_pages,
+            generating: 0, // Calculated from pages
+            percentage: updatedProject.expected_pages > 0 
+              ? Math.round((updatedProject.completed_pages / updatedProject.expected_pages) * 100)
+              : 0
+          });
+          
+          setProject(updatedProject);
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Project subscription status:', status);
+      });
+
+    return () => {
+      console.log('🔕 Unsubscribing from project progress');
+      supabase.removeChannel(channel);
+    };
+  };
+
   const loadProject = async () => {
     try {
       const { data } = await supabase
         .from('projects')
-        .select('id, post_id, html_code, is_shared, updated_at')
+        .select('*')
         .eq('session_id', sessionId)
         .single();
 
       if (data) {
         setProject(data);
-        if (data.html_code && data.html_code !== '<html><body><h1>Generating...</h1></body></html>') {
-          setCurrentHtml(data.html_code);
-          console.log('✅ Project HTML loaded');
-        }
+        
+        // Update progress
+        setGenerationProgress({
+          expected: data.expected_pages || 0,
+          completed: data.completed_pages || 0,
+          failed: data.failed_pages || 0,
+          pending: (data.expected_pages || 0) - (data.completed_pages || 0) - (data.failed_pages || 0),
+          generating: 0,
+          percentage: data.expected_pages > 0 
+            ? Math.round((data.completed_pages / data.expected_pages) * 100)
+            : 0
+        });
+        
+        console.log('✅ Project loaded');
       }
     } catch (error) {
       console.error('Load project error:', error);
+    }
+  };
+
+  const loadPages = async () => {
+    try {
+      console.log('📨 Loading course pages...');
+      const { data } = await supabase
+        .from('course_pages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('page_number', { ascending: true });
+
+      if (data) {
+        setPages(data);
+        console.log(`✅ Loaded ${data.length} pages`);
+        
+        // Calculate generating count
+        const generatingCount = data.filter(p => p.generation_status === 'generating').length;
+        setGenerationProgress(prev => ({ ...prev, generating: generatingCount }));
+      }
+    } catch (error) {
+      console.error('Load pages error:', error);
     }
   };
 
@@ -246,12 +415,6 @@ export default function StudioPage() {
   const handleGeneration = async (userMessage: string) => {
     if (!user || !session || loading) return;
 
-    if (session.selected_model === 'claude-sonnet-4.5' && tokenBalance < 1000) {
-      setShowInsufficientTokens(true);
-      setTimeout(() => setShowInsufficientTokens(false), 5000);
-      return;
-    }
-
     setLoading(true);
     setSession(prev => prev ? { ...prev, generation_status: 'generating' } : null);
 
@@ -270,7 +433,7 @@ export default function StudioPage() {
       const result = await response.json();
 
       if (result.success) {
-        console.log('✅ Generation request accepted, backend will process');
+        console.log('✅ Multi-page generation started');
       } else {
         throw new Error(result.error || 'Generation failed');
       }
@@ -338,25 +501,27 @@ export default function StudioPage() {
   };
 
   const handleSaveProject = async () => {
-    if (!currentHtml || !user || !project || saving || loading) return;
+    if (!project || saving || loading) return;
 
     setSaving(true);
 
     try {
+      // Get current page HTML
+      const currentPage = pages[currentPageIndex];
+      if (!currentPage) {
+        throw new Error('No page selected');
+      }
+
       const response = await fetch(`/api/projects/${project.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ htmlCode: currentHtml })
+        body: JSON.stringify({ htmlCode: project.html_code })
       });
 
-      const { success, error, project: updatedProject } = await response.json();
+      const { success, error } = await response.json();
 
       if (!success || error) {
         throw new Error(error || 'Failed to save');
-      }
-
-      if (updatedProject) {
-        setProject(updatedProject);
       }
       
       setSaving(false);
@@ -380,7 +545,7 @@ export default function StudioPage() {
   };
 
   const handleUpdatePost = async () => {
-    if (!project?.post_id || !currentHtml || !user) return;
+    if (!project?.post_id || !user) return;
 
     if (!confirm('Update the published post with current code?')) return;
 
@@ -389,7 +554,7 @@ export default function StudioPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          htmlCode: currentHtml,
+          htmlCode: project.html_code,
           userId: user.id 
         })
       });
@@ -448,6 +613,62 @@ export default function StudioPage() {
     setPublishing(false);
   };
 
+  const handleRegeneratePage = async (pageNumber: number) => {
+    if (!user || regeneratingPage !== null) return;
+
+    setRegeneratingPage(pageNumber);
+
+    try {
+      const response = await fetch('/api/regenerate-page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          pageNumber,
+          userId: user.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Regeneration failed');
+      }
+
+      console.log('✅ Page regeneration started');
+      
+    } catch (error: any) {
+      alert('❌ ' + error.message);
+    } finally {
+      setRegeneratingPage(null);
+    }
+  };
+
+  const getPageIcon = (page: CoursePage) => {
+    if (page.page_type === 'intro') return '📖';
+    if (page.page_type === 'toc') return '📋';
+    if (page.page_type === 'conclusion') return '✅';
+    return page.page_number - 1; // Chapter number
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'text-green-400';
+      case 'generating': return 'text-blue-400 animate-pulse';
+      case 'failed': return 'text-red-400';
+      default: return 'text-gray-500';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return '✓';
+      case 'generating': return '⏳';
+      case 'failed': return '✗';
+      default: return '○';
+    }
+  };
+
   if (initialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -494,32 +715,45 @@ export default function StudioPage() {
             </button>
 
             <div className="flex items-center gap-3">
+              {/* Generation Status Badge */}
               <div className={`px-4 py-2 rounded-full border text-sm font-bold ${
                 session.generation_status === 'pending' ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400' :
                 session.generation_status === 'generating' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 animate-pulse' :
                 session.generation_status === 'completed' ? 'bg-green-500/20 border-green-500/30 text-green-400' :
+                session.generation_status === 'partial' ? 'bg-orange-500/20 border-orange-500/30 text-orange-400' :
                 'bg-red-500/20 border-red-500/30 text-red-400'
               }`}>
                 {session.generation_status === 'pending' && '⏳ Pending'}
                 {session.generation_status === 'generating' && '🔄 Generating...'}
-                {session.generation_status === 'completed' && '✅ Ready'}
+                {session.generation_status === 'completed' && '✅ Complete'}
+                {session.generation_status === 'partial' && '⚠️ Partial'}
                 {session.generation_status === 'failed' && '❌ Failed'}
               </div>
 
+              {/* Course Settings Badge */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
+                <BookOpen size={16} className="text-purple-400" />
+                <span className="text-sm font-mono">
+                  {session.chapter_count} chapters • {session.course_depth}
+                </span>
+              </div>
+
+              {/* Model Badge */}
               <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
                 {session.selected_model === 'claude-sonnet-4.5' ? (
                   <>
                     <Crown size={16} className="text-pink-400" />
-                    <span className="text-sm font-mono text-pink-400">Pro Agent</span>
+                    <span className="text-sm font-mono text-pink-400">Pro</span>
                   </>
                 ) : (
                   <>
                     <Zap size={16} className="text-purple-400" />
-                    <span className="text-sm font-mono text-purple-400">Basic Agent</span>
+                    <span className="text-sm font-mono text-purple-400">Basic</span>
                   </>
                 )}
               </div>
 
+              {/* Token Balance (if Claude) */}
               {session.selected_model === 'claude-sonnet-4.5' && (
                 <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-full border border-gray-800">
                   <Zap size={16} className="text-yellow-400" />
@@ -527,9 +761,10 @@ export default function StudioPage() {
                 </div>
               )}
 
+              {/* Save Button */}
               <motion.button
                 onClick={handleSaveProject}
-                disabled={!currentHtml || saving || loading || session.generation_status === 'generating' || justSaved}
+                disabled={!project || saving || loading || session.generation_status === 'generating' || justSaved}
                 whileHover={!saving && !loading && !justSaved ? { scale: 1.05 } : {}}
                 whileTap={!saving && !loading && !justSaved ? { scale: 0.95 } : {}}
                 className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-all ${
@@ -539,13 +774,14 @@ export default function StudioPage() {
                 } disabled:opacity-30 disabled:cursor-not-allowed`}
               >
                 <Save size={18} />
-                {saving ? 'Saving...' : justSaved ? 'Saved ✓' : 'Save Project'}
+                {saving ? 'Saving...' : justSaved ? 'Saved ✓' : 'Save'}
               </motion.button>
 
+              {/* Share/Update Button */}
               {project?.post_id ? (
                 <motion.button
                   onClick={handleUpdatePost}
-                  disabled={loading || !currentHtml || session.generation_status === 'generating'}
+                  disabled={loading || session.generation_status === 'generating'}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
@@ -556,13 +792,13 @@ export default function StudioPage() {
               ) : (
                 <motion.button
                   onClick={() => setShowPublishModal(true)}
-                  disabled={!project || !currentHtml || session.generation_status !== 'completed' || loading}
+                  disabled={!project || session.generation_status !== 'completed' || loading}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2 rounded-full font-bold flex items-center gap-2 disabled:opacity-30"
                 >
                   <Share2 size={18} />
-                  Share to Feed
+                  Share
                 </motion.button>
               )}
             </div>
@@ -581,10 +817,8 @@ export default function StudioPage() {
               <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 rounded-2xl shadow-2xl border border-green-500/50 flex items-center gap-3 min-w-[400px]">
                 <CheckCircle size={24} className="text-white flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-white font-bold text-lg mb-1">Post Created Successfully! 🎉</p>
-                  <p className="text-green-100 text-sm">
-                    Your post is now available in the "My Posts" section of your profile and can be shared with others.
-                  </p>
+                  <p className="text-white font-bold text-lg mb-1">Post Created! 🎉</p>
+                  <p className="text-green-100 text-sm">Your course is now live!</p>
                 </div>
               </div>
             </motion.div>
@@ -593,8 +827,186 @@ export default function StudioPage() {
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden min-h-0">
-          {/* Chat Panel - 40% */}
-          <div className="w-2/5 border-r border-gray-800 flex flex-col min-h-0">
+          {/* Left Sidebar - Pages List (20%) */}
+          <div className="w-1/5 border-r border-gray-800 flex flex-col min-h-0 bg-gray-900/50">
+            <div className="p-4 border-b border-gray-800">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <FileText size={16} className="text-purple-400" />
+                Course Pages ({pages.length})
+              </h3>
+            </div>
+
+            {/* Generation Progress */}
+            {(session.generation_status === 'generating' || session.generation_status === 'pending') && (
+              <div className="p-4 border-b border-gray-800 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">Progress</span>
+                  <span className="text-green-400 font-bold">{generationProgress.percentage}%</span>
+                </div>
+                <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${generationProgress.percentage}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+                <div className="flex gap-2 text-xs">
+                  <span className="text-green-400">✓ {generationProgress.completed}</span>
+                  {generationProgress.generating > 0 && (
+                    <span className="text-blue-400">⏳ {generationProgress.generating}</span>
+                  )}
+                  {generationProgress.pending > 0 && (
+                    <span className="text-gray-500">○ {generationProgress.pending}</span>
+                  )}
+                  {generationProgress.failed > 0 && (
+                    <span className="text-red-400">✗ {generationProgress.failed}</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Pages List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {pages.map((page, idx) => (
+                <div key={page.id} className="relative">
+                  <button
+                    onClick={() => setCurrentPageIndex(idx)}
+                    disabled={page.generation_status !== 'completed'}
+                    className={`w-full text-left p-3 rounded-lg transition-all ${
+                      currentPageIndex === idx
+                        ? 'bg-purple-600 text-white'
+                        : page.generation_status === 'completed'
+                        ? 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                        : 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{getPageIcon(page)}</span>
+                      <span className="text-xs font-bold flex-1 truncate">
+                        {page.page_title}
+                      </span>
+                      <span className={`text-xs ${getStatusColor(page.generation_status)}`}>
+                        {getStatusIcon(page.generation_status)}
+                      </span>
+                    </div>
+                    {page.generation_status === 'failed' && page.error_message && (
+                      <p className="text-xs text-red-400 truncate mt-1">
+                        {page.error_message}
+                      </p>
+                    )}
+                  </button>
+
+                  {/* Regenerate Button */}
+                  {(page.generation_status === 'completed' || page.generation_status === 'failed') && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRegeneratePage(page.page_number);
+                      }}
+                      disabled={regeneratingPage !== null}
+                      className="absolute top-2 right-2 p-1 bg-gray-900 hover:bg-gray-700 rounded transition-colors"
+                      title="Regenerate page"
+                    >
+                      {regeneratingPage === page.page_number ? (
+                        <Loader2 size={14} className="animate-spin text-blue-400" />
+                      ) : (
+                        <RefreshCw size={14} className="text-gray-400" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {pages.length === 0 && (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  <Loader2 className="animate-spin mx-auto mb-2" size={24} />
+                  <p>Initializing pages...</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Center - Preview (50%) */}
+          <div className="flex-1 flex flex-col bg-gray-900 min-h-0">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
+                  disabled={currentPageIndex === 0 || pages.length === 0}
+                  className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <div className="flex items-center gap-2">
+                  <Eye size={16} className="text-purple-400" />
+                  <span className="text-sm font-mono text-gray-400">
+                    {pages[currentPageIndex] ? pages[currentPageIndex].page_title : 'No page'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setCurrentPageIndex(prev => Math.min(pages.length - 1, prev + 1))}
+                  disabled={currentPageIndex === pages.length - 1 || pages.length === 0}
+                  className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+              <span className="text-xs text-gray-500">
+                Page {currentPageIndex + 1} of {pages.length}
+              </span>
+            </div>
+
+            <div className="flex-1 bg-white min-h-0 overflow-auto">
+              {pages[currentPageIndex]?.generation_status === 'completed' ? (
+                <iframe
+                  key={pages[currentPageIndex].id}
+                  srcDoc={pages[currentPageIndex].html_content}
+                  className="w-full h-full"
+                  sandbox="allow-scripts allow-same-origin"
+                  title="preview"
+                />
+              ) : pages[currentPageIndex]?.generation_status === 'generating' ? (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  <div className="text-center">
+                    <Loader2 className="animate-spin mx-auto mb-4" size={48} />
+                    <p className="text-lg font-semibold">Generating page...</p>
+                  </div>
+                </div>
+              ) : pages[currentPageIndex]?.generation_status === 'failed' ? (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  <div className="text-center">
+                    <AlertCircle className="mx-auto mb-4 text-red-400" size={48} />
+                    <p className="text-lg font-semibold text-red-400 mb-2">Generation Failed</p>
+                    <p className="text-sm text-gray-500 mb-4">{pages[currentPageIndex].error_message}</p>
+                    <button
+                      onClick={() => handleRegeneratePage(pages[currentPageIndex].page_number)}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
+                    >
+                      Retry Page
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  <div className="text-center">
+                    {session.generation_status === 'pending' || session.generation_status === 'generating' ? (
+                      <>
+                        <Loader2 className="animate-spin mx-auto mb-4" size={48} />
+                        <p className="text-lg font-semibold mb-2">Creating your course...</p>
+                        <p className="text-sm text-gray-500">This may take 3-5 minutes</p>
+                      </>
+                    ) : (
+                      <p>No page selected</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right - Chat (30%) */}
+          <div className="w-[30%] border-l border-gray-800 flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
               {showInsufficientTokens && (
                 <motion.div
@@ -603,7 +1015,7 @@ export default function StudioPage() {
                   className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
                 >
                   <p className="text-red-400 text-sm">
-                    ⚠️ Insufficient tokens! You need at least 1,000 tokens.
+                    ⚠️ Insufficient tokens!
                     <br />
                     <span className="text-gray-400">Current balance: {tokenBalance} tokens</span>
                   </p>
@@ -645,35 +1057,19 @@ export default function StudioPage() {
                     )}
                   </div>
 
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-gradient-to-r from-yellow-900/30 via-orange-900/30 to-yellow-900/30 border border-yellow-700/40 rounded-xl p-4 backdrop-blur-sm"
-                  >
+                  <div className="bg-gradient-to-r from-yellow-900/30 via-orange-900/30 to-yellow-900/30 border border-yellow-700/40 rounded-xl p-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-0.5">
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full">
-                          <Sparkles size={12} className="text-yellow-400" />
-                          <span className="text-xs font-bold text-yellow-400">BETA</span>
-                        </div>
-                      </div>
+                      <Sparkles size={16} className="text-yellow-400 mt-0.5" />
                       <div className="flex-1">
                         <p className="text-sm text-gray-300 leading-relaxed mb-2">
-                          <span className="font-semibold text-yellow-300">We're still evolving!</span> Some generations may fail due to API rate limits or system load.
+                          <span className="font-semibold text-yellow-300">We're in Beta!</span> Some generations may fail.
                         </p>
-                        <div className="flex flex-col sm:flex-row gap-2 text-xs">
-                          <span className="text-gray-400">
-                            💡 <span className="text-blue-300 font-semibold">Try retrying</span> - it often works the second time
-                          </span>
-                          <span className="text-gray-500 hidden sm:block">•</span>
-                          <span className="text-gray-400">
-                            Need help? <a href="mailto:team@parasync.in" className="text-purple-400 underline hover:text-purple-300">Contact support</a>
-                          </span>
-                        </div>
+                        <p className="text-xs text-gray-400">
+                          💡 Try retrying - it often works. Need help? <a href="mailto:team@parasync.in" className="text-purple-400 underline">Contact us</a>
+                        </p>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 </motion.div>
               )}
 
@@ -698,7 +1094,7 @@ export default function StudioPage() {
                 <div className="flex justify-start">
                   <div className="bg-gray-800 px-4 py-3 rounded-2xl flex items-center gap-2">
                     <Loader2 className="animate-spin text-purple-400" size={20} />
-                    <span className="text-sm text-gray-400">Generating your creation...</span>
+                    <span className="text-sm text-gray-400">Generating course...</span>
                   </div>
                 </div>
               )}
@@ -718,8 +1114,8 @@ export default function StudioPage() {
                       handleSendMessage();
                     }
                   }}
-                  placeholder="Describe your changes..."
-                  className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none resize-none overflow-y-auto scrollbar-hide"
+                  placeholder="Request changes..."
+                  className="flex-1 px-4 py-3 bg-gray-900 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none resize-none overflow-y-auto"
                   style={{ minHeight: '48px', maxHeight: '120px' }}
                   disabled={loading || session.generation_status === 'generating'}
                   maxLength={10000}
@@ -733,54 +1129,6 @@ export default function StudioPage() {
                   <Send size={20} />
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* Preview Panel - 60% */}
-          <div className="flex-1 flex flex-col bg-gray-900 min-h-0">
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Eye size={16} className="text-purple-400" />
-                <span className="text-sm font-mono text-gray-400">live-preview</span>
-              </div>
-              <button 
-                onClick={() => setFullscreen(true)}
-                className="p-2 hover:bg-gray-800 rounded transition-colors"
-                disabled={!currentHtml}
-              >
-                <Maximize2 size={18} className="text-gray-400" />
-              </button>
-            </div>
-
-            <div className="flex-1 bg-white min-h-0">
-              {currentHtml ? (
-                <iframe
-                  key={currentHtml}
-                  srcDoc={currentHtml}
-                  className="w-full h-full"
-                  sandbox="allow-scripts allow-same-origin"
-                  title="preview"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  <div className="text-center">
-                    {(session.generation_status === 'pending' || session.generation_status === 'generating' || loading) && (
-                      <>
-                        <Loader2 className="animate-spin mx-auto mb-4" size={48} />
-                        <p className="text-lg font-semibold mb-2">Crafting your visualization...</p>
-                        <p className="text-sm text-gray-500">This can take 5-15 minutes for complex generations.</p>
-                        <p className="text-xs text-gray-600 mt-2">Maximum generation time: 20 minutes</p>
-                      </>
-                    )}
-                    {session.generation_status === 'failed' && (
-                      <>
-                        <X className="mx-auto mb-4 text-red-400" size={48} />
-                        <p>Generation failed. Check the error message and retry.</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -808,8 +1156,8 @@ export default function StudioPage() {
                       <Share2 size={24} className="text-white" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold">Share to Feed</h3>
-                      <p className="text-sm text-gray-400">Let others see your creation</p>
+                      <h3 className="text-2xl font-bold">Share Course</h3>
+                      <p className="text-sm text-gray-400">Share your creation with others</p>
                     </div>
                   </div>
                   <button 
@@ -829,7 +1177,7 @@ export default function StudioPage() {
                     <textarea
                       value={publishCaption}
                       onChange={(e) => setPublishCaption(e.target.value)}
-                      placeholder="Write a caption for your post... (e.g., 'Check out my interactive game!' or 'Built a cool calculator app')"
+                      placeholder="Describe your course..."
                       className="w-full px-5 py-4 bg-black/50 rounded-2xl border border-gray-700 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all resize-none text-gray-100 placeholder-gray-500"
                       disabled={publishing}
                       maxLength={200}
@@ -837,7 +1185,7 @@ export default function StudioPage() {
                     />
                     <div className="flex justify-between items-center mt-2">
                       <p className="text-xs text-gray-500">
-                        Make it descriptive so others know what your creation does!
+                        Make it descriptive!
                       </p>
                       <p className="text-xs text-gray-500">
                         {publishCaption.length}/200
@@ -859,7 +1207,7 @@ export default function StudioPage() {
                           Share prompt publicly
                         </span>
                         <p className="text-xs text-gray-500 mt-1">
-                          Allow others to see the prompt you used to create this project
+                          Allow others to see your prompt
                         </p>
                       </div>
                     </label>
@@ -874,47 +1222,18 @@ export default function StudioPage() {
                   >
                     {publishing ? (
                       <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                        >
-                          🧄
-                        </motion.div>
-                        <span>Publishing...</span>
+                        <Loader2 size={20} className="animate-spin" />
+                        Publishing...
                       </>
                     ) : (
                       <>
                         <Share2 size={20} />
-                        <span>Publish to Feed</span>
+                        Publish Course
                       </>
                     )}
                   </motion.button>
                 </div>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Fullscreen Preview */}
-        <AnimatePresence>
-          {fullscreen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black z-50 flex flex-col"
-            >
-              <div className="p-4 flex justify-between items-center border-b border-gray-800">
-                <span className="font-mono text-sm text-gray-400">Fullscreen Preview</span>
-                <button onClick={() => setFullscreen(false)} className="text-gray-400 hover:text-white">
-                  <X size={24} />
-                </button>
-              </div>
-              <iframe
-                srcDoc={currentHtml}
-                className="flex-1 w-full bg-white"
-                sandbox="allow-scripts allow-same-origin allow-forms"
-              />
             </motion.div>
           )}
         </AnimatePresence>

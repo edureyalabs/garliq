@@ -21,13 +21,29 @@ export async function POST(request: Request) {
   const user = authCheck.user;
 
   try {
-    const { initialPrompt, userId, selectedModel } = await request.json();
+    const { initialPrompt, userId, selectedModel, courseSettings } = await request.json();
 
     if (!initialPrompt || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Create session with generation_status = 'pending'
+    // Extract course settings (with defaults)
+    const chapterCount = courseSettings?.chapterCount || 5;
+    const courseDepth = courseSettings?.depth || 'basic';
+
+    // Validate chapter count
+    if (chapterCount < 1 || chapterCount > 15) {
+      return NextResponse.json({ error: 'Chapter count must be between 1 and 15' }, { status: 400 });
+    }
+
+    // Validate course depth
+    if (!['basic', 'intermediate', 'advanced'].includes(courseDepth)) {
+      return NextResponse.json({ error: 'Invalid course depth' }, { status: 400 });
+    }
+
+    console.log(`📚 Creating session: ${chapterCount} chapters, ${courseDepth} depth`);
+
+    // Create session with multi-page settings
     const { data, error } = await supabase
       .from('sessions')
       .insert({
@@ -36,7 +52,9 @@ export async function POST(request: Request) {
         initial_prompt: initialPrompt,
         generation_status: 'pending',
         selected_model: selectedModel || 'llama-3.3-70b',
-        retry_count: 0
+        retry_count: 0,
+        chapter_count: chapterCount,           // ← NEW
+        course_depth: courseDepth              // ← NEW
       })
       .select()
       .single();
@@ -54,6 +72,8 @@ export async function POST(request: Request) {
         role: 'user',
         content: initialPrompt
       });
+
+    console.log(`✅ Session created: ${data.id} (${chapterCount} chapters, ${courseDepth})`);
 
     return NextResponse.json({ session: data });
   } catch (error: any) {

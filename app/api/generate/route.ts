@@ -9,10 +9,9 @@ const supabase = createClient(
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:8000';
 
-export const maxDuration = 300; // Set max duration to 5 minutes for Vercel/Render
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
-  // Add subscription check FIRST
   const authCheck = await checkApiSubscription();
   
   if (!authCheck.authorized) {
@@ -33,13 +32,22 @@ export async function POST(request: Request) {
 
     console.log('🚀 Generation request received:', { sessionId, model });
 
+    // Get session with multi-page settings
     const { data: session } = await supabase
       .from('sessions')
       .select('*')
       .eq('id', sessionId)
       .single();
 
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
     const selectedModel = model || session?.selected_model || 'llama-3.3-70b';
+    const chapterCount = session.chapter_count || 5;
+    const courseDepth = session.course_depth || 'basic';
+
+    console.log(`📚 Multi-page settings: ${chapterCount} chapters, ${courseDepth} depth`);
 
     // ==================== LLAMA FREE TIER LIMIT CHECK ====================
     if (selectedModel === 'llama-3.3-70b') {
@@ -77,17 +85,27 @@ export async function POST(request: Request) {
 
       const balance = wallet?.token_balance || 0;
 
-      if (balance < 4000) {
+      // Calculate required tokens based on settings
+      const tokenRequirements = {
+        basic: 15000,
+        intermediate: 22000,
+        advanced: 30000
+      };
+      const chapterTokens = chapterCount * tokenRequirements[courseDepth as keyof typeof tokenRequirements];
+      const otherTokens = 28000; // intro + toc + conclusion
+      const totalRequired = chapterTokens + otherTokens;
+
+      if (balance < totalRequired) {
         await supabase
           .from('sessions')
           .update({ 
             generation_status: 'failed',
-            generation_error: 'Insufficient tokens. You need at least 4,000 tokens to use Claude Sonnet 4.5.'
+            generation_error: `Insufficient tokens. You need at least ${totalRequired.toLocaleString()} tokens for this course (${chapterCount} chapters, ${courseDepth} depth).`
           })
           .eq('id', sessionId);
 
         return NextResponse.json({ 
-          error: 'Insufficient tokens. You need at least 4,000 tokens to use Claude Sonnet 4.5.',
+          error: `Insufficient tokens. Required: ${totalRequired.toLocaleString()}, Available: ${balance.toLocaleString()}`,
           success: false 
         }, { status: 402 });
       }
@@ -102,35 +120,26 @@ export async function POST(request: Request) {
       })
       .eq('id', sessionId);
 
-    // Get chat history and current code
+    // Get chat history
     const { data: chatHistory } = await supabase
       .from('chat_messages')
       .select('role, content')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('html_code')
-      .eq('session_id', sessionId)
-      .maybeSingle();
-
-    // ==================== TRIGGER ASYNC GENERATION ====================
-    console.log('🔥 Triggering async generation...');
+    // ==================== TRIGGER ASYNC MULTI-PAGE GENERATION ====================
+    console.log('🔥 Triggering multi-page async generation...');
     
-    // Security: NO LONGER PASSING SUPABASE CREDENTIALS
-    // Backend service uses its own credentials from environment variables
     fetch(`${AGENT_SERVICE_URL}/generate-async`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: message,
         model: selectedModel,
-        current_code: project?.html_code || null,
-        chat_history: chatHistory || [],
         user_id: userId,
-        session_id: sessionId
-        // SECURITY FIX: Removed supabase_url and supabase_key
+        session_id: sessionId,
+        chapter_count: chapterCount,      // ← NEW
+        course_depth: courseDepth         // ← NEW
       })
     }).catch(err => {
       console.error('Failed to trigger async generation:', err);
@@ -139,8 +148,10 @@ export async function POST(request: Request) {
     // Return immediately - frontend will listen via Supabase Realtime
     return NextResponse.json({ 
       success: true,
-      message: 'Generation started',
-      sessionId: sessionId
+      message: 'Multi-page generation started',
+      sessionId: sessionId,
+      chapterCount: chapterCount,
+      courseDepth: courseDepth
     });
 
   } catch (error: any) {
