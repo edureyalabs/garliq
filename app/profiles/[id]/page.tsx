@@ -30,8 +30,10 @@ interface Post {
   prompt: string | null;
   prompt_visible: boolean;
   user_id: string;
+  session_id: string | null;
   is_liked?: boolean;
   is_saved?: boolean;
+  first_page_content?: string | null;
   profiles?: {
     username: string;
     display_name: string;
@@ -50,6 +52,7 @@ interface Project {
   post_id: string | null;
   prompt: string;
   updated_at: string;
+  first_page_content?: string | null;
 }
 
 interface SubscriptionStatus {
@@ -252,96 +255,151 @@ export default function ProfilePage() {
   };
 
   const fetchUserPosts = async (pageNum: number) => {
-    const from = pageNum * ITEMS_PER_PAGE;
-    const to = from + ITEMS_PER_PAGE - 1;
+  const from = pageNum * ITEMS_PER_PAGE;
+  const to = from + ITEMS_PER_PAGE - 1;
 
-    const { data, error, count } = await supabase
-      .from('posts')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .range(from, to);
+  // Step 1: Fetch posts
+  const { data, error, count } = await supabase
+    .from('posts')
+    .select('*', { count: 'exact' })
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
-    if (error) {
-      console.error('Fetch posts error:', error);
-      setLoading(false);
-      setLoadingMore(false);
-      return;
-    }
+  if (error) {
+    console.error('Fetch posts error:', error);
+    setLoading(false);
+    setLoadingMore(false);
+    return;
+  }
 
-    if (data) {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      let postsWithInteractions = data;
-      if (session) {
-        postsWithInteractions = await Promise.all(
-          data.map(async (post) => {
-            const [likeData, saveData] = await Promise.all([
-              supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
-              supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
-            ]);
+  if (data) {
+    // Step 2: Get session IDs for multi-page posts
+    const sessionIds = data
+      .filter(post => post.session_id)
+      .map(post => post.session_id);
 
-            return { 
-              ...post, 
-              is_liked: !!likeData.data,
-              is_saved: !!saveData.data 
-            };
-          })
+    // Step 3: Fetch first pages for multi-page posts
+    let firstPagesMap = new Map<string, string>();
+    if (sessionIds.length > 0) {
+      const { data: pagesData } = await supabase
+        .from('course_pages')
+        .select('session_id, html_content')
+        .in('session_id', sessionIds)
+        .eq('page_number', 0);
+
+      if (pagesData) {
+        firstPagesMap = new Map(
+          pagesData.map(page => [page.session_id, page.html_content])
         );
       }
-
-      if (pageNum === 0) {
-        setPosts(postsWithInteractions);
-      } else {
-        setPosts(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
-          return [...prev, ...newPosts];
-        });
-      }
-
-      setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
-    
-    setLoading(false);
-    setLoadingMore(false);
-  };
+
+    // Step 4: Map first page content to posts
+    let postsWithFirstPage = data.map(post => ({
+      ...post,
+      first_page_content: post.session_id ? firstPagesMap.get(post.session_id) || null : null
+    }));
+
+    // Step 5: Add interaction data if logged in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      postsWithFirstPage = await Promise.all(
+        postsWithFirstPage.map(async (post) => {
+          const [likeData, saveData] = await Promise.all([
+            supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
+            supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+          ]);
+
+          return { 
+            ...post, 
+            is_liked: !!likeData.data,
+            is_saved: !!saveData.data 
+          };
+        })
+      );
+    }
+
+    if (pageNum === 0) {
+      setPosts(postsWithFirstPage);
+    } else {
+      setPosts(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const newPosts = postsWithFirstPage.filter(p => !existingIds.has(p.id));
+        return [...prev, ...newPosts];
+      });
+    }
+
+    setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
+  }
+  
+  setLoading(false);
+  setLoadingMore(false);
+};
 
   const fetchUserProjects = async (pageNum: number) => {
-    const from = pageNum * ITEMS_PER_PAGE;
-    const to = from + ITEMS_PER_PAGE - 1;
+  const from = pageNum * ITEMS_PER_PAGE;
+  const to = from + ITEMS_PER_PAGE - 1;
 
-    const { data, error, count } = await supabase
-      .from('projects')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .range(from, to);
+  // Step 1: Fetch projects
+  const { data, error, count } = await supabase
+    .from('projects')
+    .select('*', { count: 'exact' })
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .range(from, to);
 
-    if (error) {
-      console.error('Fetch projects error:', error);
-      setLoading(false);
-      setLoadingMore(false);
-      return;
-    }
-
-    if (data) {
-      if (pageNum === 0) {
-        setProjects(data);
-      } else {
-        setProjects(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const newProjects = data.filter(p => !existingIds.has(p.id));
-          return [...prev, ...newProjects];
-        });
-      }
-
-      setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
-    }
-    
+  if (error) {
+    console.error('Fetch projects error:', error);
     setLoading(false);
     setLoadingMore(false);
-  };
+    return;
+  }
+
+  if (data) {
+    // Step 2: Get session IDs for multi-page projects
+    const sessionIds = data
+      .filter(project => project.session_id)
+      .map(project => project.session_id);
+
+    // Step 3: Fetch first pages for multi-page projects
+    let firstPagesMap = new Map<string, string>();
+    if (sessionIds.length > 0) {
+      const { data: pagesData } = await supabase
+        .from('course_pages')
+        .select('session_id, html_content')
+        .in('session_id', sessionIds)
+        .eq('page_number', 0);
+
+      if (pagesData) {
+        firstPagesMap = new Map(
+          pagesData.map(page => [page.session_id, page.html_content])
+        );
+      }
+    }
+
+    // Step 4: Map first page content to projects
+    const projectsWithFirstPage = data.map(project => ({
+      ...project,
+      first_page_content: project.session_id ? firstPagesMap.get(project.session_id) || null : null
+    }));
+
+    if (pageNum === 0) {
+      setProjects(projectsWithFirstPage);
+    } else {
+      setProjects(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const newProjects = projectsWithFirstPage.filter(p => !existingIds.has(p.id));
+        return [...prev, ...newProjects];
+      });
+    }
+
+    setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
+  }
+  
+  setLoading(false);
+  setLoadingMore(false);
+};
 
   const fetchSavedPosts = async (pageNum: number) => {
     if (!currentUser) return;
@@ -367,49 +425,75 @@ export default function ProfilePage() {
     }
 
     const postIds = saves.map(s => s.post_id);
-    const { data: posts } = await supabase
-      .from('posts')
-      .select('*')
-      .in('id', postIds)
-      .order('created_at', { ascending: false });
 
-    if (posts) {
-      const userIds = [...new Set(posts.map(p => p.user_id))];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .in('id', userIds);
+// Step 1: Fetch posts
+const { data: posts } = await supabase
+  .from('posts')
+  .select('*')
+  .in('id', postIds)
+  .order('created_at', { ascending: false });
 
-      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+if (posts) {
+  // Step 2: Get session IDs for multi-page posts
+  const sessionIds = posts
+    .filter(post => post.session_id)
+    .map(post => post.session_id);
 
-      const postsWithInteractions = await Promise.all(
-        posts.map(async (post) => {
-          const [likeData, saveData] = await Promise.all([
-            supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
-            supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle()
-          ]);
+  // Step 3: Fetch first pages for multi-page posts
+  let firstPagesMap = new Map<string, string>();
+  if (sessionIds.length > 0) {
+    const { data: pagesData } = await supabase
+      .from('course_pages')
+      .select('session_id, html_content')
+      .in('session_id', sessionIds)
+      .eq('page_number', 0);
 
-          return { 
-            ...post, 
-            is_liked: !!likeData.data,
-            is_saved: !!saveData.data,
-            profiles: profilesMap.get(post.user_id)
-          };
-        })
+    if (pagesData) {
+      firstPagesMap = new Map(
+        pagesData.map(page => [page.session_id, page.html_content])
       );
-
-      if (pageNum === 0) {
-        setSavedPosts(postsWithInteractions);
-      } else {
-        setSavedPosts(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
-          return [...prev, ...newPosts];
-        });
-      }
-
-      setHasMore(saves.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
+  }
+
+  // Step 4: Get profiles
+  const userIds = [...new Set(posts.map(p => p.user_id))];
+  const { data: profilesData } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url')
+    .in('id', userIds);
+
+  const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+
+  // Step 5: Combine all data
+  const postsWithInteractions = await Promise.all(
+    posts.map(async (post) => {
+      const [likeData, saveData] = await Promise.all([
+        supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
+        supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle()
+      ]);
+
+      return { 
+        ...post, 
+        is_liked: !!likeData.data,
+        is_saved: !!saveData.data,
+        first_page_content: post.session_id ? firstPagesMap.get(post.session_id) || null : null,
+        profiles: profilesMap.get(post.user_id)
+      };
+    })
+  );
+
+  if (pageNum === 0) {
+    setSavedPosts(postsWithInteractions);
+  } else {
+    setSavedPosts(prev => {
+      const existingIds = new Set(prev.map(p => p.id));
+      const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
+      return [...prev, ...newPosts];
+    });
+  }
+
+  setHasMore(saves.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
+}
     
     setLoading(false);
     setLoadingMore(false);
@@ -655,6 +739,21 @@ export default function ProfilePage() {
     }
   };
 
+  const renderPreviewIframe = (item: Post | Project) => {
+    const htmlContent = item.session_id && item.first_page_content
+      ? `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:sans-serif;padding:20px;overflow:hidden}</style></head><body>${item.first_page_content}</body></html>`
+      : `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
+
+    return (
+      <iframe
+        srcDoc={htmlContent}
+        className="w-full h-full pointer-events-none"
+        sandbox=""
+        loading="lazy"
+      />
+    );
+  };
+
   if (loading && page === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -805,12 +904,7 @@ export default function ProfilePage() {
                     >
                       <Link href={`/post/${post.id}`}>
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          <iframe
-                            srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
-                            className="w-full h-full pointer-events-none"
-                            sandbox=""
-                            loading="lazy"
-                          />
+                          {renderPreviewIframe(post)}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                       </Link>
@@ -1125,12 +1219,7 @@ export default function ProfilePage() {
                     >
                       <Link href={`/post/${post.id}`}>
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          <iframe
-                            srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
-                            className="w-full h-full pointer-events-none"
-                            sandbox=""
-                            loading="lazy"
-                          />
+                          {renderPreviewIframe(post)}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                       </Link>
@@ -1236,12 +1325,7 @@ export default function ProfilePage() {
                         className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer"
                         onClick={() => setSelectedItem(project)}
                       >
-                        <iframe
-                          srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${project.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
-                          className="w-full h-full pointer-events-none"
-                          sandbox=""
-                          loading="lazy"
-                        />
+                        {renderPreviewIframe(project)}
                         
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
                           <Eye className="text-white drop-shadow-lg" size={28} />
@@ -1337,12 +1421,7 @@ export default function ProfilePage() {
 
                       <Link href={`/post/${post.id}`}>
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          <iframe
-                            srcDoc={`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${post.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`}
-                            className="w-full h-full pointer-events-none"
-                            sandbox=""
-                            loading="lazy"
-                          />
+                          {renderPreviewIframe(post)}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                       </Link>
