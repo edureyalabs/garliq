@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Share2, Edit, Trash2, ChevronLeft, ChevronRight, FileText, Loader2, Eye, Calendar, User } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import AITutor from '@/components/AITutor';
+import { TutorContext } from '@/lib/tutor-context';
 
 interface Project {
   id: string;
@@ -202,6 +204,17 @@ export default function ProjectViewerPage() {
   }
 
   const isOwner = user?.id === project.user_id;
+
+  // ==================== BUILD AI TUTOR CONTEXT ====================
+  const tutorContext: TutorContext = {
+    courseTitle: project.title || 'Untitled Project',
+    currentPageTitle: pages[currentPageIndex]?.page_title || 'Overview',
+    currentPageType: pages[currentPageIndex]?.page_type || 'intro',
+    chapterNumber: pages[currentPageIndex]?.page_type === 'chapter' 
+      ? (pages[currentPageIndex]?.page_number || 0) - 1 
+      : undefined,
+    totalPages: pages.length || 1
+  };
 
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
@@ -403,6 +416,9 @@ export default function ProjectViewerPage() {
           )}
         </div>
       </div>
+
+      {/* AI Tutor - Available for all project viewers */}
+      <AITutor context={tutorContext} />
     </div>
   );
 }

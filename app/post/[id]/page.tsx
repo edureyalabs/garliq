@@ -8,6 +8,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSubscription } from '@/hooks/useSubscription';
 import SubscriptionModal from '@/components/SubscriptionModal';
+import AITutor from '@/components/AITutor';
+import { TutorContext } from '@/lib/tutor-context';
 
 interface Post {
   id: string;
@@ -489,6 +491,17 @@ export default function PostDetailPage() {
     );
   }
 
+  // ==================== BUILD AI TUTOR CONTEXT ====================
+  const tutorContext: TutorContext = {
+    courseTitle: post.caption || 'Untitled Course',
+    currentPageTitle: pages[currentPageIndex]?.page_title || 'Overview',
+    currentPageType: pages[currentPageIndex]?.page_type || 'intro',
+    chapterNumber: pages[currentPageIndex]?.page_type === 'chapter' 
+      ? (pages[currentPageIndex]?.page_number || 0) - 1 
+      : undefined,
+    totalPages: pages.length || 1
+  };
+
   // LOGGED-IN WITH ACTIVE SUBSCRIPTION - Ultra Compact Header
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
@@ -693,6 +706,9 @@ export default function PostDetailPage() {
           )}
         </div>
       </div>
+
+      {/* AI Tutor - Available for subscribed users */}
+      <AITutor context={tutorContext} />
 
       <SubscriptionModal
         isOpen={showSubscriptionModal}
