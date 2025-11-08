@@ -81,7 +81,6 @@ export default function ProfilePage() {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('posts');
-  const [selectedItem, setSelectedItem] = useState<Post | Project | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareProject, setShareProject] = useState<Project | null>(null);
   const [shareCaption, setShareCaption] = useState('');
@@ -1255,13 +1254,6 @@ if (posts) {
                               )}
                               <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
                             </button>
-
-                            <Link href={`/post/${post.id}#comments`}>
-                              <button className="flex items-center gap-1 text-gray-500 hover:text-pink-400 transition-colors">
-                                <MessageCircle size={15} />
-                                <span className="text-xs font-bold">{post.comments_count || 0}</span>
-                              </button>
-                            </Link>
                           </div>
 
                           <div className="flex items-center gap-1">
@@ -1321,16 +1313,15 @@ if (posts) {
                         </div>
                       )}
 
-                      <div 
-                        className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer"
-                        onClick={() => setSelectedItem(project)}
-                      >
-                        {renderPreviewIframe(project)}
-                        
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
-                          <Eye className="text-white drop-shadow-lg" size={28} />
+                      <Link href={`/projects/${project.id}`}>
+                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
+                          {renderPreviewIframe(project)}
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
+                            <Eye className="text-white drop-shadow-lg" size={28} />
+                          </div>
                         </div>
-                      </div>
+                      </Link>
 
                       <div className="p-3">
                         <p className="text-sm font-bold mb-1 line-clamp-1">{project.title || 'Untitled Project'}</p>
@@ -1457,13 +1448,6 @@ if (posts) {
                               )}
                               <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
                             </button>
-
-                            <Link href={`/post/${post.id}#comments`}>
-                              <button className="flex items-center gap-1 text-gray-500 hover:text-pink-400 transition-colors">
-                                <MessageCircle size={15} />
-                                <span className="text-xs font-bold">{post.comments_count || 0}</span>
-                              </button>
-                            </Link>
                           </div>
 
                           <div className="flex items-center gap-1">
@@ -1512,65 +1496,6 @@ if (posts) {
           )}
         </div>
       </div>
-
-      {/* Preview Modal */}
-      {selectedItem && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedItem(null)}
-        >
-          <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            className="w-full max-w-6xl h-[90vh] bg-gray-900 rounded-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="h-full flex flex-col">
-              <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
-                <div>
-                  <h3 className="font-bold text-base">
-                    {'caption' in selectedItem ? selectedItem.caption : 'title' in selectedItem ? selectedItem.title : 'Preview'}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {new Date(selectedItem.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {'session_id' in selectedItem && selectedItem.session_id && isOwnProfile && (
-                    <Link href={`/studio/${selectedItem.session_id}`}>
-                      <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center gap-2 text-sm">
-                        <Edit size={16} />
-                        Edit
-                      </button>
-                    </Link>
-                  )}
-                  {'caption' in selectedItem && (
-                    <Link href={`/post/${selectedItem.id}`}>
-                      <button className="p-2 hover:bg-gray-800 rounded-full transition-colors">
-                        <ExternalLink size={18} className="text-gray-400" />
-                      </button>
-                    </Link>
-                  )}
-                  <button 
-                    onClick={() => setSelectedItem(null)} 
-                    className="text-gray-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center hover:bg-gray-800 rounded-full transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-              <iframe
-                srcDoc={selectedItem.html_code}
-                className="flex-1 w-full bg-white"
-                sandbox="allow-scripts allow-same-origin allow-forms"
-                allow="autoplay; fullscreen"
-              />
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
 
       {/* Share Project Modal */}
       <AnimatePresence>
