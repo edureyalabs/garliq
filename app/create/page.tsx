@@ -459,7 +459,7 @@ export default function CreatePage() {
                         <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl opacity-70 group-hover:opacity-100 blur transition-opacity"></div>
                         <div className="relative w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 text-sm">
                           <Zap size={16} />
-                          Go to Profile Page to Buy Tokens
+                          Buy Tokens on Profile Page
                         </div>
                       </motion.button>
                     </Link>

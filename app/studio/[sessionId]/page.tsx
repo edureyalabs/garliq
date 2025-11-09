@@ -1148,7 +1148,7 @@ export default function StudioPage() {
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-300 mb-3">
-                      Caption
+                      Course Title
                     </label>
                     <textarea
                       value={publishCaption}
