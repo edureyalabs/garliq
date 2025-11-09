@@ -149,8 +149,8 @@ export default function AITutor({ context }: AITutorProps) {
             {/* AI Icon */}
             <Bot size={24} className="relative z-10" strokeWidth={2} />
             
-            {/* Pulse Animation */}
-            <span className="absolute inset-0 rounded-full bg-purple-400 opacity-20 animate-[ping_1s_ease-in-out_60s_infinite]" />
+            {/* Pulse Animation
+            <span className="absolute inset-0 rounded-full bg-purple-400 opacity-20 animate-[ping_1s_ease-in-out_60s_infinite]" /> */}
           </motion.button>
         )}
       </AnimatePresence>
