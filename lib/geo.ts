@@ -8,16 +8,25 @@ export async function detectCountry(ip: string): Promise<'IN' | 'US'> {
       return 'US';
     }
 
-    const response = await fetch(`https://ip-api.com/json/${ip}?fields=countryCode`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
     
-    if (!response.ok) {
-      throw new Error('Geo API failed');
+    const response = await fetch(
+      `https://ipapi.co/${ip}/country_code/`,
+      { signal: controller.signal }
+    );
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const countryCode = await response.text();
+      const country = countryCode.trim() === 'IN' ? 'IN' : 'US';
+      console.log(`✅ Geo detected: ${ip} → ${countryCode.trim()} → ${country}`);
+      return country;
     }
     
-    const data = await response.json();
+    throw new Error(`API returned status: ${response.status}`);
     
-    // Return 'IN' for India, 'US' for everything else
-    return data.countryCode === 'IN' ? 'IN' : 'US';
   } catch (error) {
     console.error('Geo detection failed:', error);
     // Default to US if detection fails
