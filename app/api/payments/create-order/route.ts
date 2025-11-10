@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createRazorpayOrder } from '@/lib/razorpay';
+import { detectCountry } from '@/lib/geo';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,7 +53,15 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('💰 Creating payment order:', { amountUSD, userId });
+    // Detect user's country from IP
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const realIp = request.headers.get('x-real-ip');
+    const ip = (forwardedFor?.split(',')[0] || realIp || 'unknown').trim();
+    
+    const country = await detectCountry(ip);
+    const currency = country === 'IN' ? 'INR' : 'USD';
+
+    console.log('💰 Creating payment order:', { amountUSD, userId, country, currency, ip });
 
     // Step 1: Get current token price from database
     const { data: tokenPriceData, error: priceError } = await supabase
@@ -74,11 +83,12 @@ export async function POST(request: Request) {
       tokenAmount,
     });
 
-    // Step 2: Create Razorpay order
+    // Step 2: Create Razorpay order with detected currency
     const razorpayResult = await createRazorpayOrder(
       amount,
       userId,
-      tokensPerDollar
+      tokensPerDollar,
+      currency
     );
 
     if (!razorpayResult.success || !razorpayResult.order) {
@@ -91,7 +101,7 @@ export async function POST(request: Request) {
 
     const razorpayOrder = razorpayResult.order;
 
-    console.log('✅ Razorpay order created:', razorpayOrder.id);
+    console.log('✅ Razorpay order created:', razorpayOrder.id, 'Currency:', currency);
 
     // Step 3: Save order to database
     const { data: dbOrder, error: dbError } = await supabase
@@ -99,9 +109,7 @@ export async function POST(request: Request) {
         p_user_id: userId,
         p_amount_usd: amount,
         p_razorpay_order_id: razorpayOrder.id,
-        p_ip_address: request.headers.get('x-forwarded-for') || 
-                      request.headers.get('x-real-ip') || 
-                      'unknown',
+        p_ip_address: ip,
         p_user_agent: request.headers.get('user-agent') || 'unknown',
       });
 

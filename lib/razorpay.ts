@@ -1,5 +1,6 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import { convertUSDtoINR } from './geo';
 
 /**
  * Create a Razorpay client instance
@@ -28,23 +29,38 @@ function createRazorpayClient() {
  * @param amountUSD - Amount in USD (e.g., 10.00 for $10)
  * @param userId - User's UUID
  * @param tokensPerDollar - Current token rate
+ * @param currency - 'USD' or 'INR'
  * @returns Razorpay order object
  */
 export async function createRazorpayOrder(
   amountUSD: number,
   userId: string,
-  tokensPerDollar: number
+  tokensPerDollar: number,
+  currency: 'USD' | 'INR' = 'USD'
 ) {
   try {
     const razorpay = createRazorpayClient();
 
-    // Amount in smallest currency unit (cents for USD)
-    const amountInCents = Math.round(amountUSD * 100);
+    // Calculate amount based on currency
+    let amountInSmallestUnit: number;
+    let displayAmount: number;
+
+    if (currency === 'INR') {
+      // Convert USD to INR
+      const amountINR = convertUSDtoINR(amountUSD);
+      amountInSmallestUnit = amountINR * 100; // Paisa
+      displayAmount = amountINR;
+    } else {
+      // USD
+      amountInSmallestUnit = Math.round(amountUSD * 100); // Cents
+      displayAmount = amountUSD;
+    }
+
     const tokenAmount = Math.floor(amountUSD * tokensPerDollar);
 
     const options = {
-      amount: amountInCents,
-      currency: 'USD',
+      amount: amountInSmallestUnit,
+      currency: currency,
       receipt: `rcpt_${Date.now()}`,
       notes: {
         user_id: userId,
@@ -52,6 +68,7 @@ export async function createRazorpayOrder(
         tokens_per_dollar: tokensPerDollar.toString(),
         token_amount: tokenAmount.toString(),
         product: 'garliq_tokens',
+        display_amount: displayAmount.toString(),
       },
     };
 
