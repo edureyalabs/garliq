@@ -367,6 +367,18 @@ export default function FeedPage() {
                   </motion.button>
                 </Link>
 
+                {/* ADD THIS NEW BUTTON */}
+<Link href="/create-simulation">
+  <motion.button
+    whileHover={{ scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+    className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold flex items-center gap-2 text-sm sm:text-base"
+  >
+    <Code2 size={18} />
+    <span className="hidden sm:inline">Lab</span>
+  </motion.button>
+</Link>
+
                 <Link href={`/profiles/${user?.id}`}>
                   <button className="p-2 hover:bg-gray-800 rounded-full transition-colors">
                     <User size={20} className="text-gray-400" />

@@ -22,8 +22,7 @@ import {
   Beaker, 
   RotateCcw, 
   Loader2,
-  TrendingUp,
-  LogOut
+  TrendingUp
 } from 'lucide-react';
 import Link from 'next/link';
 import TokenPurchaseModal from '@/components/TokenPurchaseModal';
@@ -1364,7 +1363,7 @@ export default function ProfilePage() {
                 className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
               >
                 <Sparkles size={14} />
-                Create Course
+                Create
               </motion.button>
             </Link>
 
@@ -1375,7 +1374,7 @@ export default function ProfilePage() {
                 className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
               >
                 <Beaker size={14} />
-                Create Simulations
+                Lab
               </motion.button>
             </Link>
           </div>
@@ -1402,21 +1401,6 @@ export default function ProfilePage() {
                 <Zap size={12} />
                 Buy
               </motion.button>
-
-              {/* Logout Button */}
-<button
-  onClick={async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-  }}
-  className="p-2 hover:bg-gray-800 rounded-full transition-colors"
-  title="Logout"
->
-  <LogOut size={20} className="text-gray-400 hover:text-red-400 transition-colors" />
-</button>
-
-
-
             </div>
           )}
         </div>
