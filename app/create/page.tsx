@@ -134,7 +134,7 @@ export default function CreatePage() {
         <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800/50 sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
             <button 
-              onClick={() => router.push('/feed')} 
+              onClick={() => router.back()} 
               className="flex items-center gap-2 hover:opacity-70 transition-opacity group"
             >
               <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />

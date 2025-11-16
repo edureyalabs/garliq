@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') as EmailOtpType | null;
     const next = searchParams.get('next');
     
-    // Default redirect destinations
-    const defaultNext = type === 'recovery' ? '/auth/reset-password' : '/feed';
+    // Default redirect destinations - ✅ UPDATED
+    const defaultNext = type === 'recovery' ? '/auth/reset-password' : '/dashboard';
     const redirectTo = next?.startsWith('/') ? next : defaultNext;
 
     console.log('🔍 Auth confirm - Params:', { 

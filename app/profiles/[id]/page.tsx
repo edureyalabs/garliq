@@ -1400,7 +1400,7 @@ export default function ProfilePage() {
                 className="px-3 py-1.5 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-lg font-semibold text-xs flex items-center gap-1"
               >
                 <Zap size={12} />
-                Buy
+                Buy Tokens
               </motion.button>
 
               {/* Logout Button */}
@@ -1442,7 +1442,7 @@ export default function ProfilePage() {
                     : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}
               >
-                <span>Trending</span>
+                <span>Trending Courses</span>
               </button>
             </div>
 
@@ -1461,7 +1461,7 @@ export default function ProfilePage() {
                     : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}
               >
-                <span>Projects</span>
+                <span>My Courses</span>
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                   activeSection === 'course-projects' ? 'bg-white/20' : 'bg-gray-800'
                 }`}>
@@ -1477,7 +1477,7 @@ export default function ProfilePage() {
                     : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}
               >
-                <span>Posts</span>
+                <span>Shared Courses</span>
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                   activeSection === 'course-posts' ? 'bg-white/20' : 'bg-gray-800'
                 }`}>
@@ -1502,7 +1502,7 @@ export default function ProfilePage() {
                       : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  <span>My Labs</span>
+                  <span>My Simulations</span>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                     activeSection === 'sim-labs' ? 'bg-white/20' : 'bg-gray-800'
                   }`}>
@@ -1519,7 +1519,7 @@ export default function ProfilePage() {
                     : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}
               >
-                <span>Shared</span>
+                <span>Shared Simulations</span>
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                   activeSection === 'sim-shared' ? 'bg-white/20' : 'bg-gray-800'
                 }`}>
@@ -1560,7 +1560,7 @@ export default function ProfilePage() {
                       : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  <span>Labs</span>
+                  <span>Simulations</span>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                     activeSection === 'saved-labs' ? 'bg-white/20' : 'bg-gray-800'
                   }`}>

@@ -1,136 +1,33 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useParams, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Edit, 
-  Calendar, 
-  Heart, 
-  Code2, 
-  Bookmark, 
-  Share2, 
-  Trash2, 
-  Eye, 
-  Zap, 
-  Sparkles, 
-  MessageCircle, 
-  Plus, 
-  Crown, 
-  Clock, 
-  Folder, 
-  Beaker, 
-  RotateCcw, 
-  Loader2,
-  TrendingUp
-} from 'lucide-react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import TokenPurchaseModal from '@/components/TokenPurchaseModal';
 import SubscriptionModal from '@/components/SubscriptionModal';
-import Image from 'next/image';
-
-interface Profile {
-  id: string;
-  username: string;
-  display_name: string;
-  bio: string | null;
-  avatar_url: string | null;
-  created_at: string;
-  subscription_status: 'none' | 'active' | 'expired' | 'cancelled' | 'trial';
-  subscription_expires_at: string | null;
-}
-
-interface Post {
-  id: string;
-  caption: string;
-  html_code: string;
-  likes_count: number;
-  comments_count: number;
-  created_at: string;
-  prompt: string | null;
-  prompt_visible: boolean;
-  user_id: string;
-  session_id: string | null;
-  is_liked?: boolean;
-  is_saved?: boolean;
-  first_page_content?: string | null;
-  profiles?: {
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  };
-}
-
-interface Project {
-  id: string;
-  title: string;
-  html_code: string;
-  created_at: string;
-  session_id: string | null;
-  is_draft: boolean;
-  is_shared: boolean;
-  post_id: string | null;
-  prompt: string;
-  updated_at: string;
-  first_page_content?: string | null;
-}
-
-interface Simulation {
-  id: string;
-  title: string;
-  prompt: string;
-  html_code: string | null;
-  topic_category: string;
-  framework_used: string | null;
-  generation_status: 'pending' | 'generating' | 'completed' | 'failed';
-  generation_error: string | null;
-  retry_count: number;
-  is_published: boolean;
-  post_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface SimulationPost {
-  id: string;
-  caption: string;
-  html_code: string;
-  topic_category: string;
-  framework_used: string;
-  likes_count: number;
-  comments_count: number;
-  saves_count: number;
-  created_at: string;
-  user_id: string;
-  simulation_id: string;
-  is_liked?: boolean;
-  is_saved?: boolean;
-  profiles?: {
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  };
-}
-
-interface SubscriptionStatus {
-  is_active: boolean;
-  status: string;
-  expires_at: string | null;
-  days_remaining: number;
-}
-
-type ActiveSection = 'feed' | 'course-posts' | 'course-projects' | 'sim-shared' | 'sim-labs' | 'saved-courses' | 'saved-labs' | 'subscription';
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
+import DashboardContent from '@/components/dashboard/DashboardContent';
+import ShareProjectModal from '@/components/dashboard/ShareProjectModal';
+import {
+  Profile,
+  Post,
+  Project,
+  Simulation,
+  SimulationPost,
+  SubscriptionStatus,
+  ActiveSection,
+  DashboardStats,
+} from '@/components/dashboard/types';
 
 const ITEMS_PER_PAGE = 12;
 
-export default function ProfilePage() {
+export default function DashboardPage() {
   const router = useRouter();
-  const params = useParams();
-  const userId = params.id as string;
 
-  // Profile & User State
-  const [profile, setProfile] = useState<Profile | null>(null);
+  // User & Profile State
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   // Content State
@@ -140,7 +37,7 @@ export default function ProfilePage() {
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [sharedSimulations, setSharedSimulations] = useState<SimulationPost[]>([]);
   const [savedSimulations, setSavedSimulations] = useState<SimulationPost[]>([]);
-  const [feedPosts, setFeedPosts] = useState<Post[]>([]); // ✅ Changed from FeedPost[] to Post[]
+  const [feedPosts, setFeedPosts] = useState<Post[]>([]);
 
   // Loading & Pagination State
   const [loading, setLoading] = useState(true);
@@ -152,9 +49,6 @@ export default function ProfilePage() {
   const [activeSection, setActiveSection] = useState<ActiveSection>('feed');
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareProject, setShareProject] = useState<Project | null>(null);
-  const [shareCaption, setShareCaption] = useState('');
-  const [promptVisible, setPromptVisible] = useState(true);
-  const [sharing, setSharing] = useState(false);
 
   // Token & Subscription State
   const [showTokenModal, setShowTokenModal] = useState(false);
@@ -163,61 +57,132 @@ export default function ProfilePage() {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Stats State
-  const [stats, setStats] = useState({ 
-    posts: 0, 
+  const [stats, setStats] = useState<DashboardStats>({
+    posts: 0,
     projects: 0,
     sharedSimulations: 0,
     myLabs: 0,
     savedCourses: 0,
-    savedLabs: 0
+    savedLabs: 0,
   });
-
-  const observerTarget = useRef<HTMLDivElement>(null);
 
   // Initial Load Effects
   useEffect(() => {
     checkUser();
-    fetchProfile();
-    fetchAllStats();
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
-    setIsOwnProfile(currentUser?.id === userId);
-  }, [currentUser, userId]);
+    if (currentUser) {
+      fetchProfile();
+      fetchAllStats();
+      fetchTokenBalance();
+      fetchSubscriptionStatus();
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (profile && currentUser) {
+      setIsOwnProfile(currentUser.id === profile.id);
+    }
+  }, [currentUser, profile]);
 
   useEffect(() => {
     resetPagination();
     loadContent();
-  }, [activeSection, userId]);
+  }, [activeSection]);
 
-  useEffect(() => {
-    if (currentUser?.id === userId) {
-      fetchTokenBalance();
-      fetchSubscriptionStatus();
+  // User Authentication Check
+  const checkUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      router.push('/');
+      return;
     }
-  }, [currentUser, userId]);
+    setCurrentUser(session.user);
+  };
 
-  // Infinite Scroll Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          loadMore();
-        }
-      },
-      { threshold: 0.5 }
-    );
+  // Profile Fetch
+  const fetchProfile = async () => {
+    if (!currentUser) return;
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', currentUser.id)
+      .single();
+
+    if (data) setProfile(data);
+  };
+
+  // Token Balance Fetch
+  const fetchTokenBalance = async () => {
+    if (!currentUser?.id) return;
+
+    const { data } = await supabase
+      .from('user_wallets')
+      .select('token_balance')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    setTokenBalance(data?.token_balance || 0);
+  };
+
+  // Subscription Status Fetch
+  const fetchSubscriptionStatus = async () => {
+    if (!currentUser?.id) return;
+
+    const { data, error } = await supabase.rpc('check_subscription_status', {
+      p_user_id: currentUser.id,
+    });
+
+    if (!error && data) {
+      setSubscriptionStatus(data as SubscriptionStatus);
     }
+  };
 
-    return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
-    };
-  }, [hasMore, loadingMore, loading, page]);
+  // Stats Fetch
+  const fetchAllStats = async () => {
+    if (!currentUser) return;
+
+    const { count: postsCount } = await supabase
+      .from('posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id);
+
+    const { count: projectsCount } = await supabase
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id);
+
+    const { count: sharedSimsCount } = await supabase
+      .from('simulation_posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id);
+
+    const { count: myLabsCount } = await supabase
+      .from('simulations')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id);
+
+    const { count: savedCoursesCount } = await supabase
+      .from('saves')
+      .select('post_id', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id);
+
+    const { count: savedLabsCount } = await supabase
+      .from('simulation_saves')
+      .select('post_id', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id);
+
+    setStats({
+      posts: postsCount || 0,
+      projects: projectsCount || 0,
+      sharedSimulations: sharedSimsCount || 0,
+      myLabs: myLabsCount || 0,
+      savedCourses: savedCoursesCount || 0,
+      savedLabs: savedLabsCount || 0,
+    });
+  };
 
   // Pagination Reset
   const resetPagination = () => {
@@ -235,7 +200,7 @@ export default function ProfilePage() {
 
   // Content Loading Router
   const loadContent = () => {
-    switch(activeSection) {
+    switch (activeSection) {
       case 'feed':
         fetchFeedPosts(0);
         break;
@@ -264,126 +229,7 @@ export default function ProfilePage() {
     }
   };
 
-  // User Authentication Check
-  const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) setCurrentUser(session.user);
-  };
-
-  // Token Balance Fetch
-  const fetchTokenBalance = async () => {
-    if (!currentUser?.id) return;
-    
-    const { data } = await supabase
-      .from('user_wallets')
-      .select('token_balance')
-      .eq('user_id', currentUser.id)
-      .single();
-
-    setTokenBalance(data?.token_balance || 0);
-  };
-
-  // Subscription Status Fetch
-  const fetchSubscriptionStatus = async () => {
-    if (!currentUser?.id) return;
-
-    const { data, error } = await supabase.rpc('check_subscription_status', {
-      p_user_id: currentUser.id,
-    });
-
-    if (!error && data) {
-      setSubscriptionStatus(data as SubscriptionStatus);
-    }
-  };
-
-  // Subscription Badge Component
-  const getSubscriptionBadge = () => {
-    if (!subscriptionStatus) return null;
-
-    const colors = {
-      active: 'bg-green-500/20 text-green-400 border-green-500/30',
-      trial: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-      expired: 'bg-red-500/20 text-red-400 border-red-500/30',
-      cancelled: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-      none: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    };
-
-    const labels = {
-      active: '✓ Active',
-      trial: '⚡ Trial',
-      expired: '✗ Expired',
-      cancelled: '⊘ Cancelled',
-      none: '○ None',
-    };
-
-    return (
-      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${colors[subscriptionStatus.status as keyof typeof colors]}`}>
-        {labels[subscriptionStatus.status as keyof typeof labels]}
-      </span>
-    );
-  };
-  // Stats Fetch
-  const fetchAllStats = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const { count: postsCount } = await supabase
-      .from('posts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-    
-    const { count: projectsCount } = await supabase
-      .from('projects')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    const { count: sharedSimsCount } = await supabase
-      .from('simulation_posts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    const { count: myLabsCount } = await supabase
-      .from('simulations')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-    
-    let savedCoursesCount = 0;
-    let savedLabsCount = 0;
-    if (session && session.user.id === userId) {
-      const { count: savedCoursesC } = await supabase
-        .from('saves')
-        .select('post_id', { count: 'exact', head: true })
-        .eq('user_id', session.user.id);
-      savedCoursesCount = savedCoursesC || 0;
-
-      const { count: savedLabsC } = await supabase
-        .from('simulation_saves')
-        .select('post_id', { count: 'exact', head: true })
-        .eq('user_id', session.user.id);
-      savedLabsCount = savedLabsC || 0;
-    }
-    
-    setStats({
-      posts: postsCount || 0,
-      projects: projectsCount || 0,
-      sharedSimulations: sharedSimsCount || 0,
-      myLabs: myLabsCount || 0,
-      savedCourses: savedCoursesCount,
-      savedLabs: savedLabsCount
-    });
-  };
-
-  // Profile Fetch
-  const fetchProfile = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (data) setProfile(data);
-  };
-
-  // Feed Posts Fetch (Trending) - ✅ UPDATED with multi-page support
+  // Feed Posts Fetch
   const fetchFeedPosts = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
@@ -403,10 +249,9 @@ export default function ProfilePage() {
     }
 
     if (data) {
-      // ✅ Fetch first page content for multi-page courses
       const sessionIds = data.filter(post => post.session_id).map(post => post.session_id);
       let firstPagesMap = new Map<string, string>();
-      
+
       if (sessionIds.length > 0) {
         const { data: pagesData } = await supabase
           .from('course_pages')
@@ -426,29 +271,27 @@ export default function ProfilePage() {
         .in('id', userIds);
 
       const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
-      
+
       let postsWithProfiles = data.map(post => ({
         ...post,
         likes_count: post.likes_count ?? 0,
         comments_count: post.comments_count ?? 0,
         first_page_content: post.session_id ? firstPagesMap.get(post.session_id) || null : null,
-        profiles: profilesMap.get(post.user_id)
+        profiles: profilesMap.get(post.user_id),
       }));
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
+      if (currentUser) {
         postsWithProfiles = await Promise.all(
           postsWithProfiles.map(async (post) => {
             const [likeData, saveData] = await Promise.all([
-              supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
-              supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+              supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
+              supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
             ]);
 
-            return { 
-              ...post, 
+            return {
+              ...post,
               is_liked: !!likeData.data,
-              is_saved: !!saveData.data 
+              is_saved: !!saveData.data,
             };
           })
         );
@@ -466,20 +309,22 @@ export default function ProfilePage() {
 
       setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
-    
+
     setLoading(false);
     setLoadingMore(false);
   };
 
   // User Posts Fetch
   const fetchUserPosts = async (pageNum: number) => {
+    if (!currentUser) return;
+
     const from = pageNum * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
 
     const { data, error, count } = await supabase
       .from('posts')
       .select('*', { count: 'exact' })
-      .eq('user_id', userId)
+      .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -493,7 +338,7 @@ export default function ProfilePage() {
     if (data) {
       const sessionIds = data.filter(post => post.session_id).map(post => post.session_id);
       let firstPagesMap = new Map<string, string>();
-      
+
       if (sessionIds.length > 0) {
         const { data: pagesData } = await supabase
           .from('course_pages')
@@ -508,22 +353,21 @@ export default function ProfilePage() {
 
       let postsWithFirstPage = data.map(post => ({
         ...post,
-        first_page_content: post.session_id ? firstPagesMap.get(post.session_id) || null : null
+        first_page_content: post.session_id ? firstPagesMap.get(post.session_id) || null : null,
       }));
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      if (currentUser) {
         postsWithFirstPage = await Promise.all(
           postsWithFirstPage.map(async (post) => {
             const [likeData, saveData] = await Promise.all([
-              supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
-              supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+              supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
+              supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
             ]);
 
-            return { 
-              ...post, 
+            return {
+              ...post,
               is_liked: !!likeData.data,
-              is_saved: !!saveData.data 
+              is_saved: !!saveData.data,
             };
           })
         );
@@ -541,20 +385,22 @@ export default function ProfilePage() {
 
       setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
-    
+
     setLoading(false);
     setLoadingMore(false);
   };
 
   // User Projects Fetch
   const fetchUserProjects = async (pageNum: number) => {
+    if (!currentUser) return;
+
     const from = pageNum * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
 
     const { data, error, count } = await supabase
       .from('projects')
       .select('*', { count: 'exact' })
-      .eq('user_id', userId)
+      .eq('user_id', currentUser.id)
       .order('updated_at', { ascending: false })
       .range(from, to);
 
@@ -568,7 +414,7 @@ export default function ProfilePage() {
     if (data) {
       const sessionIds = data.filter(project => project.session_id).map(project => project.session_id);
       let firstPagesMap = new Map<string, string>();
-      
+
       if (sessionIds.length > 0) {
         const { data: pagesData } = await supabase
           .from('course_pages')
@@ -583,7 +429,7 @@ export default function ProfilePage() {
 
       const projectsWithFirstPage = data.map(project => ({
         ...project,
-        first_page_content: project.session_id ? firstPagesMap.get(project.session_id) || null : null
+        first_page_content: project.session_id ? firstPagesMap.get(project.session_id) || null : null,
       }));
 
       if (pageNum === 0) {
@@ -598,7 +444,7 @@ export default function ProfilePage() {
 
       setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
-    
+
     setLoading(false);
     setLoadingMore(false);
   };
@@ -635,7 +481,7 @@ export default function ProfilePage() {
     if (posts) {
       const sessionIds = posts.filter(post => post.session_id).map(post => post.session_id);
       let firstPagesMap = new Map<string, string>();
-      
+
       if (sessionIds.length > 0) {
         const { data: pagesData } = await supabase
           .from('course_pages')
@@ -660,15 +506,15 @@ export default function ProfilePage() {
         posts.map(async (post) => {
           const [likeData, saveData] = await Promise.all([
             supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
-            supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle()
+            supabase.from('saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
           ]);
 
-          return { 
-            ...post, 
+          return {
+            ...post,
             is_liked: !!likeData.data,
             is_saved: !!saveData.data,
             first_page_content: post.session_id ? firstPagesMap.get(post.session_id) || null : null,
-            profiles: profilesMap.get(post.user_id)
+            profiles: profilesMap.get(post.user_id),
           };
         })
       );
@@ -685,20 +531,22 @@ export default function ProfilePage() {
 
       setHasMore(saves.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
-    
+
     setLoading(false);
     setLoadingMore(false);
   };
 
   // User Simulations Fetch
   const fetchUserSimulations = async (pageNum: number) => {
+    if (!currentUser) return;
+
     const from = pageNum * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
 
     const { data, error, count } = await supabase
       .from('simulations')
       .select('*', { count: 'exact' })
-      .eq('user_id', userId)
+      .eq('user_id', currentUser.id)
       .order('updated_at', { ascending: false })
       .range(from, to);
 
@@ -722,20 +570,22 @@ export default function ProfilePage() {
 
       setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
-    
+
     setLoading(false);
     setLoadingMore(false);
   };
 
   // Shared Simulations Fetch
   const fetchSharedSimulations = async (pageNum: number) => {
+    if (!currentUser) return;
+
     const from = pageNum * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
 
     const { data, error, count } = await supabase
       .from('simulation_posts')
       .select('*', { count: 'exact' })
-      .eq('user_id', userId)
+      .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -747,21 +597,19 @@ export default function ProfilePage() {
     }
 
     if (data) {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       let postsWithInteractions = data;
-      if (session) {
+      if (currentUser) {
         postsWithInteractions = await Promise.all(
           data.map(async (post) => {
             const [likeData, saveData] = await Promise.all([
-              supabase.from('simulation_likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
-              supabase.from('simulation_saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+              supabase.from('simulation_likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
+              supabase.from('simulation_saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
             ]);
 
-            return { 
-              ...post, 
+            return {
+              ...post,
               is_liked: !!likeData.data,
-              is_saved: !!saveData.data 
+              is_saved: !!saveData.data,
             };
           })
         );
@@ -779,7 +627,7 @@ export default function ProfilePage() {
 
       setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
-    
+
     setLoading(false);
     setLoadingMore(false);
   };
@@ -826,14 +674,14 @@ export default function ProfilePage() {
         posts.map(async (post) => {
           const [likeData, saveData] = await Promise.all([
             supabase.from('simulation_likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
-            supabase.from('simulation_saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle()
+            supabase.from('simulation_saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
           ]);
 
-          return { 
-            ...post, 
+          return {
+            ...post,
             is_liked: !!likeData.data,
             is_saved: !!saveData.data,
-            profiles: profilesMap.get(post.user_id)
+            profiles: profilesMap.get(post.user_id),
           };
         })
       );
@@ -850,19 +698,19 @@ export default function ProfilePage() {
 
       setHasMore(saves.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
     }
-    
+
     setLoading(false);
     setLoadingMore(false);
   };
 
   // Load More Handler
-  const loadMore = () => {
+  const handleLoadMore = () => {
     if (!loadingMore && hasMore && !loading) {
       setLoadingMore(true);
       const nextPage = page + 1;
       setPage(nextPage);
-      
-      switch(activeSection) {
+
+      switch (activeSection) {
         case 'feed':
           fetchFeedPosts(nextPage);
           break;
@@ -887,6 +735,7 @@ export default function ProfilePage() {
       }
     }
   };
+
   // Like Handler - Course Posts
   const handleLikeCourse = async (postId: string, isLiked: boolean) => {
     if (!currentUser) return;
@@ -916,13 +765,15 @@ export default function ProfilePage() {
           .eq('user_id', currentUser.id)
           .maybeSingle();
 
-        const updatePost = (post: Post) => 
-          post.id === postId ? {
-            ...post,
-            is_liked: !!likeCheck,
-            likes_count: updatedPost.likes_count || 0,
-            comments_count: updatedPost.comments_count || 0
-          } : post;
+        const updatePost = (post: Post) =>
+          post.id === postId
+            ? {
+                ...post,
+                is_liked: !!likeCheck,
+                likes_count: updatedPost.likes_count || 0,
+                comments_count: updatedPost.comments_count || 0,
+              }
+            : post;
 
         setPosts(prevPosts => prevPosts.map(updatePost));
         setSavedPosts(prevPosts => prevPosts.map(updatePost));
@@ -961,13 +812,15 @@ export default function ProfilePage() {
           .eq('user_id', currentUser.id)
           .maybeSingle();
 
-        const updatePost = (post: SimulationPost) => 
-          post.id === postId ? {
-            ...post,
-            is_liked: !!likeCheck,
-            likes_count: updatedPost.likes_count || 0,
-            comments_count: updatedPost.comments_count || 0
-          } : post;
+        const updatePost = (post: SimulationPost) =>
+          post.id === postId
+            ? {
+                ...post,
+                is_liked: !!likeCheck,
+                likes_count: updatedPost.likes_count || 0,
+                comments_count: updatedPost.comments_count || 0,
+              }
+            : post;
 
         setSharedSimulations(prevPosts => prevPosts.map(updatePost));
         setSavedSimulations(prevPosts => prevPosts.map(updatePost));
@@ -981,8 +834,7 @@ export default function ProfilePage() {
   const handleSaveCourse = async (postId: string, isSaved: boolean) => {
     if (!currentUser) return;
 
-    const updatePost = (post: Post) => 
-      post.id === postId ? { ...post, is_saved: !isSaved } : post;
+    const updatePost = (post: Post) => (post.id === postId ? { ...post, is_saved: !isSaved } : post);
 
     setPosts(prevPosts => prevPosts.map(updatePost));
     setSavedPosts(prevPosts => prevPosts.map(updatePost));
@@ -996,15 +848,9 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Save error:', error);
-      setPosts(prevPosts => prevPosts.map(post => 
-        post.id === postId ? { ...post, is_saved: isSaved } : post
-      ));
-      setSavedPosts(prevPosts => prevPosts.map(post => 
-        post.id === postId ? { ...post, is_saved: isSaved } : post
-      ));
-      setFeedPosts(prevPosts => prevPosts.map(post => 
-        post.id === postId ? { ...post, is_saved: isSaved } : post
-      ));
+      setPosts(prevPosts => prevPosts.map(post => (post.id === postId ? { ...post, is_saved: isSaved } : post)));
+      setSavedPosts(prevPosts => prevPosts.map(post => (post.id === postId ? { ...post, is_saved: isSaved } : post)));
+      setFeedPosts(prevPosts => prevPosts.map(post => (post.id === postId ? { ...post, is_saved: isSaved } : post)));
     }
   };
 
@@ -1012,8 +858,7 @@ export default function ProfilePage() {
   const handleSaveSimulation = async (postId: string, isSaved: boolean) => {
     if (!currentUser) return;
 
-    const updatePost = (post: SimulationPost) => 
-      post.id === postId ? { ...post, is_saved: !isSaved } : post;
+    const updatePost = (post: SimulationPost) => (post.id === postId ? { ...post, is_saved: !isSaved } : post);
 
     setSharedSimulations(prevPosts => prevPosts.map(updatePost));
     setSavedSimulations(prevPosts => prevPosts.map(updatePost));
@@ -1026,24 +871,20 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Save simulation error:', error);
-      setSharedSimulations(prevPosts => prevPosts.map(post => 
-        post.id === postId ? { ...post, is_saved: isSaved } : post
-      ));
-      setSavedSimulations(prevPosts => prevPosts.map(post => 
-        post.id === postId ? { ...post, is_saved: isSaved } : post
-      ));
+      setSharedSimulations(prevPosts => prevPosts.map(post => (post.id === postId ? { ...post, is_saved: isSaved } : post)));
+      setSavedSimulations(prevPosts => prevPosts.map(post => (post.id === postId ? { ...post, is_saved: isSaved } : post)));
     }
   };
 
   // Share Handler - Course Post
   const handleSharePost = async (post: Post) => {
     const shareUrl = `${window.location.origin}/post/${post.id}`;
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: `${post.caption} | Garliq`,
-          url: shareUrl
+          url: shareUrl,
         });
       } catch {}
     } else {
@@ -1055,12 +896,12 @@ export default function ProfilePage() {
   // Share Handler - Simulation
   const handleShareSimulation = async (post: SimulationPost) => {
     const shareUrl = `${window.location.origin}/simulation/${post.id}`;
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: `${post.caption} | Garliq Lab`,
-          url: shareUrl
+          url: shareUrl,
         });
       } catch {}
     } else {
@@ -1070,65 +911,55 @@ export default function ProfilePage() {
   };
 
   // Share Project Handler
-  const handleShareProject = async () => {
-    if (!shareCaption.trim() || !shareProject || !currentUser || sharing) return;
+  const handleShareProjectSubmit = async (caption: string, promptVisible: boolean) => {
+    if (!shareProject || !currentUser) return;
 
-    setSharing(true);
+    const response = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: shareProject.id,
+        caption,
+        promptVisible,
+        userId: currentUser.id,
+      }),
+    });
 
-    try {
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId: shareProject.id,
-          caption: shareCaption,
-          promptVisible,
-          userId: currentUser.id
-        })
-      });
+    const { success, error } = await response.json();
 
-      const { success, error } = await response.json();
-
-      if (!success || error) {
-        throw new Error(error || 'Failed to publish');
-      }
-
-      setShowShareModal(false);
-      setShareCaption('');
-      setShareProject(null);
-      
-      resetPagination();
-      await Promise.all([fetchUserProjects(0), fetchAllStats()]);
-      
-      alert('✅ Project published to feed!');
-    } catch (error: any) {
-      console.error('Share failed:', error);
-      alert('❌ ' + (error.message || 'Failed to share project'));
+    if (!success || error) {
+      throw new Error(error || 'Failed to publish');
     }
 
-    setSharing(false);
+    setShowShareModal(false);
+    setShareProject(null);
+
+    resetPagination();
+    await Promise.all([fetchUserProjects(0), fetchAllStats()]);
+
+    alert('✅ Project published to feed!');
   };
 
   // Delete Project Handler
   const handleDeleteProject = async (project: Project) => {
     const hasPost = !project.is_draft && project.post_id;
-    const message = hasPost 
-      ? '⚠️ This will delete the project AND its shared post. Continue?' 
+    const message = hasPost
+      ? '⚠️ This will delete the project AND its shared post. Continue?'
       : 'Delete this project? This cannot be undone.';
-      
+
     if (!confirm(message)) return;
-    
+
     try {
-      const response = await fetch(`/api/projects?projectId=${project.id}&userId=${userId}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/projects?projectId=${project.id}&userId=${currentUser?.id}`, {
+        method: 'DELETE',
       });
-      
+
       const { success, error } = await response.json();
-      
+
       if (!success) {
         throw new Error(error || 'Failed to delete');
       }
-      
+
       alert('✅ Project deleted successfully');
       resetPagination();
       await Promise.all([fetchUserProjects(0), fetchAllStats()]);
@@ -1141,25 +972,24 @@ export default function ProfilePage() {
   // Share Click Handler
   const handleShareClick = (project: Project) => {
     setShareProject(project);
-    setShareCaption(project.title);
     setShowShareModal(true);
   };
 
   // Delete Post Handler
   const handleDeletePost = async (postId: string) => {
     if (!confirm('⚠️ Delete this post? The project will remain saved.')) return;
-    
+
     try {
-      const response = await fetch(`/api/posts/${postId}?userId=${userId}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/posts/${postId}?userId=${currentUser?.id}`, {
+        method: 'DELETE',
       });
-      
+
       const { success, error } = await response.json();
-      
+
       if (!success) {
         throw new Error(error || 'Failed to delete');
       }
-      
+
       alert('✅ Post deleted successfully');
       resetPagination();
       await Promise.all([fetchUserPosts(0), fetchUserProjects(0), fetchAllStats()]);
@@ -1172,18 +1002,18 @@ export default function ProfilePage() {
   // Delete Simulation Handler
   const handleDeleteSimulation = async (simulationId: string) => {
     if (!confirm('⚠️ Delete this simulation? This cannot be undone.')) return;
-    
+
     try {
       const response = await fetch(`/api/simulations/${simulationId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       });
-      
+
       const { success, error } = await response.json();
-      
+
       if (!success) {
         throw new Error(error || 'Failed to delete');
       }
-      
+
       alert('✅ Simulation deleted successfully');
       resetPagination();
       await Promise.all([fetchUserSimulations(0), fetchAllStats()]);
@@ -1196,16 +1026,12 @@ export default function ProfilePage() {
   // Delete Simulation Post Handler
   const handleDeleteSimulationPost = async (postId: string) => {
     if (!confirm('⚠️ Delete this shared simulation? The lab will remain saved.')) return;
-    
+
     try {
-      const { error } = await supabase
-        .from('simulation_posts')
-        .delete()
-        .eq('id', postId)
-        .eq('user_id', userId);
-      
+      const { error } = await supabase.from('simulation_posts').delete().eq('id', postId).eq('user_id', currentUser?.id);
+
       if (error) throw error;
-      
+
       alert('✅ Simulation post deleted successfully');
       resetPagination();
       await Promise.all([fetchSharedSimulations(0), fetchAllStats()]);
@@ -1218,7 +1044,7 @@ export default function ProfilePage() {
   // Regenerate Simulation Handler
   const handleRegenerateSimulation = async (simulationId: string) => {
     if (!currentUser) return;
-    
+
     if (!confirm('🔄 Regenerate this simulation? This will use ~10,000 tokens.')) return;
 
     try {
@@ -1227,8 +1053,8 @@ export default function ProfilePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           simulationId,
-          userId: currentUser.id
-        })
+          userId: currentUser.id,
+        }),
       });
 
       const result = await response.json();
@@ -1238,67 +1064,24 @@ export default function ProfilePage() {
       }
 
       alert('✅ Regeneration started! Check back in a few minutes.');
-      
-      setSimulations(prev => prev.map(sim => 
-        sim.id === simulationId 
-          ? { ...sim, generation_status: 'generating' as const, generation_error: null }
-          : sim
-      ));
-      
+
+      setSimulations(prev =>
+        prev.map(sim =>
+          sim.id === simulationId ? { ...sim, generation_status: 'generating' as const, generation_error: null } : sim
+        )
+      );
     } catch (error: any) {
       alert('❌ ' + error.message);
     }
   };
 
-  // Preview Iframe Renderer - Courses
-  const renderCoursePreviewIframe = (item: Post | Project) => {
-    const htmlContent = item.session_id && item.first_page_content
-      ? `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:sans-serif;padding:20px;overflow:hidden}</style></head><body>${item.first_page_content}</body></html>`
-      : `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
-
-    return (
-      <iframe
-        srcDoc={htmlContent}
-        className="w-full h-full pointer-events-none"
-        sandbox=""
-        loading="lazy"
-      />
-    );
+  // Section Change Handler
+  const handleSectionChange = (section: ActiveSection) => {
+    setActiveSection(section);
   };
-
-  // Preview Iframe Renderer - Simulations
-  const renderSimulationPreviewIframe = (htmlCode: string) => {
-    const htmlContent = `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.6);transform-origin:top left;width:167%;height:167%}</style></head><body>${htmlCode.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
-
-    return (
-      <iframe
-        srcDoc={htmlContent}
-        className="w-full h-full pointer-events-none"
-        sandbox=""
-        loading="lazy"
-      />
-    );
-  };
-
-  // Get Current Display Items
-  const getCurrentDisplayItems = () => {
-    switch(activeSection) {
-      case 'feed': return feedPosts;
-      case 'course-posts': return posts;
-      case 'course-projects': return projects;
-      case 'sim-shared': return sharedSimulations;
-      case 'sim-labs': return simulations;
-      case 'saved-courses': return savedPosts;
-      case 'saved-labs': return savedSimulations;
-      case 'subscription': return [];
-      default: return [];
-    }
-  };
-
-  const displayItems = getCurrentDisplayItems();
 
   // Loading State
-  if (loading && page === 0) {
+  if (!profile || !currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <motion.div
@@ -1312,1112 +1095,66 @@ export default function ProfilePage() {
     );
   }
 
-  // Profile Not Found
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Profile not found</h2>
-          <Link href="/">
-            <button className="bg-purple-600 px-6 py-3 rounded-full">Go Home</button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
-      {/* HEADER - ✅ UPDATED with smaller profile info and removed Edit button */}
-      <div className="flex-shrink-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-50">
-        <div className="px-6 py-3 flex items-center justify-between gap-6">
-          {/* LEFT: Profile Info - ✅ MADE SMALLER */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold overflow-hidden flex-shrink-0">
-              {profile.avatar_url ? (
-                <img 
-                  src={profile.avatar_url} 
-                  alt={profile.display_name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span>{profile.display_name[0].toUpperCase()}</span>
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xs font-bold truncate">{profile.display_name}</h1>
-              <p className="text-[10px] text-gray-500 truncate">@{profile.username}</p>
-              {profile.bio && (
-                <p className="text-[9px] text-gray-400 truncate mt-0.5">{profile.bio}</p>
-              )}
-            </div>
-          </div>
-
-          {/* CENTER: Action Buttons (Create & Lab) */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Link href="/create">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
-              >
-                <Sparkles size={14} />
-                Create
-              </motion.button>
-            </Link>
-
-            <Link href="/create-simulation">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
-              >
-                <Beaker size={14} />
-                Lab
-              </motion.button>
-            </Link>
-          </div>
-
-          {/* RIGHT: Account Info (Own Profile Only) - ✅ REMOVED Edit button */}
-          {isOwnProfile && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Subscription Badge */}
-              {subscriptionStatus && getSubscriptionBadge()}
-
-              {/* Token Balance */}
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-900 rounded-lg border border-gray-800">
-                <Zap size={12} className="text-yellow-400" />
-                <span className="text-xs font-bold">{tokenBalance.toLocaleString()}</span>
-              </div>
-
-              {/* Buy Tokens Button */}
-              <motion.button
-                onClick={() => setShowTokenModal(true)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-3 py-1.5 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-lg font-semibold text-xs flex items-center gap-1"
-              >
-                <Zap size={12} />
-                Buy
-              </motion.button>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* HEADER */}
+      <DashboardHeader profile={profile} tokenBalance={tokenBalance} onBuyTokens={() => setShowTokenModal(true)} />
 
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex overflow-hidden">
-        {/* SIDEBAR NAVIGATION - ✅ REORDERED */}
-        <aside className="w-56 bg-gray-900/50 border-r border-gray-800 overflow-y-auto flex-shrink-0">
-          <div className="p-3 space-y-1">
-            {/* FEED SECTION */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                <TrendingUp size={12} />
-                Feed
-              </div>
-              
-              <button
-                onClick={() => setActiveSection('feed')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  activeSection === 'feed'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                <span>Trending</span>
-              </button>
-            </div>
+        {/* SIDEBAR */}
+        <DashboardSidebar
+          activeSection={activeSection}
+          stats={stats}
+          userId={currentUser.id}
+          isOwnProfile={isOwnProfile}
+          onSectionChange={handleSectionChange}
+        />
 
-            {/* COURSES SECTION - ✅ PROJECTS FIRST, POSTS SECOND */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                <Code2 size={12} />
-                Courses
-              </div>
-              
-              <button
-                onClick={() => setActiveSection('course-projects')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  activeSection === 'course-projects'
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                <span>Projects</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  activeSection === 'course-projects' ? 'bg-white/20' : 'bg-gray-800'
-                }`}>
-                  {stats.projects}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveSection('course-posts')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  activeSection === 'course-posts'
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                <span>Posts</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  activeSection === 'course-posts' ? 'bg-white/20' : 'bg-gray-800'
-                }`}>
-                  {stats.posts}
-                </span>
-              </button>
-            </div>
-
-            {/* SIMULATIONS SECTION - ✅ MY LABS FIRST, SHARED SECOND */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                <Beaker size={12} />
-                Simulations
-              </div>
-              
-              {isOwnProfile && (
-                <button
-                  onClick={() => setActiveSection('sim-labs')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    activeSection === 'sim-labs'
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                  }`}
-                >
-                  <span>My Labs</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'sim-labs' ? 'bg-white/20' : 'bg-gray-800'
-                  }`}>
-                    {stats.myLabs}
-                  </span>
-                </button>
-              )}
-
-              <button
-                onClick={() => setActiveSection('sim-shared')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  activeSection === 'sim-shared'
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                <span>Shared</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  activeSection === 'sim-shared' ? 'bg-white/20' : 'bg-gray-800'
-                }`}>
-                  {stats.sharedSimulations}
-                </span>
-              </button>
-            </div>
-
-            {/* SAVED SECTION - Only for Own Profile */}
-            {isOwnProfile && (
-              <div className="mb-3">
-                <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                  <Bookmark size={12} />
-                  Saved
-                </div>
-                
-                <button
-                  onClick={() => setActiveSection('saved-courses')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    activeSection === 'saved-courses'
-                      ? 'bg-pink-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                  }`}
-                >
-                  <span>Courses</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'saved-courses' ? 'bg-white/20' : 'bg-gray-800'
-                  }`}>
-                    {stats.savedCourses}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('saved-labs')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    activeSection === 'saved-labs'
-                      ? 'bg-pink-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                  }`}
-                >
-                  <span>Labs</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'saved-labs' ? 'bg-white/20' : 'bg-gray-800'
-                  }`}>
-                    {stats.savedLabs}
-                  </span>
-                </button>
-              </div>
-            )}
-
-            {/* SUBSCRIPTION SECTION - ✅ ADDED Edit Profile Button */}
-            {isOwnProfile && (
-              <div className="mb-3">
-                <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                  <Crown size={12} />
-                  Account
-                </div>
-                
-                <button
-                  onClick={() => setActiveSection('subscription')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    activeSection === 'subscription'
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                  }`}
-                >
-                  <span>Subscription</span>
-                </button>
-
-                {/* ✅ EDIT PROFILE BUTTON MOVED HERE */}
-                <Link href={`/profiles/${userId}/edit`}>
-                  <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all text-gray-400 hover:bg-gray-800 hover:text-white mt-1">
-                    <Edit size={12} />
-                    <span>Edit Profile</span>
-                  </button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* MAIN CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            {/* SUBSCRIPTION VIEW */}
-            {activeSection === 'subscription' && subscriptionStatus && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="max-w-md mx-auto"
-              >
-                <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Crown size={20} className="text-purple-400" />
-                      <span className="font-bold text-base">Subscription</span>
-                    </div>
-                    {getSubscriptionBadge()}
-                  </div>
-
-                  <div className="space-y-3 text-sm mb-6">
-                    {subscriptionStatus.expires_at && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400 flex items-center gap-1.5">
-                          <Clock size={14} />
-                          {subscriptionStatus.is_active ? 'Expires' : 'Expired'}:
-                        </span>
-                        <span className="font-medium">
-                          {new Date(subscriptionStatus.expires_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </span>
-                      </div>
-                    )}
-
-                    {subscriptionStatus.is_active && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Days Remaining:</span>
-                        <span className={`font-bold ${
-                          subscriptionStatus.days_remaining <= 3 ? 'text-red-400' :
-                          subscriptionStatus.days_remaining <= 7 ? 'text-orange-400' :
-                          'text-green-400'
-                        }`}>
-                          {subscriptionStatus.days_remaining}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {!subscriptionStatus.is_active ? (
-                    <motion.button
-                      onClick={() => setShowSubscriptionModal(true)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold flex items-center justify-center gap-2 text-sm"
-                    >
-                      <Crown size={16} />
-                      Renew Subscription - $3/mo
-                    </motion.button>
-                  ) : subscriptionStatus.days_remaining <= 7 && (
-                    <motion.button
-                      onClick={() => setShowSubscriptionModal(true)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full px-4 py-3 border border-purple-600 text-purple-400 rounded-xl hover:bg-purple-600/10 font-semibold flex items-center justify-center gap-2 text-sm"
-                    >
-                      <Crown size={16} />
-                      Extend Subscription
-                    </motion.button>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* EMPTY STATE */}
-            {activeSection !== 'subscription' && displayItems.length === 0 && !loading && (
-              <div className="text-center py-20">
-                <div className="mb-6 flex justify-center">
-                  <Image 
-                    src="/logo.png" 
-                    alt="Garliq" 
-                    width={80} 
-                    height={80}
-                  />
-                </div>
-                <h2 className="text-xl font-bold mb-2">
-                  {activeSection === 'feed' && 'No Trending Posts'}
-                  {activeSection === 'course-posts' && 'No Posts Yet'}
-                  {activeSection === 'course-projects' && 'No Projects Yet'}
-                  {activeSection === 'sim-shared' && 'No Shared Simulations'}
-                  {activeSection === 'sim-labs' && 'No Labs Yet'}
-                  {activeSection === 'saved-courses' && 'No Saved Courses'}
-                  {activeSection === 'saved-labs' && 'No Saved Labs'}
-                </h2>
-                <p className="text-gray-500 mb-6 text-sm">
-                  {activeSection === 'feed' && 'Check back later for trending content'}
-                  {activeSection === 'course-posts' && 'Share your first creation'}
-                  {activeSection === 'course-projects' && 'Start building something'}
-                  {activeSection === 'sim-shared' && 'Publish your first lab'}
-                  {activeSection === 'sim-labs' && 'Create your first simulation'}
-                  {(activeSection === 'saved-courses' || activeSection === 'saved-labs') && 'Start saving content you love'}
-                </p>
-                {isOwnProfile && !activeSection.startsWith('saved') && activeSection !== 'feed' && (
-                  <div className="flex items-center justify-center gap-3">
-                    {activeSection.startsWith('course') && (
-                      <Link href="/create">
-                        <button className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg text-sm">
-                          <Plus size={16} />
-                          Create Course
-                        </button>
-                      </Link>
-                    )}
-                    {activeSection.startsWith('sim') && (
-                      <Link href="/create-simulation">
-                        <button className="bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg text-sm">
-                          <Plus size={16} />
-                          Create Lab
-                        </button>
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* CONTENT GRID */}
-            {activeSection !== 'subscription' && displayItems.length > 0 && (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {/* FEED POSTS - ✅ UPDATED with multi-page support */}
-                  {activeSection === 'feed' && feedPosts.map((post, index) => (
-                    <motion.div
-                      key={`${post.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
-                    >
-                      {/* User Info Header */}
-                      <div className="p-2 border-b border-gray-800/50 bg-black/40">
-                        <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-[10px] font-bold overflow-hidden">
-                            {post.profiles?.avatar_url ? (
-                              <img 
-                                src={post.profiles.avatar_url} 
-                                alt={post.profiles.display_name || 'User'}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[9px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
-                          </div>
-                        </Link>
-                      </div>
-
-                      <Link href={`/post/${post.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                        </div>
-                      </Link>
-
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
-
-                        {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-1.5">
-                            <div className="flex items-center gap-1 mb-0.5">
-                              <Code2 size={8} className="text-purple-400" />
-                              <span className="text-[8px] font-bold text-purple-400 uppercase">Prompt</span>
-                            </div>
-                            <p className="text-[9px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
-                            >
-                              {post.is_liked ? (
-                                <Image 
-                                  src="/logo.png" 
-                                  alt="Liked" 
-                                  width={14} 
-                                  height={14}
-                                />
-                              ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-purple-400 transition-colors" />
-                              )}
-                              <span className="text-[10px] font-bold text-gray-400">{post.likes_count || 0}</span>
-                            </button>
-
-                            <Link href={`/post/${post.id}#comments`}>
-                              <div className="flex items-center gap-1 text-gray-500">
-                                <MessageCircle size={13} />
-                                <span className="text-[10px] font-bold">{post.comments_count || 0}</span>
-                              </div>
-                            </Link>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Bookmark 
-                                size={13} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
-                              />
-                            </button>
-
-                            <button 
-                              onClick={() => handleSharePost(post)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Share2 size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* COURSE POSTS */}
-                  {activeSection === 'course-posts' && posts.map((post, index) => (
-                    <motion.div
-                      key={`${post.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
-                    >
-                      <Link href={`/post/${post.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                        </div>
-                      </Link>
-
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
-
-                        {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-1.5">
-                            <div className="flex items-center gap-1 mb-0.5">
-                              <Code2 size={8} className="text-purple-400" />
-                              <span className="text-[8px] font-bold text-purple-400 uppercase">Prompt</span>
-                            </div>
-                            <p className="text-[9px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
-                            >
-                              {post.is_liked ? (
-                                <Image 
-                                  src="/logo.png" 
-                                  alt="Liked" 
-                                  width={14} 
-                                  height={14}
-                                />
-                              ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-purple-400 transition-colors" />
-                              )}
-                              <span className="text-[10px] font-bold text-gray-400">{post.likes_count || 0}</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Bookmark 
-                                size={13} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
-                              />
-                            </button>
-
-                            <button 
-                              onClick={() => handleSharePost(post)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Share2 size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                            </button>
-
-                            {isOwnProfile && (
-                              <button
-                                onClick={() => handleDeletePost(post.id)}
-                                className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                              >
-                                <Trash2 size={13} className="text-gray-500 hover:text-red-400 transition-colors" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* COURSE PROJECTS */}
-                  {activeSection === 'course-projects' && projects.map((project, index) => (
-                    <motion.div
-                      key={`${project.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
-                    >
-                      {isOwnProfile && (
-                        <div className="absolute top-1.5 right-1.5 z-10">
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-lg ${
-                            project.is_draft 
-                              ? 'bg-yellow-500 text-black' 
-                              : 'bg-green-500 text-black'
-                          }`}>
-                            {project.is_draft ? 'Draft' : 'Live'}
-                          </span>
-                        </div>
-                      )}
-
-                      <Link href={`/projects/${project.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderCoursePreviewIframe(project)}
-                          
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
-                            <Eye className="text-white drop-shadow-lg" size={24} />
-                          </div>
-                        </div>
-                      </Link>
-
-                      <div className="p-2">
-                        <p className="text-xs font-bold mb-0.5 line-clamp-1">{project.title || 'Untitled Project'}</p>
-                        <p className="text-[10px] text-gray-500 mb-1.5">
-                          {new Date(project.updated_at).toLocaleDateString()}
-                        </p>
-
-                        {isOwnProfile && (
-                          <div className="flex gap-1.5 pt-1.5 border-t border-gray-800/50">
-                            {project.session_id && (
-                              <Link href={`/studio/${project.session_id}`} className="flex-1">
-                                <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-[10px] font-semibold transition-colors">
-                                  <Edit size={11} />
-                                  Edit
-                                </button>
-                              </Link>
-                            )}
-                            
-                            {project.is_draft && project.session_id && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleShareClick(project);
-                                }}
-                                className="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded transition-colors"
-                                title="Share"
-                              >
-                                <Share2 size={11} />
-                              </button>
-                            )}
-                            
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteProject(project);
-                              }}
-                              className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* SHARED SIMULATIONS */}
-                  {activeSection === 'sim-shared' && sharedSimulations.map((sim, index) => (
-                    <motion.div
-                      key={`${sim.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-blue-500/50 transition-all"
-                    >
-                      <Link href={`/simulation/${sim.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderSimulationPreviewIframe(sim.html_code)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                        </div>
-                      </Link>
-
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{sim.caption}</p>
-
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleLikeSimulation(sim.id, sim.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
-                            >
-                              {sim.is_liked ? (
-                                <Image 
-                                  src="/logo.png" 
-                                  alt="Liked" 
-                                  width={14} 
-                                  height={14}
-                                />
-                              ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                              )}
-                              <span className="text-[10px] font-bold text-gray-400">{sim.likes_count || 0}</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleSaveSimulation(sim.id, sim.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Bookmark 
-                                size={13} 
-                                className={sim.is_saved ? 'fill-blue-400 text-blue-400' : 'text-gray-500'} 
-                              />
-                            </button>
-
-                            <button 
-                              onClick={() => handleShareSimulation(sim)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Share2 size={13} className="text-gray-500 hover:text-cyan-400 transition-colors" />
-                            </button>
-
-                            {isOwnProfile && (
-                              <button
-                                onClick={() => handleDeleteSimulationPost(sim.id)}
-                                className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                              >
-                                <Trash2 size={13} className="text-gray-500 hover:text-red-400 transition-colors" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* MY LABS */}
-                  {activeSection === 'sim-labs' && simulations.map((sim, index) => (
-                    <motion.div
-                      key={`${sim.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-blue-500/50 transition-all"
-                    >
-                      {sim.generation_status === 'completed' && sim.html_code ? (
-                        <Link href={`/simulation-studio/${sim.id}`}>
-                          <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                            {renderSimulationPreviewIframe(sim.html_code)}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
-                              <Eye className="text-white drop-shadow-lg" size={24} />
-                            </div>
-                          </div>
-                        </Link>
-                      ) : (
-                        <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                          {sim.generation_status === 'generating' && (
-                            <div className="text-center">
-                              <motion.div
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                                className="text-3xl mb-1"
-                              >
-                                🧄
-                              </motion.div>
-                              <p className="text-[10px] text-blue-400">Generating...</p>
-                            </div>
-                          )}
-                          {sim.generation_status === 'failed' && (
-                            <div className="text-center px-3">
-                              <div className="text-2xl mb-1">💥</div>
-                              <p className="text-[10px] text-red-400 line-clamp-2">{sim.generation_error || 'Generation failed'}</p>
-                            </div>
-                          )}
-                          {sim.generation_status === 'pending' && (
-                            <div className="text-center px-3">
-                              <div className="text-2xl mb-1">⏳</div>
-                              <p className="text-[10px] text-yellow-400">Pending...</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="p-2">
-                        <p className="text-xs font-bold mb-0.5 line-clamp-1">{sim.title || 'Untitled Lab'}</p>
-                        <p className="text-[10px] text-gray-500 mb-1.5">
-                          {new Date(sim.updated_at).toLocaleDateString()}
-                        </p>
-
-                        {isOwnProfile && (
-                          <div className="flex gap-1.5 pt-1.5 border-t border-gray-800/50">
-                            {sim.generation_status === 'completed' && sim.html_code && (
-                              <Link href={`/simulation-studio/${sim.id}`} className="flex-1">
-                                <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-[10px] font-semibold transition-colors">
-                                  <Eye size={11} />
-                                  View
-                                </button>
-                              </Link>
-                            )}
-                            
-                            {sim.generation_status === 'failed' && (
-                              <button
-                                onClick={() => handleRegenerateSimulation(sim.id)}
-                                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-orange-600 hover:bg-orange-700 rounded text-[10px] font-semibold transition-colors"
-                              >
-                                <RotateCcw size={11} />
-                                Retry
-                              </button>
-                            )}
-                            
-                            {sim.generation_status === 'generating' && (
-                              <button
-                                disabled
-                                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-700 rounded text-[10px] font-semibold cursor-not-allowed opacity-50"
-                              >
-                                <Loader2 size={11} className="animate-spin" />
-                                Generating...
-                              </button>
-                            )}
-                            
-                            <button
-                              onClick={() => handleDeleteSimulation(sim.id)}
-                              className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* SAVED COURSES */}
-                  {activeSection === 'saved-courses' && savedPosts.map((post, index) => (
-                    <motion.div
-                      key={`${post.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-pink-500/50 transition-all"
-                    >
-                      <div className="p-2 border-b border-gray-800/50 bg-black/40">
-                        <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-[10px] font-bold overflow-hidden">
-                            {post.profiles?.avatar_url ? (
-                              <img 
-                                src={post.profiles.avatar_url} 
-                                alt={post.profiles.display_name || 'User'}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[9px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
-                          </div>
-                        </Link>
-                      </div>
-
-                      <Link href={`/post/${post.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                        </div>
-                      </Link>
-
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
-
-                        {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-1.5">
-                            <div className="flex items-center gap-1 mb-0.5">
-                              <Code2 size={8} className="text-purple-400" />
-                              <span className="text-[8px] font-bold text-purple-400 uppercase">Prompt</span>
-                            </div>
-                            <p className="text-[9px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
-                            >
-                              {post.is_liked ? (
-                                <Image 
-                                  src="/logo.png" 
-                                  alt="Liked" 
-                                  width={14} 
-                                  height={14}
-                                />
-                              ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-purple-400 transition-colors" />
-                              )}
-                              <span className="text-[10px] font-bold text-gray-400">{post.likes_count || 0}</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Bookmark 
-                                size={13} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
-                              />
-                            </button>
-
-                            <button 
-                              onClick={() => handleSharePost(post)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Share2 size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* SAVED LABS */}
-                  {activeSection === 'saved-labs' && savedSimulations.map((sim, index) => (
-                    <motion.div
-                      key={`${sim.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-pink-500/50 transition-all"
-                    >
-                      <div className="p-2 border-b border-gray-800/50 bg-black/40">
-                        <Link href={`/profiles/${sim.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-[10px] font-bold overflow-hidden">
-                            {sim.profiles?.avatar_url ? (
-                              <img 
-                                src={sim.profiles.avatar_url} 
-                                alt={sim.profiles.display_name || 'User'}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span>{sim.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold truncate">{sim.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[9px] text-gray-500 truncate">@{sim.profiles?.username || 'unknown'}</p>
-                          </div>
-                        </Link>
-                      </div>
-
-                      <Link href={`/simulation/${sim.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderSimulationPreviewIframe(sim.html_code)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                        </div>
-                      </Link>
-
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{sim.caption}</p>
-
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleLikeSimulation(sim.id, sim.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
-                            >
-                              {sim.is_liked ? (
-                                <Image 
-                                  src="/logo.png" 
-                                  alt="Liked" 
-                                  width={14} 
-                                  height={14}
-                                />
-                              ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
-                              )}
-                              <span className="text-[10px] font-bold text-gray-400">{sim.likes_count || 0}</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleSaveSimulation(sim.id, sim.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Bookmark 
-                                size={13} 
-                                className={sim.is_saved ? 'fill-blue-400 text-blue-400' : 'text-gray-500'} 
-                              />
-                            </button>
-
-                            <button 
-                              onClick={() => handleShareSimulation(sim)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                            >
-                              <Share2 size={13} className="text-gray-500 hover:text-cyan-400 transition-colors" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-
-                {/* INFINITE SCROLL TRIGGER */}
-                <div ref={observerTarget} className="py-6 flex justify-center">
-                  {loadingMore && (
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                        className="text-2xl"
-                      >
-                        🧄
-                      </motion.div>
-                      <span className="text-xs">Loading...</span>
-                    </div>
-                  )}
-                  {!hasMore && displayItems.length > 0 && (
-                    <p className="text-gray-500 text-xs">That's all! 🎉</p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        {/* CONTENT */}
+        <DashboardContent
+          activeSection={activeSection}
+          loading={loading}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          isOwnProfile={isOwnProfile}
+          feedPosts={feedPosts}
+          posts={posts}
+          projects={projects}
+          savedPosts={savedPosts}
+          simulations={simulations}
+          sharedSimulations={sharedSimulations}
+          savedSimulations={savedSimulations}
+          subscriptionStatus={subscriptionStatus}
+          onLoadMore={handleLoadMore}
+          onLikeCourse={handleLikeCourse}
+          onSaveCourse={handleSaveCourse}
+          onShareCourse={handleSharePost}
+          onDeletePost={handleDeletePost}
+          onShareProject={handleShareClick}
+          onDeleteProject={handleDeleteProject}
+          onLikeSimulation={handleLikeSimulation}
+          onSaveSimulation={handleSaveSimulation}
+          onShareSimulation={handleShareSimulation}
+          onDeleteSimulation={handleDeleteSimulation}
+          onDeleteSimulationPost={handleDeleteSimulationPost}
+          onRegenerateSimulation={handleRegenerateSimulation}
+          onSubscribe={() => setShowSubscriptionModal(true)}
+        />
       </div>
 
-      {/* SHARE PROJECT MODAL */}
-      <AnimatePresence>
-        {showShareModal && shareProject && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-            onClick={() => !sharing && setShowShareModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-base font-bold">📢 Share to Feed</h3>
-                <button onClick={() => !sharing && setShowShareModal(false)} disabled={sharing}>
-                  <span className="text-2xl text-gray-400 hover:text-white">✕</span>
-                </button>
-              </div>
-
-              <input
-                type="text"
-                value={shareCaption}
-                onChange={(e) => setShareCaption(e.target.value)}
-                placeholder="Add a caption..."
-                className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4 text-sm"
-                disabled={sharing}
-              />
-
-              <label className="flex items-center gap-3 mb-6 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={promptVisible}
-                  onChange={(e) => setPromptVisible(e.target.checked)}
-                  className="w-4 h-4"
-                  disabled={sharing}
-                />
-                <span className="text-xs text-gray-400">Share prompt publicly</span>
-              </label>
-
-              <motion.button
-                onClick={handleShareProject}
-                disabled={!shareCaption.trim() || sharing}
-                whileHover={!sharing ? { scale: 1.02 } : {}}
-                whileTap={!sharing ? { scale: 0.98 } : {}}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
-              >
-                {sharing ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    >
-                      🧄
-                    </motion.div>
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    <Share2 size={16} />
-                    Publish to Feed
-                  </>
-                )}
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* MODALS */}
+      <ShareProjectModal
+        isOpen={showShareModal}
+        project={shareProject}
+        onClose={() => setShowShareModal(false)}
+        onShare={handleShareProjectSubmit}
+      />
+
       <TokenPurchaseModal
         isOpen={showTokenModal}
         onClose={() => setShowTokenModal(false)}
-        userId={userId}
+        userId={currentUser.id}
         currentBalance={tokenBalance}
         onSuccess={fetchTokenBalance}
       />

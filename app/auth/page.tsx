@@ -12,19 +12,19 @@ function AuthContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simply check if user is already logged in
+    // Simply check if user is already logged in - ✅ UPDATED
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.replace('/feed');
+        router.replace('/dashboard');
       } else {
         setLoading(false);
       }
     });
 
-    // Listen for successful sign-ins
+    // Listen for successful sign-ins - ✅ UPDATED
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        router.replace('/feed');
+        router.replace('/dashboard');
       }
     });
 
