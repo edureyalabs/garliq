@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -66,11 +66,14 @@ export default function DashboardPage() {
     savedLabs: 0,
   });
 
-  // Initial Load Effects
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  // ✅ FIXED: Initial user check only
   useEffect(() => {
     checkUser();
   }, []);
 
+  // ✅ FIXED: Separate effect for profile and stats when user is loaded
   useEffect(() => {
     if (currentUser) {
       fetchProfile();
@@ -78,18 +81,84 @@ export default function DashboardPage() {
       fetchTokenBalance();
       fetchSubscriptionStatus();
     }
-  }, [currentUser]);
+  }, [currentUser?.id]); // Only re-run if user ID changes
 
+  // ✅ FIXED: Check if own profile
   useEffect(() => {
     if (profile && currentUser) {
       setIsOwnProfile(currentUser.id === profile.id);
     }
-  }, [currentUser, profile]);
+  }, [currentUser?.id, profile?.id]);
 
+  // ✅ FIXED: Reset and load content when section changes
   useEffect(() => {
-    resetPagination();
-    loadContent();
-  }, [activeSection]);
+    if (!currentUser) return; // Don't load until user is ready
+
+    // Reset state
+    setPosts([]);
+    setProjects([]);
+    setSavedPosts([]);
+    setSimulations([]);
+    setSharedSimulations([]);
+    setSavedSimulations([]);
+    setFeedPosts([]);
+    setPage(0);
+    setHasMore(true);
+    setLoading(true);
+
+    // Load initial content based on active section
+    switch (activeSection) {
+      case 'feed':
+        fetchFeedPosts(0);
+        break;
+      case 'course-posts':
+        fetchUserPosts(0);
+        break;
+      case 'course-projects':
+        fetchUserProjects(0);
+        break;
+      case 'sim-shared':
+        fetchSharedSimulations(0);
+        break;
+      case 'sim-labs':
+        fetchUserSimulations(0);
+        break;
+      case 'saved-courses':
+        fetchSavedPosts(0);
+        break;
+      case 'saved-labs':
+        fetchSavedSimulations(0);
+        break;
+      case 'subscription':
+        setLoading(false);
+        setHasMore(false);
+        break;
+    }
+  }, [activeSection, currentUser?.id]); // Only depend on section and user ID
+
+  // ✅ FIXED: IntersectionObserver with correct dependencies
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    const currentTarget = observerTarget.current;
+
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loadingMore, loading, page, activeSection]); // Include page and activeSection
 
   // User Authentication Check
   const checkUser = async () => {
@@ -184,51 +253,6 @@ export default function DashboardPage() {
     });
   };
 
-  // Pagination Reset
-  const resetPagination = () => {
-    setPosts([]);
-    setProjects([]);
-    setSavedPosts([]);
-    setSimulations([]);
-    setSharedSimulations([]);
-    setSavedSimulations([]);
-    setFeedPosts([]);
-    setPage(0);
-    setHasMore(true);
-    setLoading(true);
-  };
-
-  // Content Loading Router
-  const loadContent = () => {
-    switch (activeSection) {
-      case 'feed':
-        fetchFeedPosts(0);
-        break;
-      case 'course-posts':
-        fetchUserPosts(0);
-        break;
-      case 'course-projects':
-        fetchUserProjects(0);
-        break;
-      case 'sim-shared':
-        fetchSharedSimulations(0);
-        break;
-      case 'sim-labs':
-        fetchUserSimulations(0);
-        break;
-      case 'saved-courses':
-        fetchSavedPosts(0);
-        break;
-      case 'saved-labs':
-        fetchSavedSimulations(0);
-        break;
-      case 'subscription':
-        setLoading(false);
-        setHasMore(false);
-        break;
-    }
-  };
-
   // Feed Posts Fetch
   const fetchFeedPosts = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
@@ -242,7 +266,7 @@ export default function DashboardPage() {
       .range(from, to);
 
     if (error) {
-      console.error('Fetch feed posts error:', error);
+      console.error('Fetch feed posts error:', error.message, error.details);
       setLoading(false);
       setLoadingMore(false);
       return;
@@ -329,7 +353,7 @@ export default function DashboardPage() {
       .range(from, to);
 
     if (error) {
-      console.error('Fetch posts error:', error);
+      console.error('Fetch posts error:', error.message, error.details);
       setLoading(false);
       setLoadingMore(false);
       return;
@@ -405,7 +429,7 @@ export default function DashboardPage() {
       .range(from, to);
 
     if (error) {
-      console.error('Fetch projects error:', error);
+      console.error('Fetch projects error:', error.message, error.details);
       setLoading(false);
       setLoadingMore(false);
       return;
@@ -551,7 +575,7 @@ export default function DashboardPage() {
       .range(from, to);
 
     if (error) {
-      console.error('Fetch simulations error:', error);
+      console.error('Fetch simulations error:', error.message, error.details, error.hint);
       setLoading(false);
       setLoadingMore(false);
       return;
@@ -577,7 +601,11 @@ export default function DashboardPage() {
 
   // Shared Simulations Fetch
   const fetchSharedSimulations = async (pageNum: number) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
 
     const from = pageNum * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
@@ -590,7 +618,7 @@ export default function DashboardPage() {
       .range(from, to);
 
     if (error) {
-      console.error('Fetch shared simulations error:', error);
+      console.error('Fetch shared simulations error:', error.message, error.details, error.hint);
       setLoading(false);
       setLoadingMore(false);
       return;
@@ -598,22 +626,21 @@ export default function DashboardPage() {
 
     if (data) {
       let postsWithInteractions = data;
-      if (currentUser) {
-        postsWithInteractions = await Promise.all(
-          data.map(async (post) => {
-            const [likeData, saveData] = await Promise.all([
-              supabase.from('simulation_likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
-              supabase.from('simulation_saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
-            ]);
+      
+      postsWithInteractions = await Promise.all(
+        data.map(async (post) => {
+          const [likeData, saveData] = await Promise.all([
+            supabase.from('simulation_likes').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
+            supabase.from('simulation_saves').select('*').eq('post_id', post.id).eq('user_id', currentUser.id).maybeSingle(),
+          ]);
 
-            return {
-              ...post,
-              is_liked: !!likeData.data,
-              is_saved: !!saveData.data,
-            };
-          })
-        );
-      }
+          return {
+            ...post,
+            is_liked: !!likeData.data,
+            is_saved: !!saveData.data,
+          };
+        })
+      );
 
       if (pageNum === 0) {
         setSharedSimulations(postsWithInteractions);
@@ -703,8 +730,8 @@ export default function DashboardPage() {
     setLoadingMore(false);
   };
 
-  // Load More Handler
-  const handleLoadMore = () => {
+  // ✅ FIXED: Simple loadMore function without useCallback
+  const loadMore = () => {
     if (!loadingMore && hasMore && !loading) {
       setLoadingMore(true);
       const nextPage = page + 1;
@@ -934,8 +961,18 @@ export default function DashboardPage() {
     setShowShareModal(false);
     setShareProject(null);
 
-    resetPagination();
-    await Promise.all([fetchUserProjects(0), fetchAllStats()]);
+    // Refresh projects and stats
+    setPosts([]);
+    setProjects([]);
+    setPage(0);
+    setHasMore(true);
+    setLoading(true);
+    
+    await Promise.all([
+      activeSection === 'course-projects' ? fetchUserProjects(0) : Promise.resolve(),
+      activeSection === 'course-posts' ? fetchUserPosts(0) : Promise.resolve(),
+      fetchAllStats()
+    ]);
 
     alert('✅ Project published to feed!');
   };
@@ -961,7 +998,12 @@ export default function DashboardPage() {
       }
 
       alert('✅ Project deleted successfully');
-      resetPagination();
+      
+      setProjects([]);
+      setPage(0);
+      setHasMore(true);
+      setLoading(true);
+      
       await Promise.all([fetchUserProjects(0), fetchAllStats()]);
     } catch (error: any) {
       console.error('Delete error:', error);
@@ -991,7 +1033,13 @@ export default function DashboardPage() {
       }
 
       alert('✅ Post deleted successfully');
-      resetPagination();
+      
+      setPosts([]);
+      setProjects([]);
+      setPage(0);
+      setHasMore(true);
+      setLoading(true);
+      
       await Promise.all([fetchUserPosts(0), fetchUserProjects(0), fetchAllStats()]);
     } catch (error: any) {
       console.error('Delete post error:', error);
@@ -1015,7 +1063,12 @@ export default function DashboardPage() {
       }
 
       alert('✅ Simulation deleted successfully');
-      resetPagination();
+      
+      setSimulations([]);
+      setPage(0);
+      setHasMore(true);
+      setLoading(true);
+      
       await Promise.all([fetchUserSimulations(0), fetchAllStats()]);
     } catch (error: any) {
       console.error('Delete simulation error:', error);
@@ -1033,7 +1086,12 @@ export default function DashboardPage() {
       if (error) throw error;
 
       alert('✅ Simulation post deleted successfully');
-      resetPagination();
+      
+      setSharedSimulations([]);
+      setPage(0);
+      setHasMore(true);
+      setLoading(true);
+      
       await Promise.all([fetchSharedSimulations(0), fetchAllStats()]);
     } catch (error: any) {
       console.error('Delete simulation post error:', error);
@@ -1131,7 +1189,7 @@ export default function DashboardPage() {
           sharedSimulations={sharedSimulations}
           savedSimulations={savedSimulations}
           subscriptionStatus={subscriptionStatus}
-          onLoadMore={handleLoadMore}
+          onLoadMore={loadMore}
           onLikeCourse={handleLikeCourse}
           onSaveCourse={handleSaveCourse}
           onShareCourse={handleSharePost}

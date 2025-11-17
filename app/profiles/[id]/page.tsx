@@ -141,7 +141,7 @@ export default function ProfilePage() {
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [sharedSimulations, setSharedSimulations] = useState<SimulationPost[]>([]);
   const [savedSimulations, setSavedSimulations] = useState<SimulationPost[]>([]);
-  const [feedPosts, setFeedPosts] = useState<Post[]>([]); // ✅ Changed from FeedPost[] to Post[]
+  const [feedPosts, setFeedPosts] = useState<Post[]>([]);
 
   // Loading & Pagination State
   const [loading, setLoading] = useState(true);
@@ -219,7 +219,6 @@ export default function ProfilePage() {
       }
     };
   }, [hasMore, loadingMore, loading, page]);
-
   // Pagination Reset
   const resetPagination = () => {
     setPosts([]);
@@ -323,6 +322,7 @@ export default function ProfilePage() {
       </span>
     );
   };
+
   // Stats Fetch
   const fetchAllStats = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -384,7 +384,7 @@ export default function ProfilePage() {
     if (data) setProfile(data);
   };
 
-  // Feed Posts Fetch (Trending) - ✅ UPDATED with multi-page support
+  // Feed Posts Fetch (Trending)
   const fetchFeedPosts = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
@@ -404,7 +404,6 @@ export default function ProfilePage() {
     }
 
     if (data) {
-      // ✅ Fetch first page content for multi-page courses
       const sessionIds = data.filter(post => post.session_id).map(post => post.session_id);
       let firstPagesMap = new Map<string, string>();
       
@@ -690,7 +689,6 @@ export default function ProfilePage() {
     setLoading(false);
     setLoadingMore(false);
   };
-
   // User Simulations Fetch
   const fetchUserSimulations = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
@@ -888,6 +886,7 @@ export default function ProfilePage() {
       }
     }
   };
+
   // Like Handler - Course Posts
   const handleLikeCourse = async (postId: string, isLiked: boolean) => {
     if (!currentUser) return;
@@ -1297,7 +1296,6 @@ export default function ProfilePage() {
   };
 
   const displayItems = getCurrentDisplayItems();
-
   // Loading State
   if (loading && page === 0) {
     return (
@@ -1320,7 +1318,9 @@ export default function ProfilePage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">Profile not found</h2>
           <Link href="/">
-            <button className="bg-purple-600 px-6 py-3 rounded-full">Go Home</button>
+            <button className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors">
+              Go Home
+            </button>
           </Link>
         </div>
       </div>
@@ -1329,12 +1329,12 @@ export default function ProfilePage() {
 
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
-      {/* HEADER - ✅ UPDATED with smaller profile info and removed Edit button */}
+      {/* HEADER */}
       <div className="flex-shrink-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 z-50">
-        <div className="px-6 py-3 flex items-center justify-between gap-6">
-          {/* LEFT: Profile Info - ✅ MADE SMALLER */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold overflow-hidden flex-shrink-0">
+        <div className="px-6 py-3 flex items-start justify-between gap-6">
+          {/* LEFT: Profile Info */}
+          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-sm font-bold overflow-hidden flex-shrink-0">
               {profile.avatar_url ? (
                 <img 
                   src={profile.avatar_url} 
@@ -1346,25 +1346,46 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xs font-bold truncate">{profile.display_name}</h1>
-              <p className="text-[10px] text-gray-500 truncate">@{profile.username}</p>
+            <div className="flex-1 min-w-0 pt-0.5">
+              <h1 className="text-sm font-bold truncate">{profile.display_name}</h1>
+              <p className="text-xs text-gray-500 truncate">@{profile.username}</p>
               {profile.bio && (
-                <p className="text-[9px] text-gray-400 truncate mt-0.5">{profile.bio}</p>
+                <p className="text-xs text-gray-400 truncate mt-1 leading-relaxed">{profile.bio}</p>
               )}
             </div>
           </div>
 
-          {/* CENTER: Action Buttons (Create & Lab) */}
+          {/* CENTER-LEFT: Token Section (Own Profile Only) */}
+          {isOwnProfile && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-black/40 backdrop-blur-sm rounded-xl border border-gray-800 flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <Zap size={14} className="text-yellow-400" />
+                <span className="text-xs font-bold">{tokenBalance.toLocaleString()}</span>
+              </div>
+              
+              <div className="w-px h-4 bg-gray-700" />
+              
+              <motion.button
+                onClick={() => setShowTokenModal(true)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-2.5 py-1 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-md font-semibold text-xs"
+              >
+                Buy
+              </motion.button>
+            </div>
+          )}
+
+          {/* RIGHT: Create Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <Link href="/create">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
+                className="bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
               >
                 <Sparkles size={14} />
-                Create Course
+                Course
               </motion.button>
             </Link>
 
@@ -1372,98 +1393,58 @@ export default function ProfilePage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
+                className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
               >
                 <Beaker size={14} />
-                Create Simulations
+                Simulation
               </motion.button>
             </Link>
           </div>
-
-          {/* RIGHT: Account Info (Own Profile Only) - ✅ REMOVED Edit button */}
-          {isOwnProfile && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Subscription Badge */}
-              {subscriptionStatus && getSubscriptionBadge()}
-
-              {/* Token Balance */}
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-900 rounded-lg border border-gray-800">
-                <Zap size={12} className="text-yellow-400" />
-                <span className="text-xs font-bold">{tokenBalance.toLocaleString()}</span>
-              </div>
-
-              {/* Buy Tokens Button */}
-              <motion.button
-                onClick={() => setShowTokenModal(true)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-3 py-1.5 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-lg font-semibold text-xs flex items-center gap-1"
-              >
-                <Zap size={12} />
-                Buy Tokens
-              </motion.button>
-
-              {/* Logout Button */}
-<button
-  onClick={async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-  }}
-  className="p-2 hover:bg-gray-800 rounded-full transition-colors"
-  title="Logout"
->
-  <LogOut size={20} className="text-gray-400 hover:text-red-400 transition-colors" />
-</button>
-
-
-
-            </div>
-          )}
         </div>
       </div>
 
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex overflow-hidden">
-        {/* SIDEBAR NAVIGATION - ✅ REORDERED */}
-        <aside className="w-56 bg-gray-900/50 border-r border-gray-800 overflow-y-auto flex-shrink-0">
-          <div className="p-3 space-y-1">
+        {/* SIDEBAR NAVIGATION */}
+        <aside className="w-56 bg-black/40 backdrop-blur-sm border-r border-gray-800 overflow-y-auto flex-shrink-0 flex flex-col">
+          <div className="flex-1 p-3 space-y-1">
             {/* FEED SECTION */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                <TrendingUp size={12} />
+            <div className="mb-4">
+              <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                <TrendingUp size={11} />
                 Feed
               </div>
               
               <button
                 onClick={() => setActiveSection('feed')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   activeSection === 'feed'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-white text-black'
+                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
                 }`}
               >
                 <span>Trending Courses</span>
               </button>
             </div>
 
-            {/* COURSES SECTION - ✅ PROJECTS FIRST, POSTS SECOND */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                <Code2 size={12} />
+            {/* COURSES SECTION */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                <Code2 size={11} />
                 Courses
               </div>
               
               <button
                 onClick={() => setActiveSection('course-projects')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   activeSection === 'course-projects'
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-white text-black'
+                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
                 }`}
               >
                 <span>My Courses</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  activeSection === 'course-projects' ? 'bg-white/20' : 'bg-gray-800'
+                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                  activeSection === 'course-projects' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
                 }`}>
                   {stats.projects}
                 </span>
@@ -1471,40 +1452,40 @@ export default function ProfilePage() {
 
               <button
                 onClick={() => setActiveSection('course-posts')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   activeSection === 'course-posts'
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-white text-black'
+                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
                 }`}
               >
                 <span>Shared Courses</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  activeSection === 'course-posts' ? 'bg-white/20' : 'bg-gray-800'
+                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                  activeSection === 'course-posts' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
                 }`}>
                   {stats.posts}
                 </span>
               </button>
             </div>
 
-            {/* SIMULATIONS SECTION - ✅ MY LABS FIRST, SHARED SECOND */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                <Beaker size={12} />
+            {/* SIMULATIONS SECTION */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                <Beaker size={11} />
                 Simulations
               </div>
               
               {isOwnProfile && (
                 <button
                   onClick={() => setActiveSection('sim-labs')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     activeSection === 'sim-labs'
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-white text-black'
+                      : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
                   }`}
                 >
                   <span>My Simulations</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'sim-labs' ? 'bg-white/20' : 'bg-gray-800'
+                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                    activeSection === 'sim-labs' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
                   }`}>
                     {stats.myLabs}
                   </span>
@@ -1513,40 +1494,40 @@ export default function ProfilePage() {
 
               <button
                 onClick={() => setActiveSection('sim-shared')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   activeSection === 'sim-shared'
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-white text-black'
+                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
                 }`}
               >
                 <span>Shared Simulations</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  activeSection === 'sim-shared' ? 'bg-white/20' : 'bg-gray-800'
+                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                  activeSection === 'sim-shared' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
                 }`}>
                   {stats.sharedSimulations}
                 </span>
               </button>
             </div>
 
-            {/* SAVED SECTION - Only for Own Profile */}
+            {/* SAVED SECTION */}
             {isOwnProfile && (
-              <div className="mb-3">
-                <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                  <Bookmark size={12} />
+              <div className="mb-4">
+                <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  <Bookmark size={11} />
                   Saved
                 </div>
                 
                 <button
                   onClick={() => setActiveSection('saved-courses')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     activeSection === 'saved-courses'
-                      ? 'bg-pink-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-white text-black'
+                      : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
                   }`}
                 >
                   <span>Courses</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'saved-courses' ? 'bg-white/20' : 'bg-gray-800'
+                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                    activeSection === 'saved-courses' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
                   }`}>
                     {stats.savedCourses}
                   </span>
@@ -1554,15 +1535,15 @@ export default function ProfilePage() {
 
                 <button
                   onClick={() => setActiveSection('saved-labs')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     activeSection === 'saved-labs'
-                      ? 'bg-pink-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-white text-black'
+                      : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
                   }`}
                 >
                   <span>Simulations</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'saved-labs' ? 'bg-white/20' : 'bg-gray-800'
+                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                    activeSection === 'saved-labs' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
                   }`}>
                     {stats.savedLabs}
                   </span>
@@ -1570,40 +1551,67 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* SUBSCRIPTION SECTION - ✅ ADDED Edit Profile Button */}
+            {/* ACCOUNT SECTION */}
             {isOwnProfile && (
-              <div className="mb-3">
-                <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                  <Crown size={12} />
+              <div className="mb-4">
+                <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  <Crown size={11} />
                   Account
                 </div>
                 
                 <button
                   onClick={() => setActiveSection('subscription')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     activeSection === 'subscription'
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-white text-black'
+                      : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
                   }`}
                 >
                   <span>Subscription</span>
                 </button>
 
-                {/* ✅ EDIT PROFILE BUTTON MOVED HERE */}
                 <Link href={`/profiles/${userId}/edit`}>
-                  <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all text-gray-400 hover:bg-gray-800 hover:text-white mt-1">
-                    <Edit size={12} />
+                  <button className="w-full flex items-center justify-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-400 hover:bg-gray-800/50 hover:text-white mt-1">
+                    <Edit size={11} />
                     <span>Edit Profile</span>
                   </button>
                 </Link>
               </div>
             )}
           </div>
+
+          {/* BOTTOM SECTION: Branding + Logout */}
+          <div className="p-3 border-t border-gray-800">
+            <div className="flex items-center justify-between px-2 py-1.5">
+              <div className="flex items-center gap-2">
+                <Image 
+                  src="/logo.png" 
+                  alt="Garliq" 
+                  width={24} 
+                  height={24}
+                />
+                <span className="text-sm font-bold">Garliq</span>
+              </div>
+              
+              {isOwnProfile && (
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    router.push('/');
+                  }}
+                  className="p-1 hover:bg-gray-800/50 rounded-lg transition-colors group"
+                  title="Logout"
+                >
+                  <LogOut size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
+                </button>
+              )}
+            </div>
+          </div>
         </aside>
 
         {/* MAIN CONTENT AREA */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="max-w-7xl mx-auto px-6 py-6">
             {/* SUBSCRIPTION VIEW */}
             {activeSection === 'subscription' && subscriptionStatus && (
               <motion.div
@@ -1611,20 +1619,20 @@ export default function ProfilePage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="max-w-md mx-auto"
               >
-                <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-8">
+                  <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                       <Crown size={20} className="text-purple-400" />
-                      <span className="font-bold text-base">Subscription</span>
+                      <span className="font-bold text-lg">Subscription</span>
                     </div>
                     {getSubscriptionBadge()}
                   </div>
 
-                  <div className="space-y-3 text-sm mb-6">
+                  <div className="space-y-4 text-sm mb-8">
                     {subscriptionStatus.expires_at && (
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-400 flex items-center gap-1.5">
-                          <Clock size={14} />
+                        <span className="text-gray-400 flex items-center gap-2">
+                          <Clock size={16} />
                           {subscriptionStatus.is_active ? 'Expires' : 'Expired'}:
                         </span>
                         <span className="font-medium">
@@ -1656,9 +1664,9 @@ export default function ProfilePage() {
                       onClick={() => setShowSubscriptionModal(true)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold flex items-center justify-center gap-2 text-sm"
+                      className="w-full px-6 py-3 bg-white text-black rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
                     >
-                      <Crown size={16} />
+                      <Crown size={18} />
                       Renew Subscription - $3/mo
                     </motion.button>
                   ) : subscriptionStatus.days_remaining <= 7 && (
@@ -1666,9 +1674,9 @@ export default function ProfilePage() {
                       onClick={() => setShowSubscriptionModal(true)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="w-full px-4 py-3 border border-purple-600 text-purple-400 rounded-xl hover:bg-purple-600/10 font-semibold flex items-center justify-center gap-2 text-sm"
+                      className="w-full px-6 py-3 border border-gray-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-gray-800/50 transition-colors"
                     >
-                      <Crown size={16} />
+                      <Crown size={18} />
                       Extend Subscription
                     </motion.button>
                   )}
@@ -1678,7 +1686,7 @@ export default function ProfilePage() {
 
             {/* EMPTY STATE */}
             {activeSection !== 'subscription' && displayItems.length === 0 && !loading && (
-              <div className="text-center py-20">
+              <div className="text-center py-32">
                 <div className="mb-6 flex justify-center">
                   <Image 
                     src="/logo.png" 
@@ -1687,7 +1695,7 @@ export default function ProfilePage() {
                     height={80}
                   />
                 </div>
-                <h2 className="text-xl font-bold mb-2">
+                <h2 className="text-2xl font-bold mb-3">
                   {activeSection === 'feed' && 'No Trending Posts'}
                   {activeSection === 'course-posts' && 'No Posts Yet'}
                   {activeSection === 'course-projects' && 'No Projects Yet'}
@@ -1696,7 +1704,7 @@ export default function ProfilePage() {
                   {activeSection === 'saved-courses' && 'No Saved Courses'}
                   {activeSection === 'saved-labs' && 'No Saved Labs'}
                 </h2>
-                <p className="text-gray-500 mb-6 text-sm">
+                <p className="text-gray-400 mb-8 text-sm">
                   {activeSection === 'feed' && 'Check back later for trending content'}
                   {activeSection === 'course-posts' && 'Share your first creation'}
                   {activeSection === 'course-projects' && 'Start building something'}
@@ -1708,16 +1716,16 @@ export default function ProfilePage() {
                   <div className="flex items-center justify-center gap-3">
                     {activeSection.startsWith('course') && (
                       <Link href="/create">
-                        <button className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg text-sm">
-                          <Plus size={16} />
+                        <button className="bg-white text-black px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-lg hover:bg-gray-200 transition-colors">
+                          <Plus size={18} />
                           Create Course
                         </button>
                       </Link>
                     )}
                     {activeSection.startsWith('sim') && (
                       <Link href="/create-simulation">
-                        <button className="bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg text-sm">
-                          <Plus size={16} />
+                        <button className="bg-white text-black px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-lg hover:bg-gray-200 transition-colors">
+                          <Plus size={18} />
                           Create Lab
                         </button>
                       </Link>
@@ -1730,20 +1738,20 @@ export default function ProfilePage() {
             {/* CONTENT GRID */}
             {activeSection !== 'subscription' && displayItems.length > 0 && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {/* FEED POSTS - ✅ UPDATED with multi-page support */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {/* FEED POSTS */}
                   {activeSection === 'feed' && feedPosts.map((post, index) => (
                     <motion.div
                       key={`${post.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
                     >
                       {/* User Info Header */}
-                      <div className="p-2 border-b border-gray-800/50 bg-black/40">
+                      <div className="p-2.5 border-b border-gray-800 bg-black/40">
                         <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-xs font-bold overflow-hidden">
                             {post.profiles?.avatar_url ? (
                               <img 
                                 src={post.profiles.avatar_url} 
@@ -1755,8 +1763,8 @@ export default function ProfilePage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[9px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
+                            <p className="text-xs font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
+                            <p className="text-[10px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
                           </div>
                         </Link>
                       </div>
@@ -1764,25 +1772,25 @@ export default function ProfilePage() {
                       <Link href={`/post/${post.id}`}>
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
                           {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                       </Link>
 
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
 
                         {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-1.5">
-                            <div className="flex items-center gap-1 mb-0.5">
-                              <Code2 size={8} className="text-purple-400" />
-                              <span className="text-[8px] font-bold text-purple-400 uppercase">Prompt</span>
+                          <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Code2 size={10} className="text-purple-400" />
+                              <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
                             </div>
-                            <p className="text-[9px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
+                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                          <div className="flex items-center gap-3">
                             <button
                               onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
                               className="flex items-center gap-1 hover:scale-110 transition-transform"
@@ -1791,19 +1799,19 @@ export default function ProfilePage() {
                                 <Image 
                                   src="/logo.png" 
                                   alt="Liked" 
-                                  width={14} 
-                                  height={14}
+                                  width={16} 
+                                  height={16}
                                 />
                               ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                                <Heart size={15} className="text-gray-500 hover:text-purple-400 transition-colors" />
                               )}
-                              <span className="text-[10px] font-bold text-gray-400">{post.likes_count || 0}</span>
+                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
                             </button>
 
                             <Link href={`/post/${post.id}#comments`}>
-                              <div className="flex items-center gap-1 text-gray-500">
-                                <MessageCircle size={13} />
-                                <span className="text-[10px] font-bold">{post.comments_count || 0}</span>
+                              <div className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors">
+                                <MessageCircle size={15} />
+                                <span className="text-xs font-bold">{post.comments_count || 0}</span>
                               </div>
                             </Link>
                           </div>
@@ -1811,19 +1819,19 @@ export default function ProfilePage() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
                               <Bookmark 
-                                size={13} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
+                                size={15} 
+                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 hover:text-gray-300'} 
                               />
                             </button>
 
                             <button 
                               onClick={() => handleSharePost(post)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
-                              <Share2 size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                              <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
                             </button>
                           </div>
                         </div>
@@ -1838,30 +1846,30 @@ export default function ProfilePage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
                     >
                       <Link href={`/post/${post.id}`}>
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
                           {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                       </Link>
 
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
 
                         {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-1.5">
-                            <div className="flex items-center gap-1 mb-0.5">
-                              <Code2 size={8} className="text-purple-400" />
-                              <span className="text-[8px] font-bold text-purple-400 uppercase">Prompt</span>
+                          <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Code2 size={10} className="text-purple-400" />
+                              <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
                             </div>
-                            <p className="text-[9px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
+                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                          <div className="flex items-center gap-3">
                             <button
                               onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
                               className="flex items-center gap-1 hover:scale-110 transition-transform"
@@ -1870,40 +1878,40 @@ export default function ProfilePage() {
                                 <Image 
                                   src="/logo.png" 
                                   alt="Liked" 
-                                  width={14} 
-                                  height={14}
+                                  width={16} 
+                                  height={16}
                                 />
                               ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                                <Heart size={15} className="text-gray-500 hover:text-purple-400 transition-colors" />
                               )}
-                              <span className="text-[10px] font-bold text-gray-400">{post.likes_count || 0}</span>
+                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
                             </button>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
                               <Bookmark 
-                                size={13} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
+                                size={15} 
+                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 hover:text-gray-300'} 
                               />
                             </button>
 
                             <button 
                               onClick={() => handleSharePost(post)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
-                              <Share2 size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                              <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
                             </button>
 
                             {isOwnProfile && (
                               <button
                                 onClick={() => handleDeletePost(post.id)}
-                                className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                                className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                               >
-                                <Trash2 size={13} className="text-gray-500 hover:text-red-400 transition-colors" />
+                                <Trash2 size={15} className="text-gray-500 hover:text-red-400 transition-colors" />
                               </button>
                             )}
                           </div>
@@ -1919,11 +1927,11 @@ export default function ProfilePage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
+                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
                     >
                       {isOwnProfile && (
-                        <div className="absolute top-1.5 right-1.5 z-10">
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-lg ${
+                        <div className="absolute top-2 right-2 z-10">
+                          <span className={`text-[10px] px-2 py-1 rounded-full font-bold shadow-lg ${
                             project.is_draft 
                               ? 'bg-yellow-500 text-black' 
                               : 'bg-green-500 text-black'
@@ -1937,24 +1945,24 @@ export default function ProfilePage() {
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
                           {renderCoursePreviewIframe(project)}
                           
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
-                            <Eye className="text-white drop-shadow-lg" size={24} />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
+                            <Eye className="text-white drop-shadow-lg" size={28} />
                           </div>
                         </div>
                       </Link>
 
-                      <div className="p-2">
-                        <p className="text-xs font-bold mb-0.5 line-clamp-1">{project.title || 'Untitled Project'}</p>
-                        <p className="text-[10px] text-gray-500 mb-1.5">
+                      <div className="p-3">
+                        <p className="text-sm font-bold mb-1 line-clamp-1">{project.title || 'Untitled Project'}</p>
+                        <p className="text-xs text-gray-500 mb-3">
                           {new Date(project.updated_at).toLocaleDateString()}
                         </p>
 
                         {isOwnProfile && (
-                          <div className="flex gap-1.5 pt-1.5 border-t border-gray-800/50">
+                          <div className="flex gap-2 pt-2 border-t border-gray-800">
                             {project.session_id && (
                               <Link href={`/studio/${project.session_id}`} className="flex-1">
-                                <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-[10px] font-semibold transition-colors">
-                                  <Edit size={11} />
+                                <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-white text-black rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors">
+                                  <Edit size={13} />
                                   Edit
                                 </button>
                               </Link>
@@ -1966,10 +1974,10 @@ export default function ProfilePage() {
                                   e.stopPropagation();
                                   handleShareClick(project);
                                 }}
-                                className="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded transition-colors"
+                                className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                                 title="Share"
                               >
-                                <Share2 size={11} />
+                                <Share2 size={13} />
                               </button>
                             )}
                             
@@ -1978,10 +1986,10 @@ export default function ProfilePage() {
                                 e.stopPropagation();
                                 handleDeleteProject(project);
                               }}
-                              className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded transition-colors"
+                              className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                               title="Delete"
                             >
-                              <Trash2 size={11} />
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         )}
@@ -1996,20 +2004,20 @@ export default function ProfilePage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-blue-500/50 transition-all"
+                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
                     >
                       <Link href={`/simulation/${sim.id}`}>
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
                           {renderSimulationPreviewIframe(sim.html_code)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                       </Link>
 
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{sim.caption}</p>
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{sim.caption}</p>
 
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                          <div className="flex items-center gap-3">
                             <button
                               onClick={() => handleLikeSimulation(sim.id, sim.is_liked || false)}
                               className="flex items-center gap-1 hover:scale-110 transition-transform"
@@ -2018,40 +2026,40 @@ export default function ProfilePage() {
                                 <Image 
                                   src="/logo.png" 
                                   alt="Liked" 
-                                  width={14} 
-                                  height={14}
+                                  width={16} 
+                                  height={16}
                                 />
                               ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                                <Heart size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
                               )}
-                              <span className="text-[10px] font-bold text-gray-400">{sim.likes_count || 0}</span>
+                              <span className="text-xs font-bold text-gray-400">{sim.likes_count || 0}</span>
                             </button>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleSaveSimulation(sim.id, sim.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
                               <Bookmark 
-                                size={13} 
-                                className={sim.is_saved ? 'fill-blue-400 text-blue-400' : 'text-gray-500'} 
+                                size={15} 
+                                className={sim.is_saved ? 'fill-blue-400 text-blue-400' : 'text-gray-500 hover:text-gray-300'} 
                               />
                             </button>
 
                             <button 
                               onClick={() => handleShareSimulation(sim)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
-                              <Share2 size={13} className="text-gray-500 hover:text-cyan-400 transition-colors" />
+                              <Share2 size={15} className="text-gray-500 hover:text-cyan-400 transition-colors" />
                             </button>
 
                             {isOwnProfile && (
                               <button
                                 onClick={() => handleDeleteSimulationPost(sim.id)}
-                                className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                                className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                               >
-                                <Trash2 size={13} className="text-gray-500 hover:text-red-400 transition-colors" />
+                                <Trash2 size={15} className="text-gray-500 hover:text-red-400 transition-colors" />
                               </button>
                             )}
                           </div>
@@ -2067,58 +2075,58 @@ export default function ProfilePage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-blue-500/50 transition-all"
+                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
                     >
                       {sim.generation_status === 'completed' && sim.html_code ? (
                         <Link href={`/simulation-studio/${sim.id}`}>
                           <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
                             {renderSimulationPreviewIframe(sim.html_code)}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
-                              <Eye className="text-white drop-shadow-lg" size={24} />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
+                              <Eye className="text-white drop-shadow-lg" size={28} />
                             </div>
                           </div>
                         </Link>
                       ) : (
-                        <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                        <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
                           {sim.generation_status === 'generating' && (
                             <div className="text-center">
                               <motion.div
                                 animate={{ rotate: 360 }}
                                 transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                                className="text-3xl mb-1"
+                                className="text-4xl mb-2"
                               >
                                 🧄
                               </motion.div>
-                              <p className="text-[10px] text-blue-400">Generating...</p>
+                              <p className="text-xs text-blue-400">Generating...</p>
                             </div>
                           )}
                           {sim.generation_status === 'failed' && (
-                            <div className="text-center px-3">
-                              <div className="text-2xl mb-1">💥</div>
-                              <p className="text-[10px] text-red-400 line-clamp-2">{sim.generation_error || 'Generation failed'}</p>
+                            <div className="text-center px-4">
+                              <div className="text-3xl mb-2">💥</div>
+                              <p className="text-xs text-red-400 line-clamp-2">{sim.generation_error || 'Generation failed'}</p>
                             </div>
                           )}
                           {sim.generation_status === 'pending' && (
-                            <div className="text-center px-3">
-                              <div className="text-2xl mb-1">⏳</div>
-                              <p className="text-[10px] text-yellow-400">Pending...</p>
+                            <div className="text-center px-4">
+                              <div className="text-3xl mb-2">⏳</div>
+                              <p className="text-xs text-yellow-400">Pending...</p>
                             </div>
                           )}
                         </div>
                       )}
 
-                      <div className="p-2">
-                        <p className="text-xs font-bold mb-0.5 line-clamp-1">{sim.title || 'Untitled Lab'}</p>
-                        <p className="text-[10px] text-gray-500 mb-1.5">
+                      <div className="p-3">
+                        <p className="text-sm font-bold mb-1 line-clamp-1">{sim.title || 'Untitled Lab'}</p>
+                        <p className="text-xs text-gray-500 mb-3">
                           {new Date(sim.updated_at).toLocaleDateString()}
                         </p>
 
                         {isOwnProfile && (
-                          <div className="flex gap-1.5 pt-1.5 border-t border-gray-800/50">
+                          <div className="flex gap-2 pt-2 border-t border-gray-800">
                             {sim.generation_status === 'completed' && sim.html_code && (
                               <Link href={`/simulation-studio/${sim.id}`} className="flex-1">
-                                <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-[10px] font-semibold transition-colors">
-                                  <Eye size={11} />
+                                <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-white text-black rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors">
+                                  <Eye size={13} />
                                   View
                                 </button>
                               </Link>
@@ -2127,9 +2135,9 @@ export default function ProfilePage() {
                             {sim.generation_status === 'failed' && (
                               <button
                                 onClick={() => handleRegenerateSimulation(sim.id)}
-                                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-orange-600 hover:bg-orange-700 rounded text-[10px] font-semibold transition-colors"
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-xs font-semibold transition-colors"
                               >
-                                <RotateCcw size={11} />
+                                <RotateCcw size={13} />
                                 Retry
                               </button>
                             )}
@@ -2137,19 +2145,19 @@ export default function ProfilePage() {
                             {sim.generation_status === 'generating' && (
                               <button
                                 disabled
-                                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-700 rounded text-[10px] font-semibold cursor-not-allowed opacity-50"
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-700 rounded-lg text-xs font-semibold cursor-not-allowed opacity-50"
                               >
-                                <Loader2 size={11} className="animate-spin" />
+                                <Loader2 size={13} className="animate-spin" />
                                 Generating...
                               </button>
                             )}
                             
                             <button
                               onClick={() => handleDeleteSimulation(sim.id)}
-                              className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded transition-colors"
+                              className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                               title="Delete"
                             >
-                              <Trash2 size={11} />
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         )}
@@ -2164,11 +2172,11 @@ export default function ProfilePage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-pink-500/50 transition-all"
+                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
                     >
-                      <div className="p-2 border-b border-gray-800/50 bg-black/40">
+                      <div className="p-2.5 border-b border-gray-800 bg-black/40">
                         <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-xs font-bold overflow-hidden">
                             {post.profiles?.avatar_url ? (
                               <img 
                                 src={post.profiles.avatar_url} 
@@ -2180,8 +2188,8 @@ export default function ProfilePage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[9px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
+                            <p className="text-xs font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
+                            <p className="text-[10px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
                           </div>
                         </Link>
                       </div>
@@ -2189,25 +2197,25 @@ export default function ProfilePage() {
                       <Link href={`/post/${post.id}`}>
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
                           {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                       </Link>
 
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
 
                         {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded p-1.5">
-                            <div className="flex items-center gap-1 mb-0.5">
-                              <Code2 size={8} className="text-purple-400" />
-                              <span className="text-[8px] font-bold text-purple-400 uppercase">Prompt</span>
+                          <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Code2 size={10} className="text-purple-400" />
+                              <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
                             </div>
-                            <p className="text-[9px] text-gray-400 line-clamp-2 font-mono">{post.prompt}</p>
+                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                          <div className="flex items-center gap-3">
                             <button
                               onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
                               className="flex items-center gap-1 hover:scale-110 transition-transform"
@@ -2216,32 +2224,32 @@ export default function ProfilePage() {
                                 <Image 
                                   src="/logo.png" 
                                   alt="Liked" 
-                                  width={14} 
-                                  height={14}
+                                  width={16} 
+                                  height={16}
                                 />
                               ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                                <Heart size={15} className="text-gray-500 hover:text-purple-400 transition-colors" />
                               )}
-                              <span className="text-[10px] font-bold text-gray-400">{post.likes_count || 0}</span>
+                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
                             </button>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
                               <Bookmark 
-                                size={13} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500'} 
+                                size={15} 
+                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 hover:text-gray-300'} 
                               />
                             </button>
 
                             <button 
                               onClick={() => handleSharePost(post)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
-                              <Share2 size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                              <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
                             </button>
                           </div>
                         </div>
@@ -2256,11 +2264,11 @@ export default function ProfilePage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-gradient-to-br from-gray-900 to-black border border-gray-800/50 rounded-xl overflow-hidden hover:border-pink-500/50 transition-all"
+                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
                     >
-                      <div className="p-2 border-b border-gray-800/50 bg-black/40">
+                      <div className="p-2.5 border-b border-gray-800 bg-black/40">
                         <Link href={`/profiles/${sim.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center text-xs font-bold overflow-hidden">
                             {sim.profiles?.avatar_url ? (
                               <img 
                                 src={sim.profiles.avatar_url} 
@@ -2272,8 +2280,8 @@ export default function ProfilePage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold truncate">{sim.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[9px] text-gray-500 truncate">@{sim.profiles?.username || 'unknown'}</p>
+                            <p className="text-xs font-semibold truncate">{sim.profiles?.display_name || 'Anonymous'}</p>
+                            <p className="text-[10px] text-gray-500 truncate">@{sim.profiles?.username || 'unknown'}</p>
                           </div>
                         </Link>
                       </div>
@@ -2281,15 +2289,15 @@ export default function ProfilePage() {
                       <Link href={`/simulation/${sim.id}`}>
                         <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
                           {renderSimulationPreviewIframe(sim.html_code)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                       </Link>
 
-                      <div className="p-2 space-y-2">
-                        <p className="text-[10px] text-gray-300 line-clamp-2 leading-relaxed">{sim.caption}</p>
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{sim.caption}</p>
 
-                        <div className="flex items-center justify-between pt-1.5 border-t border-gray-800/50">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                          <div className="flex items-center gap-3">
                             <button
                               onClick={() => handleLikeSimulation(sim.id, sim.is_liked || false)}
                               className="flex items-center gap-1 hover:scale-110 transition-transform"
@@ -2298,32 +2306,32 @@ export default function ProfilePage() {
                                 <Image 
                                   src="/logo.png" 
                                   alt="Liked" 
-                                  width={14} 
-                                  height={14}
+                                  width={16} 
+                                  height={16}
                                 />
                               ) : (
-                                <Heart size={13} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                                <Heart size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
                               )}
-                              <span className="text-[10px] font-bold text-gray-400">{sim.likes_count || 0}</span>
+                              <span className="text-xs font-bold text-gray-400">{sim.likes_count || 0}</span>
                             </button>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleSaveSimulation(sim.id, sim.is_saved || false)}
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
                               <Bookmark 
-                                size={13} 
-                                className={sim.is_saved ? 'fill-blue-400 text-blue-400' : 'text-gray-500'} 
+                                size={15} 
+                                className={sim.is_saved ? 'fill-blue-400 text-blue-400' : 'text-gray-500 hover:text-gray-300'} 
                               />
                             </button>
 
                             <button 
                               onClick={() => handleShareSimulation(sim)} 
-                              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
                             >
-                              <Share2 size={13} className="text-gray-500 hover:text-cyan-400 transition-colors" />
+                              <Share2 size={15} className="text-gray-500 hover:text-cyan-400 transition-colors" />
                             </button>
                           </div>
                         </div>
@@ -2333,7 +2341,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* INFINITE SCROLL TRIGGER */}
-                <div ref={observerTarget} className="py-6 flex justify-center">
+                <div ref={observerTarget} className="py-8 flex justify-center">
                   {loadingMore && (
                     <div className="flex items-center gap-2 text-gray-400">
                       <motion.div
@@ -2343,11 +2351,11 @@ export default function ProfilePage() {
                       >
                         🧄
                       </motion.div>
-                      <span className="text-xs">Loading...</span>
+                      <span className="text-sm">Loading...</span>
                     </div>
                   )}
                   {!hasMore && displayItems.length > 0 && (
-                    <p className="text-gray-500 text-xs">That's all! 🎉</p>
+                    <p className="text-gray-500 text-sm">That's all! 🎉</p>
                   )}
                 </div>
               </>
@@ -2371,10 +2379,10 @@ export default function ProfilePage() {
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+              className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-6 w-full max-w-md"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-base font-bold">📢 Share to Feed</h3>
+                <h3 className="text-lg font-bold">Share to Feed</h3>
                 <button onClick={() => !sharing && setShowShareModal(false)} disabled={sharing}>
                   <span className="text-2xl text-gray-400 hover:text-white">✕</span>
                 </button>
@@ -2385,7 +2393,7 @@ export default function ProfilePage() {
                 value={shareCaption}
                 onChange={(e) => setShareCaption(e.target.value)}
                 placeholder="Add a caption..."
-                className="w-full px-4 py-3 bg-black/50 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none mb-4 text-sm"
+                className="w-full px-4 py-3 bg-black/50 rounded-lg border border-gray-700 focus:border-purple-500 focus:outline-none mb-4 text-sm"
                 disabled={sharing}
               />
 
@@ -2397,7 +2405,7 @@ export default function ProfilePage() {
                   className="w-4 h-4"
                   disabled={sharing}
                 />
-                <span className="text-xs text-gray-400">Share prompt publicly</span>
+                <span className="text-sm text-gray-400">Share prompt publicly</span>
               </label>
 
               <motion.button
@@ -2405,7 +2413,7 @@ export default function ProfilePage() {
                 disabled={!shareCaption.trim() || sharing}
                 whileHover={!sharing ? { scale: 1.02 } : {}}
                 whileTap={!sharing ? { scale: 0.98 } : {}}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                className="w-full bg-white text-black py-3 rounded-lg font-semibold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {sharing ? (
                   <>
@@ -2419,7 +2427,7 @@ export default function ProfilePage() {
                   </>
                 ) : (
                   <>
-                    <Share2 size={16} />
+                    <Share2 size={18} />
                     Publish to Feed
                   </>
                 )}

@@ -29,18 +29,20 @@ export default function SimulationCard({
   onRegenerate
 }: SimulationCardProps) {
   
-  const renderPreviewIframe = (htmlCode: string) => {
-    const htmlContent = `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.6);transform-origin:top left;width:167%;height:167%}</style></head><body>${htmlCode.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
+  const renderPreviewIframe = (htmlCode: string | null) => {
+  if (!htmlCode) return null;
+  
+  const htmlContent = `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.6);transform-origin:top left;width:167%;height:167%}</style></head><body>${htmlCode.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
 
-    return (
-      <iframe
-        srcDoc={htmlContent}
-        className="w-full h-full pointer-events-none"
-        sandbox=""
-        loading="lazy"
-      />
-    );
-  };
+  return (
+    <iframe
+      srcDoc={htmlContent}
+      className="w-full h-full pointer-events-none"
+      sandbox=""
+      loading="lazy"
+    />
+  );
+};
 
   const isPost = 'likes_count' in item;
   const isLab = 'generation_status' in item;
