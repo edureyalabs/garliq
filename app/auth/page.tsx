@@ -17,7 +17,7 @@ function AuthContent() {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.replace('/dashboard');
+        router.replace(`/profiles/${session.user.id}`);
       } else {
         setLoading(false);
       }
@@ -26,7 +26,7 @@ function AuthContent() {
     // Listen for successful sign-ins
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        router.replace('/dashboard');
+        router.replace(`/profiles/${session.user.id}`);
       }
     });
 

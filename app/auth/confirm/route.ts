@@ -11,16 +11,11 @@ export async function GET(request: NextRequest) {
     const token_hash = searchParams.get('token_hash');
     const type = searchParams.get('type') as EmailOtpType | null;
     const next = searchParams.get('next');
-    
-    // Default redirect destinations - ✅ UPDATED
-    const defaultNext = type === 'recovery' ? '/auth/reset-password' : '/dashboard';
-    const redirectTo = next?.startsWith('/') ? next : defaultNext;
 
     console.log('🔍 Auth confirm - Params:', { 
       hasTokenHash: !!token_hash, 
       type, 
       next,
-      redirectTo,
       host: request.headers.get('host')
     });
 
@@ -77,9 +72,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // ✅ FIXED - Check if user exists before accessing user.id
+    if (!data.user) {
+      console.error('❌ No user data after verification');
+      const host = request.headers.get('host');
+      const protocol = request.headers.get('x-forwarded-proto') || 'https';
+      return NextResponse.redirect(
+        `${protocol}://${host}/auth/error?error=Authentication+failed`
+      );
+    }
+
     console.log('✅ Token verified successfully');
     console.log('✅ Session created:', !!data.session);
     console.log('✅ User:', data.user?.email);
+
+    // ✅ UPDATED - Default redirect destinations
+    const defaultNext = type === 'recovery' 
+      ? '/auth/reset-password' 
+      : `/profiles/${data.user.id}`;
+    const redirectTo = next?.startsWith('/') ? next : defaultNext;
 
     // Get the host from headers
     const host = request.headers.get('host');
