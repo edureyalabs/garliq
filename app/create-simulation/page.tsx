@@ -104,7 +104,7 @@ export default function CreateSimulationPage() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-6xl animate-bounce">🧄</div>
+        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
       </div>
     );
   }
@@ -112,113 +112,124 @@ export default function CreateSimulationPage() {
   return (
     <SubscriptionGuard requireActive={true}>
       <div className="min-h-screen bg-black text-white">
-        {/* Header */}
-        <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800/50 sticky top-0 z-40">
+        {/* Subtle Grid Background */}
+        <div className="fixed inset-0 bg-black">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a1a_1px,transparent_1px),linear-gradient(to_bottom,#1a1a1a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
+        </div>
+
+        {/* Navigation */}
+        <nav className="relative z-50 border-b border-gray-900">
           <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
             <button 
               onClick={() => router.back()} 
-              className="flex items-center gap-2 hover:opacity-70 transition-opacity group"
+              className="flex items-center gap-2 hover:opacity-70 transition-opacity"
             >
-              <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+              <ArrowLeft className="w-4 h-4" />
               <Image 
                 src="/logo.png" 
                 alt="Garliq" 
-                width={24} 
-                height={24}
-                className="rounded-lg"
+                width={28} 
+                height={28}
               />
-              <span className="text-sm font-semibold">Create Simulation</span>
+              <span className="text-sm font-bold">Create Simulation</span>
             </button>
 
-            {/* Token Balance */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-lg border border-yellow-500/20">
-              <Zap size={14} className="text-yellow-400" />
-              <span className="text-sm font-bold text-yellow-400">{tokenBalance.toLocaleString()}</span>
-              <span className="text-xs text-gray-400">tokens</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/30 backdrop-blur-sm border border-gray-800 rounded-lg">
+              <Zap className="w-3.5 h-3.5 text-yellow-400" />
+              <span className="text-xs font-bold">{tokenBalance.toLocaleString()}</span>
+              <span className="text-xs text-gray-500">tokens</span>
             </div>
           </div>
-        </div>
+        </nav>
 
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content */}
+        <div className="relative px-6 py-8">
+          <div className="max-w-7xl mx-auto">
             
-            {/* Main Content Area */}
-            <div className="lg:col-span-2 space-y-6">
+            {/* Hero Section - Compact */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center mb-8"
+            >
+              <div className="inline-block mb-3">
+                <span className="px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-xs font-semibold text-purple-400">
+                  Virtual Lab Generator
+                </span>
+              </div>
               
-              {/* Hero Section */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles size={20} className="text-purple-400" />
-                  <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400">
-                    Virtual Lab Generator
-                  </h1>
-                </div>
-                <p className="text-sm text-gray-400">
-                  Create interactive simulations to explore physics, biology, chemistry, and more
-                </p>
-              </motion.div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 leading-tight">
+                Create interactive{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                  simulations
+                </span>
+              </h1>
+              
+              <p className="text-sm text-gray-400 max-w-2xl mx-auto">
+                Build hands-on learning experiences to explore physics, biology, chemistry, and more
+              </p>
+            </motion.div>
 
-              {/* Topic Category Selection */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="space-y-3"
-              >
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Select Topic Category
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {TOPIC_CATEGORIES.map((category) => {
-                    const Icon = category.icon;
-                    const isSelected = selectedCategory === category.id;
-                    
-                    return (
-                      <button
-                        key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
-                        disabled={creating}
-                        className={`relative p-4 rounded-xl transition-all border-2 ${
-                          isSelected
-                            ? 'bg-gradient-to-br ' + category.color + ' border-transparent shadow-lg'
-                            : 'bg-gray-900/50 border-gray-800/50 hover:border-gray-700'
-                        }`}
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <Icon size={24} className={isSelected ? 'text-white' : 'text-gray-400'} />
-                          <span className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                            {category.name}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-
-              {/* Prompt Input */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="relative group"
-              >
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl opacity-20 group-hover:opacity-30 blur transition-opacity"></div>
-                <div className="relative bg-gray-900/90 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">
-                    <Beaker size={14} />
-                    Simulation Description
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Left Column - Main Input */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* Topic Category Selection */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5"
+                >
+                  <label className="text-xs font-semibold text-gray-400 mb-3 block">
+                    Select Topic Category
                   </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {TOPIC_CATEGORIES.map((category) => {
+                      const Icon = category.icon;
+                      const isSelected = selectedCategory === category.id;
+                      
+                      return (
+                        <button
+                          key={category.id}
+                          onClick={() => setSelectedCategory(category.id)}
+                          disabled={creating}
+                          className={`p-3 rounded-lg transition-all border ${
+                            isSelected
+                              ? 'bg-purple-500/10 border-purple-500/30'
+                              : 'bg-black/40 border-gray-800 hover:border-gray-700'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1.5">
+                            <Icon className={`w-5 h-5 ${isSelected ? 'text-purple-400' : 'text-gray-400'}`} />
+                            <span className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                              {category.name}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+
+                {/* Simulation Description */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <Beaker className="w-4 h-4 text-purple-400" />
+                    <h3 className="text-sm font-bold">Simulation Description</h3>
+                  </div>
                   
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Describe the simulation you want to create. Be specific about what you want to visualize and which parameters should be adjustable..."
-                    className="w-full h-48 bg-black/50 text-white px-4 py-4 rounded-xl border border-gray-800/50 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none text-sm placeholder:text-gray-600 transition-all"
+                    placeholder="Describe the simulation you want to create. Be specific about what you want to visualize and which parameters should be adjustable. For example: 'Create a pendulum simulator with adjustable length, gravity, and initial angle...'"
+                    className="w-full h-48 bg-black/40 text-sm text-white px-3 py-3 rounded-lg border border-gray-800 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none placeholder:text-gray-600 transition-all"
                     disabled={creating}
                     maxLength={5000}
                     onKeyDown={(e) => {
@@ -229,146 +240,140 @@ export default function CreateSimulationPage() {
                     }}
                   />
                   
-                  <div className="flex items-center justify-between mt-3">
-                    <span className="text-xs text-gray-500">
-                      {prompt.length.toLocaleString()}/5,000
+                  <div className="flex items-center justify-between mt-2 text-xs">
+                    <span className="text-gray-500">
+                      {prompt.length.toLocaleString()} / 5,000 characters
                     </span>
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                      <kbd className="px-2 py-0.5 bg-gray-800 rounded border border-gray-700 text-xs">⌘</kbd>
-                      <kbd className="px-2 py-0.5 bg-gray-800 rounded border border-gray-700 text-xs">Enter</kbd>
-                      <span className="ml-1">to generate</span>
-                    </span>
+                    <div className="flex items-center gap-1.5 text-gray-500">
+                      <kbd className="px-1.5 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs">⌘</kbd>
+                      <kbd className="px-1.5 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs">Enter</kbd>
+                      <span>to generate</span>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
+                </motion.div>
 
-              {/* Example Prompts */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles size={12} className="text-purple-400" />
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Example Ideas</span>
-                </div>
-                <div className="grid gap-2">
-                  {EXAMPLE_PROMPTS.map((example, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setPrompt(example)}
-                      disabled={creating}
-                      className="text-left p-3 bg-gray-900/50 hover:bg-gray-800/50 border border-gray-800/50 hover:border-purple-500/30 rounded-lg text-xs text-gray-400 hover:text-gray-300 transition-all group"
-                    >
-                      <span className="group-hover:text-purple-400 transition-colors">"{example}"</span>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
+                {/* Example Prompts */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    <h3 className="text-sm font-bold">Example Ideas</h3>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {EXAMPLE_PROMPTS.map((example, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setPrompt(example)}
+                        disabled={creating}
+                        className="w-full text-left p-3 bg-black/40 hover:bg-black/60 border border-gray-800 hover:border-gray-700 rounded-lg text-xs text-gray-400 hover:text-gray-300 transition-all"
+                      >
+                        "{example}"
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+
+              </div>
+
+              {/* Right Column - Info & CTA (Sticky Container) */}
+              <div className="lg:col-span-1">
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5 space-y-5 sticky top-20"
+                >
+                  {/* Header */}
+                  <div className="flex items-center gap-2">
+                    <Beaker className="w-4 h-4 text-purple-400" />
+                    <h3 className="text-sm font-bold">What You'll Get</h3>
+                  </div>
+
+                  {/* Features List */}
+                  <div className="space-y-3 text-xs text-gray-400">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm">🎯</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-300 mb-0.5">Interactive Controls</p>
+                        <p className="text-xs">Sliders and buttons to adjust parameters in real-time</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm">📊</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-300 mb-0.5">Live Statistics</p>
+                        <p className="text-xs">Real-time metrics and data visualization</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm">🎨</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-300 mb-0.5">Beautiful Design</p>
+                        <p className="text-xs">Professional, clean interface with smooth animations</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm">🤖</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-300 mb-0.5">AI Lab Assistant</p>
+                        <p className="text-xs">Get instant help understanding the simulation</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Token Cost */}
+                  <div className="pt-3 border-t border-gray-800">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-400">Minimum Required</span>
+                      <div className="flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                        <span className="font-bold text-yellow-400">10,000</span>
+                        <span className="text-gray-500">tokens</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Generate Button - Inside Sticky Container */}
+                  <motion.button
+                    onClick={handleCreateSimulation}
+                    disabled={!prompt.trim() || creating}
+                    whileHover={!creating && prompt.trim() ? { scale: 1.02 } : {}}
+                    whileTap={!creating && prompt.trim() ? { scale: 0.98 } : {}}
+                    className="w-full py-3 bg-white text-black rounded-lg font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Creating Lab...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Generate Simulation
+                      </>
+                    )}
+                  </motion.button>
+
+                </motion.div>
+              </div>
 
             </div>
-
-            {/* Settings Sidebar */}
-            <div className="lg:col-span-1 space-y-4">
-              
-              {/* Info Box */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-gray-900/50 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-5 space-y-5 sticky top-20"
-              >
-                <div className="flex items-center gap-2 pb-3 border-b border-gray-800/50">
-                  <Beaker size={16} className="text-purple-400" />
-                  <h3 className="text-sm font-bold">What You'll Get</h3>
-                </div>
-
-                <div className="space-y-4 text-xs text-gray-400">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-purple-400">🎯</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-300 mb-1">Interactive Controls</p>
-                      <p>Sliders and buttons to adjust parameters in real-time</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-purple-400">📊</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-300 mb-1">Live Statistics</p>
-                      <p>Real-time metrics and data visualization</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-purple-400">🎨</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-300 mb-1">Beautiful Design</p>
-                      <p>Professional, clean interface with smooth animations</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-purple-400">🤖</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-300 mb-1">AI Lab Assistant</p>
-                      <p>Get instant help understanding the simulation</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Token Cost */}
-                <div className="pt-3 border-t border-gray-800/50">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Minimum Tokens</span>
-                    <div className="flex items-center gap-1">
-                      <Zap size={12} className="text-yellow-400" />
-                      <span className="font-semibold text-yellow-400">10,000</span>
-                      <span className="text-gray-500">tokens</span>
-                    </div>
-                  </div>
-                </div>
-
-              </motion.div>
-
-              {/* Generate Button */}
-              <motion.button
-                onClick={handleCreateSimulation}
-                disabled={!prompt.trim() || creating}
-                whileHover={!creating ? { scale: 1.02 } : {}}
-                whileTap={!creating ? { scale: 0.98 } : {}}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="w-full relative group"
-              >
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl opacity-70 group-hover:opacity-100 blur transition-opacity"></div>
-                <div className="relative w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-sm">
-                  {creating ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Creating Lab...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={18} />
-                      Generate Simulation
-                    </>
-                  )}
-                </div>
-              </motion.button>
-
-            </div>
-
           </div>
         </div>
 
@@ -387,73 +392,66 @@ export default function CreateSimulationPage() {
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 20 }}
                 onClick={(e) => e.stopPropagation()}
-                className="relative bg-gray-900/95 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-8 w-full max-w-md"
+                className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-6 w-full max-w-md"
               >
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-red-600 to-orange-600 rounded-2xl opacity-20 blur"></div>
-                
-                <div className="relative">
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-xl flex items-center justify-center border border-red-500/20">
-                        <Zap size={24} className="text-red-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white mb-1">Insufficient Tokens</h3>
-                        <p className="text-sm text-gray-400">You need more tokens to create a simulation</p>
+                <div className="flex items-start justify-between mb-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center border border-red-500/20">
+                      <Zap className="w-5 h-5 text-red-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold mb-1">Insufficient Tokens</h3>
+                      <p className="text-xs text-gray-400">You need more tokens to create a simulation</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowInsufficientTokens(false)}
+                    className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  <div className="bg-black/40 rounded-lg p-5 border border-gray-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">Your Balance</span>
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-red-400" />
+                        <span className="text-xl font-bold text-red-400">{tokenBalance.toLocaleString()}</span>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => setShowInsufficientTokens(false)}
-                      className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-                    >
-                      <X size={20} className="text-gray-400" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="bg-black/50 rounded-xl p-5 border border-gray-800/50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">Your Balance</span>
-                        <div className="flex items-center gap-2">
-                          <Zap size={16} className="text-red-400" />
-                          <span className="text-2xl font-bold text-red-400">{tokenBalance.toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <div className="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">Required</span>
-                        <div className="flex items-center gap-2">
-                          <Zap size={16} className="text-green-400" />
-                          <span className="text-2xl font-bold text-green-400">10,000</span>
-                        </div>
+                    <div className="h-px bg-gray-800"></div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">Required</span>
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-green-400" />
+                        <span className="text-xl font-bold text-green-400">10,000</span>
                       </div>
                     </div>
-
-                    <p className="text-sm text-center text-gray-400 px-4">
-                      Purchase more tokens to continue creating amazing simulations
-                    </p>
-
-                    <Link href={`/profiles/${user.id}`}>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full relative group"
-                      >
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl opacity-70 group-hover:opacity-100 blur transition-opacity"></div>
-                        <div className="relative w-full bg-gradient-to-r from-purple-600 to-pink-600 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 text-sm">
-                          <Zap size={16} />
-                          Buy Tokens on Profile Page
-                        </div>
-                      </motion.button>
-                    </Link>
-
-                    <button
-                      onClick={() => setShowInsufficientTokens(false)}
-                      className="w-full py-2.5 text-sm text-gray-400 hover:text-white transition-colors"
-                    >
-                      Maybe Later
-                    </button>
                   </div>
+
+                  <p className="text-xs text-center text-gray-400">
+                    Purchase more tokens to continue creating amazing simulations
+                  </p>
+
+                  <Link href={`/profiles/${user.id}`}>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full py-3 bg-white text-black rounded-lg font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Buy Tokens
+                    </motion.button>
+                  </Link>
+
+                  <button
+                    onClick={() => setShowInsufficientTokens(false)}
+                    className="w-full py-2 text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    Maybe Later
+                  </button>
                 </div>
               </motion.div>
             </motion.div>

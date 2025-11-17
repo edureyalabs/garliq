@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save, AlertCircle, CheckCircle2, Loader2, User, AtSign, FileText, Upload, X } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface ValidationState {
   username: {
@@ -218,13 +219,11 @@ export default function EditProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size
     if (file.size > 5 * 1024 * 1024) {
       setErrorMessage('File size must be less than 5MB');
       return;
     }
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setErrorMessage('Please select an image file');
       return;
@@ -232,7 +231,6 @@ export default function EditProfilePage() {
 
     setAvatarFile(file);
     
-    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setAvatarPreview(reader.result as string);
@@ -278,7 +276,6 @@ export default function EditProfilePage() {
   };
 
   const handleSave = async () => {
-    // Final validation
     const usernameVal = validateUsername(formData.username);
     const displayNameVal = validateDisplayName(formData.display_name);
     const bioVal = validateBio(formData.bio);
@@ -298,7 +295,6 @@ export default function EditProfilePage() {
     setSuccessMessage('');
 
     try {
-      // Upload avatar first if there's a new file
       let avatarUrl = formData.avatar_url;
       if (avatarFile) {
         const uploadedUrl = await uploadAvatar();
@@ -342,13 +338,7 @@ export default function EditProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          className="text-6xl"
-        >
-          🧄
-        </motion.div>
+        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
       </div>
     );
   }
@@ -362,388 +352,294 @@ export default function EditProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-70 transition-opacity">
-            <ArrowLeft size={24} />
-            <span className="text-xl font-bold">Edit Profile</span>
+      {/* Subtle Grid Background */}
+      <div className="fixed inset-0 bg-black">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a1a_1px,transparent_1px),linear-gradient(to_bottom,#1a1a1a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
+      </div>
+
+      {/* Navigation */}
+      <nav className="relative z-50 border-b border-gray-900">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+          <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-bold">Edit Profile</span>
           </Link>
           
           <motion.button
             onClick={handleSave}
             disabled={!canSave || saving}
-            whileHover={canSave && !saving ? { scale: 1.05 } : {}}
-            whileTap={canSave && !saving ? { scale: 0.95 } : {}}
-            className={`px-6 py-2.5 rounded-full font-bold flex items-center gap-2 transition-all ${
+            whileHover={canSave && !saving ? { scale: 1.02 } : {}}
+            whileTap={canSave && !saving ? { scale: 0.98 } : {}}
+            className={`px-5 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 transition-all ${
               canSave && !saving
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg'
-                : 'bg-gray-700 cursor-not-allowed opacity-50'
+                ? 'bg-white text-black hover:bg-gray-200'
+                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
             }`}
           >
             {saving || uploading ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
                 {uploading ? 'Uploading...' : 'Saving...'}
               </>
             ) : (
               <>
-                <Save size={18} />
-                Save Changes
+                <Save className="w-4 h-4" />
+                Save
               </>
             )}
           </motion.button>
         </div>
-      </div>
+      </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Success/Error Messages */}
-        {successMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-start gap-3"
-          >
-            <CheckCircle2 className="text-green-400 flex-shrink-0 mt-0.5" size={20} />
-            <p className="text-green-300 text-sm">{successMessage}</p>
-          </motion.div>
-        )}
-
-        {errorMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3"
-          >
-            <AlertCircle className="text-red-400 flex-shrink-0 mt-0.5" size={20} />
-            <p className="text-red-300 text-sm">{errorMessage}</p>
-          </motion.div>
-        )}
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left: Form (2/3 width) */}
-          <div className="lg:col-span-2">
+      <div className="relative px-6 py-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Success/Error Messages */}
+          {successMessage && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl p-6 sm:p-8 space-y-6"
+              className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2"
             >
-              {/* Avatar Upload */}
-              <div>
-                <label className="flex items-center gap-2 text-sm font-bold text-gray-400 mb-3">
-                  <Upload size={16} />
-                  Profile Picture
-                </label>
-                
-                <div className="flex items-center gap-4">
-                  <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-gray-800 bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                    {avatarPreview ? (
-                      <img 
-                        src={avatarPreview} 
-                        alt="Avatar preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-3xl font-black">
-                        {formData.display_name[0]?.toUpperCase() || '?'}
-                      </span>
-                    )}
-                  </div>
+              <CheckCircle2 className="text-green-400 w-4 h-4" />
+              <p className="text-green-300 text-xs">{successMessage}</p>
+            </motion.div>
+          )}
 
-                  <div className="flex-1 space-y-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarFileChange}
-                      className="hidden"
-                      id="avatar-upload"
-                    />
-                    <label
-                      htmlFor="avatar-upload"
-                      className="inline-block px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg cursor-pointer transition-colors text-sm font-semibold"
-                    >
-                      Choose File
-                    </label>
-                    
-                    {(avatarPreview || formData.avatar_url) && (
-                      <button
-                        onClick={handleRemoveAvatar}
-                        className="ml-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 rounded-lg text-sm font-semibold text-red-400 transition-colors"
-                      >
-                        <X size={16} className="inline mr-1" />
-                        Remove
-                      </button>
-                    )}
-                    
-                    <p className="text-xs text-gray-500">
-                      JPG, PNG, GIF or WEBP • Max 5MB
-                    </p>
+          {errorMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2"
+            >
+              <AlertCircle className="text-red-400 w-4 h-4" />
+              <p className="text-red-300 text-xs">{errorMessage}</p>
+            </motion.div>
+          )}
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Left: Form */}
+            <div className="lg:col-span-2">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5 space-y-4"
+              >
+                {/* Avatar Upload */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 mb-2">
+                    <Upload className="w-3.5 h-3.5" />
+                    Profile Picture
+                  </label>
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-gray-800 bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                      {avatarPreview ? (
+                        <img 
+                          src={avatarPreview} 
+                          alt="Avatar preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xl font-bold">
+                          {formData.display_name[0]?.toUpperCase() || '?'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarFileChange}
+                          className="hidden"
+                          id="avatar-upload"
+                        />
+                        <label
+                          htmlFor="avatar-upload"
+                          className="inline-block px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg cursor-pointer transition-colors text-xs font-semibold"
+                        >
+                          Choose File
+                        </label>
+                        
+                        {(avatarPreview || formData.avatar_url) && (
+                          <button
+                            onClick={handleRemoveAvatar}
+                            className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 rounded-lg text-xs font-semibold text-red-400 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">Max 5MB</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Username */}
-              <div>
-                <label className="flex items-center gap-2 text-sm font-bold text-gray-400 mb-3">
-                  <AtSign size={16} />
-                  Username <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
+                {/* Username */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 mb-2">
+                    <AtSign className="w-3.5 h-3.5" />
+                    Username <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => handleUsernameChange(e.target.value)}
+                      className={`w-full px-3 py-2 text-sm bg-black/40 rounded-lg border transition-colors focus:outline-none ${
+                        !validation.username.isValid
+                          ? 'border-red-500 focus:border-red-500'
+                          : validation.username.message === 'Username available ✓'
+                          ? 'border-green-500 focus:border-green-500'
+                          : 'border-gray-800 focus:border-purple-500'
+                      }`}
+                      placeholder="username_123"
+                      maxLength={20}
+                    />
+                    {validation.username.isChecking && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {validation.username.message && (
+                    <p className={`mt-1 text-xs flex items-center gap-1 ${
+                      validation.username.isValid 
+                        ? validation.username.message === 'Username available ✓' 
+                          ? 'text-green-400' 
+                          : 'text-gray-400'
+                        : 'text-red-400'
+                    }`}>
+                      {!validation.username.isValid && <AlertCircle className="w-3 h-3" />}
+                      {validation.username.isValid && validation.username.message === 'Username available ✓' && (
+                        <CheckCircle2 className="w-3 h-3" />
+                      )}
+                      {validation.username.message}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">{formData.username.length}/20</p>
+                </div>
+
+                {/* Display Name */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 mb-2">
+                    <User className="w-3.5 h-3.5" />
+                    Display Name <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="text"
-                    value={formData.username}
-                    onChange={(e) => handleUsernameChange(e.target.value)}
-                    className={`w-full px-4 py-3 bg-black/50 rounded-xl border transition-colors focus:outline-none ${
-                      !validation.username.isValid
+                    value={formData.display_name}
+                    onChange={(e) => handleDisplayNameChange(e.target.value)}
+                    className={`w-full px-3 py-2 text-sm bg-black/40 rounded-lg border transition-colors focus:outline-none ${
+                      !validation.display_name.isValid
                         ? 'border-red-500 focus:border-red-500'
-                        : validation.username.message === 'Username available ✓'
-                        ? 'border-green-500 focus:border-green-500'
-                        : 'border-gray-700 focus:border-purple-500'
+                        : 'border-gray-800 focus:border-purple-500'
                     }`}
-                    placeholder="username_123"
-                    maxLength={20}
+                    placeholder="Your Name"
+                    maxLength={50}
                   />
-                  {validation.username.isChecking && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 size={18} className="text-gray-400 animate-spin" />
-                    </div>
-                  )}
-                </div>
-                
-                {validation.username.message && (
-                  <p className={`mt-2 text-xs flex items-center gap-1 ${
-                    validation.username.isValid 
-                      ? validation.username.message === 'Username available ✓' 
-                        ? 'text-green-400' 
-                        : 'text-gray-400'
-                      : 'text-red-400'
-                  }`}>
-                    {!validation.username.isValid && <AlertCircle size={12} />}
-                    {validation.username.isValid && validation.username.message === 'Username available ✓' && (
-                      <CheckCircle2 size={12} />
-                    )}
-                    {validation.username.message}
-                  </p>
-                )}
-                
-                <p className="mt-2 text-xs text-gray-500">
-                  3-20 characters • Letters, numbers, and underscores only • {formData.username.length}/20
-                </p>
-              </div>
-
-              {/* Display Name */}
-              <div>
-                <label className="flex items-center gap-2 text-sm font-bold text-gray-400 mb-3">
-                  <User size={16} />
-                  Display Name <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.display_name}
-                  onChange={(e) => handleDisplayNameChange(e.target.value)}
-                  className={`w-full px-4 py-3 bg-black/50 rounded-xl border transition-colors focus:outline-none ${
-                    !validation.display_name.isValid
-                      ? 'border-red-500 focus:border-red-500'
-                      : 'border-gray-700 focus:border-purple-500'
-                  }`}
-                  placeholder="Your Name"
-                  maxLength={50}
-                />
-                
-                {!validation.display_name.isValid && (
-                  <p className="mt-2 text-xs text-red-400 flex items-center gap-1">
-                    <AlertCircle size={12} />
-                    {validation.display_name.message}
-                  </p>
-                )}
-                
-                <p className="mt-2 text-xs text-gray-500">
-                  Your public display name • {formData.display_name.length}/50
-                </p>
-              </div>
-
-              {/* Bio */}
-              <div>
-                <label className="flex items-center gap-2 text-sm font-bold text-gray-400 mb-3">
-                  <FileText size={16} />
-                  Bio
-                </label>
-                <textarea
-                  value={formData.bio}
-                  onChange={(e) => handleBioChange(e.target.value)}
-                  className={`w-full h-32 px-4 py-3 bg-black/50 rounded-xl border transition-colors focus:outline-none resize-none ${
-                    !validation.bio.isValid
-                      ? 'border-red-500 focus:border-red-500'
-                      : 'border-gray-700 focus:border-purple-500'
-                  }`}
-                  placeholder="Tell us about yourself..."
-                  maxLength={200}
-                />
-                
-                {!validation.bio.isValid && (
-                  <p className="mt-2 text-xs text-red-400 flex items-center gap-1">
-                    <AlertCircle size={12} />
-                    {validation.bio.message}
-                  </p>
-                )}
-                
-                <p className="mt-2 text-xs text-gray-500">
-                  Optional • {formData.bio.length}/200 characters
-                </p>
-              </div>
-
-              {/* Info Box */}
-              <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                    <AlertCircle className="text-purple-400" size={20} />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-sm text-purple-300 mb-1">Profile Tips</h4>
-                    <ul className="text-xs text-gray-400 space-y-1">
-                      <li>• Choose a unique username that represents you</li>
-                      <li>• Upload a clear profile picture (5MB max)</li>
-                      <li>• Your display name can include spaces and special characters</li>
-                      <li>• Your bio helps others understand who you are</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons (Mobile) */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 lg:hidden">
-                <motion.button
-                  onClick={handleSave}
-                  disabled={!canSave || saving}
-                  whileHover={canSave && !saving ? { scale: 1.02 } : {}}
-                  whileTap={canSave && !saving ? { scale: 0.98 } : {}}
-                  className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                    canSave && !saving
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg'
-                      : 'bg-gray-700 cursor-not-allowed opacity-50'
-                  }`}
-                >
-                  {saving || uploading ? (
-                    <>
-                      <Loader2 size={20} className="animate-spin" />
-                      {uploading ? 'Uploading...' : 'Saving...'}
-                    </>
-                  ) : (
-                    <>
-                      <Save size={20} />
-                      Save Changes
-                    </>
-                  )}
-                </motion.button>
-
-                <Link href="/dashboard" className="flex-1">
-                  <button
-                    className="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold transition-colors"
-                    disabled={saving}
-                  >
-                    Cancel
-                  </button>
-                </Link>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Right: Preview (1/3 width) - Sticky */}
-          <div className="lg:col-span-1">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-gray-800 rounded-2xl p-6 sticky top-24"
-            >
-              <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                <User size={20} className="text-purple-400" />
-                Profile Preview
-              </h3>
-              
-              <div className="space-y-6">
-                {/* Avatar */}
-                <div className="flex justify-center">
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl font-black overflow-hidden border-4 border-gray-800">
-                    {avatarPreview ? (
-                      <img 
-                        src={avatarPreview} 
-                        alt="Avatar preview" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      formData.display_name[0]?.toUpperCase() || '?'
-                    )}
-                  </div>
-                </div>
-                
-                {/* Profile Info */}
-                <div className="text-center">
-                  <h4 className="text-2xl font-bold mb-1">
-                    {formData.display_name || 'Your Name'}
-                  </h4>
-                  <p className="text-sm text-gray-500 mb-4">
-                    @{formData.username || 'username'}
-                  </p>
                   
-                  {formData.bio && (
-                    <div className="pt-4 border-t border-gray-800">
-                      <p className="text-sm text-gray-400 leading-relaxed text-left">
-                        {formData.bio}
-                      </p>
-                    </div>
+                  {!validation.display_name.isValid && (
+                    <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {validation.display_name.message}
+                    </p>
                   )}
+                  <p className="mt-1 text-xs text-gray-500">{formData.display_name.length}/50</p>
                 </div>
 
-                {/* Stats Preview */}
-                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-800">
-                  <div className="bg-gray-900/50 rounded-lg p-3 text-center">
-                    <div className="text-xl font-black text-purple-400">0</div>
-                    <div className="text-xs text-gray-500">Posts</div>
-                  </div>
-                  <div className="bg-gray-900/50 rounded-lg p-3 text-center">
-                    <div className="text-xl font-black text-pink-400">0</div>
-                    <div className="text-xs text-gray-500">Garliqs</div>
-                  </div>
-                </div>
-
-                {/* Action Buttons (Desktop) */}
-                <div className="hidden lg:flex flex-col gap-3 pt-4">
-                  <motion.button
-                    onClick={handleSave}
-                    disabled={!canSave || saving}
-                    whileHover={canSave && !saving ? { scale: 1.02 } : {}}
-                    whileTap={canSave && !saving ? { scale: 0.98 } : {}}
-                    className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                      canSave && !saving
-                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg'
-                        : 'bg-gray-700 cursor-not-allowed opacity-50'
+                {/* Bio */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 mb-2">
+                    <FileText className="w-3.5 h-3.5" />
+                    Bio
+                  </label>
+                  <textarea
+                    value={formData.bio}
+                    onChange={(e) => handleBioChange(e.target.value)}
+                    className={`w-full h-20 px-3 py-2 text-sm bg-black/40 rounded-lg border transition-colors focus:outline-none resize-none ${
+                      !validation.bio.isValid
+                        ? 'border-red-500 focus:border-red-500'
+                        : 'border-gray-800 focus:border-purple-500'
                     }`}
-                  >
-                    {saving || uploading ? (
-                      <>
-                        <Loader2 size={20} className="animate-spin" />
-                        {uploading ? 'Uploading...' : 'Saving...'}
-                      </>
-                    ) : (
-                      <>
-                        <Save size={20} />
-                        Save Changes
-                      </>
-                    )}
-                  </motion.button>
-
-                  <Link href={`/profiles/${userId}`}>
-                    <button
-                      className="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold transition-colors"
-                      disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                  </Link>
+                    placeholder="Tell us about yourself..."
+                    maxLength={200}
+                  />
+                  
+                  {!validation.bio.isValid && (
+                    <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {validation.bio.message}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">{formData.bio.length}/200</p>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </div>
+
+            {/* Right: Preview - Sticky */}
+            <div className="lg:col-span-1">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5 sticky top-20"
+              >
+                <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+                  <User className="w-4 h-4 text-purple-400" />
+                  Preview
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Avatar */}
+                  <div className="flex justify-center">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl font-bold overflow-hidden border-2 border-gray-800">
+                      {avatarPreview ? (
+                        <img 
+                          src={avatarPreview} 
+                          alt="Avatar preview" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        formData.display_name[0]?.toUpperCase() || '?'
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Profile Info */}
+                  <div className="text-center">
+                    <h4 className="text-lg font-bold mb-0.5">
+                      {formData.display_name || 'Your Name'}
+                    </h4>
+                    <p className="text-xs text-gray-500 mb-3">
+                      @{formData.username || 'username'}
+                    </p>
+                    
+                    {formData.bio && (
+                      <div className="pt-3 border-t border-gray-800">
+                        <p className="text-xs text-gray-400 leading-relaxed text-left">
+                          {formData.bio}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Stats Preview */}
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-800">
+                    <div className="bg-black/40 rounded-lg p-2 text-center">
+                      <div className="text-lg font-bold text-purple-400">0</div>
+                      <div className="text-xs text-gray-500">Posts</div>
+                    </div>
+                    <div className="bg-black/40 rounded-lg p-2 text-center">
+                      <div className="text-lg font-bold text-pink-400">0</div>
+                      <div className="text-xs text-gray-500">Garliqs</div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           </div>
         </div>
       </div>
