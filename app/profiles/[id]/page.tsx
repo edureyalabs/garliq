@@ -14,16 +14,15 @@ import {
   Eye, 
   Zap, 
   Sparkles, 
-  MessageCircle, 
   Plus, 
   Crown, 
   Clock, 
-  Folder, 
   Beaker, 
   RotateCcw, 
   Loader2,
   TrendingUp,
-  LogOut
+  LogOut,
+  FlaskConical
 } from 'lucide-react';
 import Link from 'next/link';
 import TokenPurchaseModal from '@/components/TokenPurchaseModal';
@@ -219,6 +218,7 @@ export default function ProfilePage() {
       }
     };
   }, [hasMore, loadingMore, loading, page]);
+
   // Pagination Reset
   const resetPagination = () => {
     setPosts([]);
@@ -383,7 +383,6 @@ export default function ProfilePage() {
 
     if (data) setProfile(data);
   };
-
   // Feed Posts Fetch (Trending)
   const fetchFeedPosts = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
@@ -689,6 +688,7 @@ export default function ProfilePage() {
     setLoading(false);
     setLoadingMore(false);
   };
+
   // User Simulations Fetch
   const fetchUserSimulations = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
@@ -886,7 +886,6 @@ export default function ProfilePage() {
       }
     }
   };
-
   // Like Handler - Course Posts
   const handleLikeCourse = async (postId: string, isLiked: boolean) => {
     if (!currentUser) return;
@@ -1253,8 +1252,8 @@ export default function ProfilePage() {
   // Preview Iframe Renderer - Courses
   const renderCoursePreviewIframe = (item: Post | Project) => {
     const htmlContent = item.session_id && item.first_page_content
-      ? `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:sans-serif;padding:20px;overflow:hidden}</style></head><body>${item.first_page_content}</body></html>`
-      : `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.8);transform-origin:top left;width:125%;height:125%}</style></head><body>${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
+      ? `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;overflow:hidden;}</style></head><body>${item.first_page_content}</body></html>`
+      : `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;overflow:hidden;pointer-events:none;}</style></head><body>${item.html_code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
 
     return (
       <iframe
@@ -1268,7 +1267,7 @@ export default function ProfilePage() {
 
   // Preview Iframe Renderer - Simulations
   const renderSimulationPreviewIframe = (htmlCode: string) => {
-    const htmlContent = `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden;pointer-events:none;transform:scale(0.6);transform-origin:top left;width:167%;height:167%}</style></head><body>${htmlCode.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
+    const htmlContent = `<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;overflow:hidden;pointer-events:none;}</style></head><body>${htmlCode.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')}</body></html>`;
 
     return (
       <iframe
@@ -1295,7 +1294,22 @@ export default function ProfilePage() {
     }
   };
 
+  // Time Ago Helper
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`;
+    return `${Math.floor(diffInSeconds / 2592000)}mo ago`;
+  };
+
   const displayItems = getCurrentDisplayItems();
+
   // Loading State
   if (loading && page === 0) {
     return (
@@ -1326,7 +1340,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
       {/* HEADER */}
@@ -1611,7 +1624,7 @@ export default function ProfilePage() {
 
         {/* MAIN CONTENT AREA */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="max-w-[1920px] mx-auto px-6 py-6">
             {/* SUBSCRIPTION VIEW */}
             {activeSection === 'subscription' && subscriptionStatus && (
               <motion.div
@@ -1735,65 +1748,89 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* CONTENT GRID */}
+            {/* ========== REDESIGNED CONTENT GRID ========== */}
             {activeSection !== 'subscription' && displayItems.length > 0 && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {/* FEED POSTS */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+                  {/* ========== FEED POSTS CARDS ========== */}
                   {activeSection === 'feed' && feedPosts.map((post, index) => (
                     <motion.div
                       key={`${post.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
+                      className="group relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10"
                     >
-                      {/* User Info Header */}
-                      <div className="p-2.5 border-b border-gray-800 bg-black/40">
-                        <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-xs font-bold overflow-hidden">
-                            {post.profiles?.avatar_url ? (
-                              <img 
-                                src={post.profiles.avatar_url} 
-                                alt={post.profiles.display_name || 'User'}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[10px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
-                          </div>
-                        </Link>
-                      </div>
-
+                      {/* Preview with 16:9 Aspect Ratio */}
                       <Link href={`/post/${post.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer">
+                          <div className="absolute inset-0">
+                            {renderCoursePreviewIframe(post)}
+                          </div>
+                          
+                          {/* Gradient Overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                          
+                          {/* View Icon Overlay on Hover */}
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                              <Eye size={18} className="text-black" />
+                            </div>
+                          </div>
+
+                          {/* Author Info Overlay - Top Left */}
+                          <div className="absolute top-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(`/profiles/${post.user_id}`);
+                              }}
+                              className="flex items-center gap-2 bg-black/70 backdrop-blur-md rounded-full px-2.5 py-1.5 hover:bg-black/80 transition-colors cursor-pointer"
+                            >
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                                {post.profiles?.avatar_url ? (
+                                  <img 
+                                    src={post.profiles.avatar_url} 
+                                    alt={post.profiles.display_name || 'User'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                                )}
+                              </div>
+                              <span className="text-xs font-semibold text-white pr-1">{post.profiles?.display_name || 'Anonymous'}</span>
+                            </div>
+                          </div>
                         </div>
                       </Link>
 
-                      <div className="p-3 space-y-2">
-                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+                      {/* Card Content */}
+                      <div className="p-3.5">
+                        {/* Title */}
+                        <Link href={`/post/${post.id}`}>
+                          <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 mb-2 hover:text-purple-400 transition-colors cursor-pointer">
+                            {post.caption}
+                          </h3>
+                        </Link>
 
+                        {/* Prompt Section - Compact */}
                         {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
-                            <div className="flex items-center gap-1 mb-1">
-                              <Code2 size={10} className="text-purple-400" />
-                              <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
+                          <div className="mb-2.5 bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                            <p className="text-[10px] text-gray-400 line-clamp-1 font-mono">{post.prompt}</p>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                        {/* Stats and Actions Bar */}
+                        <div className="flex items-center justify-between pt-2.5 border-t border-gray-800/50">
                           <div className="flex items-center gap-3">
+                            {/* Like */}
                             <button
-                              onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLikeCourse(post.id, post.is_liked || false);
+                              }}
+                              className="flex items-center gap-1.5 hover:scale-105 transition-transform group/like"
                             >
                               {post.is_liked ? (
                                 <Image 
@@ -1803,35 +1840,41 @@ export default function ProfilePage() {
                                   height={16}
                                 />
                               ) : (
-                                <Heart size={15} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                                <Heart size={16} className="text-gray-500 group-hover/like:text-purple-400 transition-colors" />
                               )}
-                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
+                              <span className="text-[11px] font-semibold text-gray-400 group-hover/like:text-gray-300">{post.likes_count || 0}</span>
                             </button>
 
-                            <Link href={`/post/${post.id}#comments`}>
-                              <div className="flex items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors">
-                                <MessageCircle size={15} />
-                                <span className="text-xs font-bold">{post.comments_count || 0}</span>
-                              </div>
-                            </Link>
+                            {/* Time Ago */}
+                            <div className="flex items-center gap-1.5 text-gray-500">
+                              <Clock size={12} />
+                              <span className="text-[11px] font-medium">{getTimeAgo(post.created_at)}</span>
+                            </div>
                           </div>
 
+                          {/* Action Buttons */}
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveCourse(post.id, post.is_saved || false);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/save"
                             >
                               <Bookmark 
-                                size={15} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 hover:text-gray-300'} 
+                                size={14} 
+                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 group-hover/save:text-purple-400 transition-colors'} 
                               />
                             </button>
 
                             <button 
-                              onClick={() => handleSharePost(post)} 
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSharePost(post);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/share"
                             >
-                              <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                              <Share2 size={14} className="text-gray-500 group-hover/share:text-blue-400 transition-colors" />
                             </button>
                           </div>
                         </div>
@@ -1839,40 +1882,54 @@ export default function ProfilePage() {
                     </motion.div>
                   ))}
 
-                  {/* COURSE POSTS */}
+                  {/* ========== COURSE POSTS CARDS ========== */}
                   {activeSection === 'course-posts' && posts.map((post, index) => (
                     <motion.div
                       key={`${post.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
+                      className="group relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10"
                     >
+                      {/* Preview */}
                       <Link href={`/post/${post.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer">
+                          <div className="absolute inset-0">
+                            {renderCoursePreviewIframe(post)}
+                          </div>
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                          
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                              <Eye size={18} className="text-black" />
+                            </div>
+                          </div>
                         </div>
                       </Link>
 
-                      <div className="p-3 space-y-2">
-                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+                      {/* Card Content */}
+                      <div className="p-3.5">
+                        <Link href={`/post/${post.id}`}>
+                          <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 mb-2 hover:text-purple-400 transition-colors cursor-pointer">
+                            {post.caption}
+                          </h3>
+                        </Link>
 
                         {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
-                            <div className="flex items-center gap-1 mb-1">
-                              <Code2 size={10} className="text-purple-400" />
-                              <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
+                          <div className="mb-2.5 bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                            <p className="text-[10px] text-gray-400 line-clamp-1 font-mono">{post.prompt}</p>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                        <div className="flex items-center justify-between pt-2.5 border-t border-gray-800/50">
                           <div className="flex items-center gap-3">
                             <button
-                              onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLikeCourse(post.id, post.is_liked || false);
+                              }}
+                              className="flex items-center gap-1.5 hover:scale-105 transition-transform group/like"
                             >
                               {post.is_liked ? (
                                 <Image 
@@ -1882,36 +1939,50 @@ export default function ProfilePage() {
                                   height={16}
                                 />
                               ) : (
-                                <Heart size={15} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                                <Heart size={16} className="text-gray-500 group-hover/like:text-purple-400 transition-colors" />
                               )}
-                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
+                              <span className="text-[11px] font-semibold text-gray-400 group-hover/like:text-gray-300">{post.likes_count || 0}</span>
                             </button>
+
+                            <div className="flex items-center gap-1.5 text-gray-500">
+                              <Clock size={12} />
+                              <span className="text-[11px] font-medium">{getTimeAgo(post.created_at)}</span>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveCourse(post.id, post.is_saved || false);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/save"
                             >
                               <Bookmark 
-                                size={15} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 hover:text-gray-300'} 
+                                size={14} 
+                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 group-hover/save:text-purple-400 transition-colors'} 
                               />
                             </button>
 
                             <button 
-                              onClick={() => handleSharePost(post)} 
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSharePost(post);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/share"
                             >
-                              <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                              <Share2 size={14} className="text-gray-500 group-hover/share:text-blue-400 transition-colors" />
                             </button>
 
                             {isOwnProfile && (
                               <button
-                                onClick={() => handleDeletePost(post.id)}
-                                className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePost(post.id);
+                                }}
+                                className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/delete"
                               >
-                                <Trash2 size={15} className="text-gray-500 hover:text-red-400 transition-colors" />
+                                <Trash2 size={14} className="text-gray-500 group-hover/delete:text-red-400 transition-colors" />
                               </button>
                             )}
                           </div>
@@ -1920,48 +1991,64 @@ export default function ProfilePage() {
                     </motion.div>
                   ))}
 
-                  {/* COURSE PROJECTS */}
+                  {/* ========== COURSE PROJECTS CARDS ========== */}
                   {activeSection === 'course-projects' && projects.map((project, index) => (
                     <motion.div
                       key={`${project.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
+                      className="group relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10"
                     >
+                      {/* Status Badge */}
                       {isOwnProfile && (
-                        <div className="absolute top-2 right-2 z-10">
-                          <span className={`text-[10px] px-2 py-1 rounded-full font-bold shadow-lg ${
+                        <div className="absolute top-2.5 right-2.5 z-10">
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold shadow-lg backdrop-blur-sm ${
                             project.is_draft 
-                              ? 'bg-yellow-500 text-black' 
-                              : 'bg-green-500 text-black'
+                              ? 'bg-yellow-500/90 text-black' 
+                              : 'bg-green-500/90 text-black'
                           }`}>
                             {project.is_draft ? 'Draft' : 'Live'}
                           </span>
                         </div>
                       )}
 
+                      {/* Preview */}
                       <Link href={`/projects/${project.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderCoursePreviewIframe(project)}
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer">
+                          <div className="absolute inset-0">
+                            {renderCoursePreviewIframe(project)}
+                          </div>
                           
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
-                            <Eye className="text-white drop-shadow-lg" size={28} />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                          
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                              <Eye size={18} className="text-black" />
+                            </div>
                           </div>
                         </div>
                       </Link>
 
-                      <div className="p-3">
-                        <p className="text-sm font-bold mb-1 line-clamp-1">{project.title || 'Untitled Project'}</p>
-                        <p className="text-xs text-gray-500 mb-3">
-                          {new Date(project.updated_at).toLocaleDateString()}
-                        </p>
+                      {/* Card Content */}
+                      <div className="p-3.5">
+                        <Link href={`/projects/${project.id}`}>
+                          <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 mb-2 hover:text-purple-400 transition-colors cursor-pointer">
+                            {project.title || 'Untitled Project'}
+                          </h3>
+                        </Link>
 
+                        <div className="flex items-center gap-1.5 text-gray-500 mb-2.5">
+                          <Clock size={12} />
+                          <span className="text-[11px] font-medium">{getTimeAgo(project.updated_at)}</span>
+                        </div>
+
+                        {/* Action Buttons */}
                         {isOwnProfile && (
-                          <div className="flex gap-2 pt-2 border-t border-gray-800">
+                          <div className="flex items-center gap-2 pt-2.5 border-t border-gray-800/50">
                             {project.session_id && (
                               <Link href={`/studio/${project.session_id}`} className="flex-1">
-                                <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-white text-black rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors">
+                                <button className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white text-black rounded-lg text-[11px] font-semibold hover:bg-gray-200 transition-colors">
                                   <Edit size={13} />
                                   Edit
                                 </button>
@@ -1974,10 +2061,10 @@ export default function ProfilePage() {
                                   e.stopPropagation();
                                   handleShareClick(project);
                                 }}
-                                className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                                className="p-1.5 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                                 title="Share"
                               >
-                                <Share2 size={13} />
+                                <Share2 size={14} />
                               </button>
                             )}
                             
@@ -1986,10 +2073,10 @@ export default function ProfilePage() {
                                 e.stopPropagation();
                                 handleDeleteProject(project);
                               }}
-                              className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                              className="p-1.5 bg-red-600/80 hover:bg-red-600 rounded-lg transition-colors"
                               title="Delete"
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         )}
@@ -1997,30 +2084,48 @@ export default function ProfilePage() {
                     </motion.div>
                   ))}
 
-                  {/* SHARED SIMULATIONS */}
+                  {/* ========== SHARED SIMULATIONS CARDS ========== */}
                   {activeSection === 'sim-shared' && sharedSimulations.map((sim, index) => (
                     <motion.div
                       key={`${sim.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
+                      className="group relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-xl overflow-hidden hover:border-cyan-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10"
                     >
+                      {/* Preview */}
                       <Link href={`/simulation/${sim.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderSimulationPreviewIframe(sim.html_code)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer">
+                          <div className="absolute inset-0">
+                            {renderSimulationPreviewIframe(sim.html_code)}
+                          </div>
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                          
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-12 h-12 rounded-full bg-cyan-400/90 backdrop-blur-sm flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                              <FlaskConical size={18} className="text-black" />
+                            </div>
+                          </div>
                         </div>
                       </Link>
 
-                      <div className="p-3 space-y-2">
-                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{sim.caption}</p>
+                      {/* Card Content */}
+                      <div className="p-3.5">
+                        <Link href={`/simulation/${sim.id}`}>
+                          <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 mb-2 hover:text-cyan-400 transition-colors cursor-pointer">
+                            {sim.caption}
+                          </h3>
+                        </Link>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                        <div className="flex items-center justify-between pt-2.5 border-t border-gray-800/50">
                           <div className="flex items-center gap-3">
                             <button
-                              onClick={() => handleLikeSimulation(sim.id, sim.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLikeSimulation(sim.id, sim.is_liked || false);
+                              }}
+                              className="flex items-center gap-1.5 hover:scale-105 transition-transform group/like"
                             >
                               {sim.is_liked ? (
                                 <Image 
@@ -2030,36 +2135,50 @@ export default function ProfilePage() {
                                   height={16}
                                 />
                               ) : (
-                                <Heart size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                                <Heart size={16} className="text-gray-500 group-hover/like:text-cyan-400 transition-colors" />
                               )}
-                              <span className="text-xs font-bold text-gray-400">{sim.likes_count || 0}</span>
+                              <span className="text-[11px] font-semibold text-gray-400 group-hover/like:text-gray-300">{sim.likes_count || 0}</span>
                             </button>
+
+                            <div className="flex items-center gap-1.5 text-gray-500">
+                              <Clock size={12} />
+                              <span className="text-[11px] font-medium">{getTimeAgo(sim.created_at)}</span>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleSaveSimulation(sim.id, sim.is_saved || false)}
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveSimulation(sim.id, sim.is_saved || false);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/save"
                             >
                               <Bookmark 
-                                size={15} 
-                                className={sim.is_saved ? 'fill-blue-400 text-blue-400' : 'text-gray-500 hover:text-gray-300'} 
+                                size={14} 
+                                className={sim.is_saved ? 'fill-cyan-400 text-cyan-400' : 'text-gray-500 group-hover/save:text-cyan-400 transition-colors'} 
                               />
                             </button>
 
                             <button 
-                              onClick={() => handleShareSimulation(sim)} 
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareSimulation(sim);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/share"
                             >
-                              <Share2 size={15} className="text-gray-500 hover:text-cyan-400 transition-colors" />
+                              <Share2 size={14} className="text-gray-500 group-hover/share:text-cyan-400 transition-colors" />
                             </button>
 
                             {isOwnProfile && (
                               <button
-                                onClick={() => handleDeleteSimulationPost(sim.id)}
-                                className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSimulationPost(sim.id);
+                                }}
+                                className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/delete"
                               >
-                                <Trash2 size={15} className="text-gray-500 hover:text-red-400 transition-colors" />
+                                <Trash2 size={14} className="text-gray-500 group-hover/delete:text-red-400 transition-colors" />
                               </button>
                             )}
                           </div>
@@ -2068,26 +2187,34 @@ export default function ProfilePage() {
                     </motion.div>
                   ))}
 
-                  {/* MY LABS */}
+                  {/* ========== MY LABS CARDS ========== */}
                   {activeSection === 'sim-labs' && simulations.map((sim, index) => (
                     <motion.div
                       key={`${sim.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
+                      className="group relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-xl overflow-hidden hover:border-cyan-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10"
                     >
+                      {/* Preview or Status */}
                       {sim.generation_status === 'completed' && sim.html_code ? (
                         <Link href={`/simulation-studio/${sim.id}`}>
-                          <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                            {renderSimulationPreviewIframe(sim.html_code)}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
-                              <Eye className="text-white drop-shadow-lg" size={28} />
+                          <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer">
+                            <div className="absolute inset-0">
+                              {renderSimulationPreviewIframe(sim.html_code)}
+                            </div>
+                            
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                            
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="w-12 h-12 rounded-full bg-cyan-400/90 backdrop-blur-sm flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                                <Eye size={18} className="text-black" />
+                              </div>
                             </div>
                           </div>
                         </Link>
                       ) : (
-                        <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
                           {sim.generation_status === 'generating' && (
                             <div className="text-center">
                               <motion.div
@@ -2097,35 +2224,41 @@ export default function ProfilePage() {
                               >
                                 🧄
                               </motion.div>
-                              <p className="text-xs text-blue-400">Generating...</p>
+                              <p className="text-[11px] text-cyan-400 font-semibold">Generating...</p>
                             </div>
                           )}
                           {sim.generation_status === 'failed' && (
                             <div className="text-center px-4">
                               <div className="text-3xl mb-2">💥</div>
-                              <p className="text-xs text-red-400 line-clamp-2">{sim.generation_error || 'Generation failed'}</p>
+                              <p className="text-[11px] text-red-400 line-clamp-2 font-medium">{sim.generation_error || 'Generation failed'}</p>
                             </div>
                           )}
                           {sim.generation_status === 'pending' && (
                             <div className="text-center px-4">
                               <div className="text-3xl mb-2">⏳</div>
-                              <p className="text-xs text-yellow-400">Pending...</p>
+                              <p className="text-[11px] text-yellow-400 font-semibold">Pending...</p>
                             </div>
                           )}
                         </div>
                       )}
 
-                      <div className="p-3">
-                        <p className="text-sm font-bold mb-1 line-clamp-1">{sim.title || 'Untitled Lab'}</p>
-                        <p className="text-xs text-gray-500 mb-3">
-                          {new Date(sim.updated_at).toLocaleDateString()}
-                        </p>
+                      {/* Card Content */}
+                      <div className="p-3.5">
+                        <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 mb-2">
+                          {sim.title || 'Untitled Lab'}
+                        </h3>
 
+                        <div className="flex items-center gap-1.5 text-gray-500 mb-2.5">
+                          <Clock size={12} />
+                          <span className="text-[11px] font-medium">{getTimeAgo(sim.updated_at)}</span>
+                        </div>
+
+                        {/* Action Buttons */}
                         {isOwnProfile && (
-                          <div className="flex gap-2 pt-2 border-t border-gray-800">
+                          <div className="flex items-center gap-2 pt-2.5 border-t border-gray-800/50">
                             {sim.generation_status === 'completed' && sim.html_code && (
                               <Link href={`/simulation-studio/${sim.id}`} className="flex-1">
-                                <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-white text-black rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors">
+                                <button className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white text-black rounded-lg text-[11px] font-semibold hover:bg-gray-200 transition-colors">
                                   <Eye size={13} />
                                   View
                                 </button>
@@ -2135,7 +2268,7 @@ export default function ProfilePage() {
                             {sim.generation_status === 'failed' && (
                               <button
                                 onClick={() => handleRegenerateSimulation(sim.id)}
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-xs font-semibold transition-colors"
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 rounded-lg text-[11px] font-semibold transition-colors"
                               >
                                 <RotateCcw size={13} />
                                 Retry
@@ -2145,7 +2278,7 @@ export default function ProfilePage() {
                             {sim.generation_status === 'generating' && (
                               <button
                                 disabled
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-700 rounded-lg text-xs font-semibold cursor-not-allowed opacity-50"
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-700 rounded-lg text-[11px] font-semibold cursor-not-allowed opacity-50"
                               >
                                 <Loader2 size={13} className="animate-spin" />
                                 Generating...
@@ -2154,10 +2287,10 @@ export default function ProfilePage() {
                             
                             <button
                               onClick={() => handleDeleteSimulation(sim.id)}
-                              className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                              className="p-1.5 bg-red-600/80 hover:bg-red-600 rounded-lg transition-colors"
                               title="Delete"
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         )}
@@ -2165,60 +2298,79 @@ export default function ProfilePage() {
                     </motion.div>
                   ))}
 
-                  {/* SAVED COURSES */}
+                  {/* ========== SAVED COURSES CARDS ========== */}
                   {activeSection === 'saved-courses' && savedPosts.map((post, index) => (
                     <motion.div
                       key={`${post.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
+                      className="group relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-xl overflow-hidden hover:border-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10"
                     >
-                      <div className="p-2.5 border-b border-gray-800 bg-black/40">
-                        <Link href={`/profiles/${post.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-xs font-bold overflow-hidden">
-                            {post.profiles?.avatar_url ? (
-                              <img 
-                                src={post.profiles.avatar_url} 
-                                alt={post.profiles.display_name || 'User'}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold truncate">{post.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[10px] text-gray-500 truncate">@{post.profiles?.username || 'unknown'}</p>
-                          </div>
-                        </Link>
-                      </div>
-
+                      {/* Preview */}
                       <Link href={`/post/${post.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderCoursePreviewIframe(post)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer">
+                          <div className="absolute inset-0">
+                            {renderCoursePreviewIframe(post)}
+                          </div>
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                          
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                              <Eye size={18} className="text-black" />
+                            </div>
+                          </div>
+
+                          {/* Author Info Overlay */}
+                          <div className="absolute top-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(`/profiles/${post.user_id}`);
+                              }}
+                              className="flex items-center gap-2 bg-black/70 backdrop-blur-md rounded-full px-2.5 py-1.5 hover:bg-black/80 transition-colors cursor-pointer"
+                            >
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                                {post.profiles?.avatar_url ? (
+                                  <img 
+                                    src={post.profiles.avatar_url} 
+                                    alt={post.profiles.display_name || 'User'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{post.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                                )}
+                              </div>
+                              <span className="text-xs font-semibold text-white pr-1">{post.profiles?.display_name || 'Anonymous'}</span>
+                            </div>
+                          </div>
                         </div>
                       </Link>
 
-                      <div className="p-3 space-y-2">
-                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{post.caption}</p>
+                      {/* Card Content */}
+                      <div className="p-3.5">
+                        <Link href={`/post/${post.id}`}>
+                          <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 mb-2 hover:text-purple-400 transition-colors cursor-pointer">
+                            {post.caption}
+                          </h3>
+                        </Link>
 
                         {post.prompt_visible && post.prompt && (
-                          <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
-                            <div className="flex items-center gap-1 mb-1">
-                              <Code2 size={10} className="text-purple-400" />
-                              <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Prompt</span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 line-clamp-2 font-mono leading-relaxed">{post.prompt}</p>
+                          <div className="mb-2.5 bg-purple-500/5 border border-purple-500/10 rounded-lg p-2">
+                            <p className="text-[10px] text-gray-400 line-clamp-1 font-mono">{post.prompt}</p>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                        <div className="flex items-center justify-between pt-2.5 border-t border-gray-800/50">
                           <div className="flex items-center gap-3">
                             <button
-                              onClick={() => handleLikeCourse(post.id, post.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLikeCourse(post.id, post.is_liked || false);
+                              }}
+                              className="flex items-center gap-1.5 hover:scale-105 transition-transform group/like"
                             >
                               {post.is_liked ? (
                                 <Image 
@@ -2228,28 +2380,39 @@ export default function ProfilePage() {
                                   height={16}
                                 />
                               ) : (
-                                <Heart size={15} className="text-gray-500 hover:text-purple-400 transition-colors" />
+                                <Heart size={16} className="text-gray-500 group-hover/like:text-purple-400 transition-colors" />
                               )}
-                              <span className="text-xs font-bold text-gray-400">{post.likes_count || 0}</span>
+                              <span className="text-[11px] font-semibold text-gray-400 group-hover/like:text-gray-300">{post.likes_count || 0}</span>
                             </button>
+
+                            <div className="flex items-center gap-1.5 text-gray-500">
+                              <Clock size={12} />
+                              <span className="text-[11px] font-medium">{getTimeAgo(post.created_at)}</span>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleSaveCourse(post.id, post.is_saved || false)}
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveCourse(post.id, post.is_saved || false);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/save"
                             >
                               <Bookmark 
-                                size={15} 
-                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 hover:text-gray-300'} 
+                                size={14} 
+                                className={post.is_saved ? 'fill-purple-400 text-purple-400' : 'text-gray-500 group-hover/save:text-purple-400 transition-colors'} 
                               />
                             </button>
 
                             <button 
-                              onClick={() => handleSharePost(post)} 
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSharePost(post);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/share"
                             >
-                              <Share2 size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                              <Share2 size={14} className="text-gray-500 group-hover/share:text-blue-400 transition-colors" />
                             </button>
                           </div>
                         </div>
@@ -2257,50 +2420,73 @@ export default function ProfilePage() {
                     </motion.div>
                   ))}
 
-                  {/* SAVED LABS */}
+                  {/* ========== SAVED LABS CARDS ========== */}
                   {activeSection === 'saved-labs' && savedSimulations.map((sim, index) => (
                     <motion.div
                       key={`${sim.id}-${index}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
-                      className="group relative bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all"
+                      className="group relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-xl overflow-hidden hover:border-cyan-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10"
                     >
-                      <div className="p-2.5 border-b border-gray-800 bg-black/40">
-                        <Link href={`/profiles/${sim.user_id}`} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center text-xs font-bold overflow-hidden">
-                            {sim.profiles?.avatar_url ? (
-                              <img 
-                                src={sim.profiles.avatar_url} 
-                                alt={sim.profiles.display_name || 'User'}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span>{sim.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold truncate">{sim.profiles?.display_name || 'Anonymous'}</p>
-                            <p className="text-[10px] text-gray-500 truncate">@{sim.profiles?.username || 'unknown'}</p>
-                          </div>
-                        </Link>
-                      </div>
-
+                      {/* Preview */}
                       <Link href={`/simulation/${sim.id}`}>
-                        <div className="relative aspect-[4/3] bg-white overflow-hidden cursor-pointer">
-                          {renderSimulationPreviewIframe(sim.html_code)}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer">
+                          <div className="absolute inset-0">
+                            {renderSimulationPreviewIframe(sim.html_code)}
+                          </div>
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                          
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-12 h-12 rounded-full bg-cyan-400/90 backdrop-blur-sm flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                              <FlaskConical size={18} className="text-black" />
+                            </div>
+                          </div>
+
+                          {/* Author Info Overlay */}
+                          <div className="absolute top-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(`/profiles/${sim.user_id}`);
+                              }}
+                              className="flex items-center gap-2 bg-black/70 backdrop-blur-md rounded-full px-2.5 py-1.5 hover:bg-black/80 transition-colors cursor-pointer"
+                            >
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                                {sim.profiles?.avatar_url ? (
+                                  <img 
+                                    src={sim.profiles.avatar_url} 
+                                    alt={sim.profiles.display_name || 'User'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{sim.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                                )}
+                              </div>
+                              <span className="text-xs font-semibold text-white pr-1">{sim.profiles?.display_name || 'Anonymous'}</span>
+                            </div>
+                          </div>
                         </div>
                       </Link>
 
-                      <div className="p-3 space-y-2">
-                        <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{sim.caption}</p>
+                      {/* Card Content */}
+                      <div className="p-3.5">
+                        <Link href={`/simulation/${sim.id}`}>
+                          <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 mb-2 hover:text-cyan-400 transition-colors cursor-pointer">
+                            {sim.caption}
+                          </h3>
+                        </Link>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                        <div className="flex items-center justify-between pt-2.5 border-t border-gray-800/50">
                           <div className="flex items-center gap-3">
                             <button
-                              onClick={() => handleLikeSimulation(sim.id, sim.is_liked || false)}
-                              className="flex items-center gap-1 hover:scale-110 transition-transform"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLikeSimulation(sim.id, sim.is_liked || false);
+                              }}
+                              className="flex items-center gap-1.5 hover:scale-105 transition-transform group/like"
                             >
                               {sim.is_liked ? (
                                 <Image 
@@ -2310,28 +2496,39 @@ export default function ProfilePage() {
                                   height={16}
                                 />
                               ) : (
-                                <Heart size={15} className="text-gray-500 hover:text-blue-400 transition-colors" />
+                                <Heart size={16} className="text-gray-500 group-hover/like:text-cyan-400 transition-colors" />
                               )}
-                              <span className="text-xs font-bold text-gray-400">{sim.likes_count || 0}</span>
+                              <span className="text-[11px] font-semibold text-gray-400 group-hover/like:text-gray-300">{sim.likes_count || 0}</span>
                             </button>
+
+                            <div className="flex items-center gap-1.5 text-gray-500">
+                              <Clock size={12} />
+                              <span className="text-[11px] font-medium">{getTimeAgo(sim.created_at)}</span>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleSaveSimulation(sim.id, sim.is_saved || false)}
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveSimulation(sim.id, sim.is_saved || false);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/save"
                             >
                               <Bookmark 
-                                size={15} 
-                                className={sim.is_saved ? 'fill-blue-400 text-blue-400' : 'text-gray-500 hover:text-gray-300'} 
+                                size={14} 
+                                className={sim.is_saved ? 'fill-cyan-400 text-cyan-400' : 'text-gray-500 group-hover/save:text-cyan-400 transition-colors'} 
                               />
                             </button>
 
                             <button 
-                              onClick={() => handleShareSimulation(sim)} 
-                              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareSimulation(sim);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/share"
                             >
-                              <Share2 size={15} className="text-gray-500 hover:text-cyan-400 transition-colors" />
+                              <Share2 size={14} className="text-gray-500 group-hover/share:text-cyan-400 transition-colors" />
                             </button>
                           </div>
                         </div>
@@ -2351,11 +2548,11 @@ export default function ProfilePage() {
                       >
                         🧄
                       </motion.div>
-                      <span className="text-sm">Loading...</span>
+                      <span className="text-sm">Loading more...</span>
                     </div>
                   )}
                   {!hasMore && displayItems.length > 0 && (
-                    <p className="text-gray-500 text-sm">That's all! 🎉</p>
+                    <p className="text-gray-500 text-sm">You've reached the end 🎉</p>
                   )}
                 </div>
               </>
