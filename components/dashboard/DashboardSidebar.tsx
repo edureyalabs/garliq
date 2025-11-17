@@ -29,21 +29,21 @@ export default function DashboardSidebar({
   };
 
   return (
-    <aside className="w-56 bg-gray-900/50 border-r border-gray-800 overflow-y-auto flex-shrink-0 flex flex-col">
+    <aside className="w-56 bg-black/40 backdrop-blur-sm border-r border-gray-800 overflow-y-auto flex-shrink-0 flex flex-col">
       <div className="flex-1 p-3 space-y-1">
         {/* FEED SECTION */}
-        <div className="mb-3">
-          <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-            <TrendingUp size={12} />
+        <div className="mb-4">
+          <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+            <TrendingUp size={11} />
             Feed
           </div>
           
           <button
             onClick={() => onSectionChange('feed')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
               activeSection === 'feed'
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                ? 'bg-white text-black'
+                : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
             }`}
           >
             <span>Trending Courses</span>
@@ -51,23 +51,23 @@ export default function DashboardSidebar({
         </div>
 
         {/* COURSES SECTION */}
-        <div className="mb-3">
-          <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-            <Code2 size={12} />
+        <div className="mb-4">
+          <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+            <Code2 size={11} />
             Courses
           </div>
           
           <button
             onClick={() => onSectionChange('course-projects')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
               activeSection === 'course-projects'
-                ? 'bg-purple-600 text-white shadow-lg'
-                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                ? 'bg-white text-black'
+                : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
             }`}
           >
             <span>My Courses</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-              activeSection === 'course-projects' ? 'bg-white/20' : 'bg-gray-800'
+            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+              activeSection === 'course-projects' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
             }`}>
               {stats.projects}
             </span>
@@ -75,15 +75,15 @@ export default function DashboardSidebar({
 
           <button
             onClick={() => onSectionChange('course-posts')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
               activeSection === 'course-posts'
-                ? 'bg-purple-600 text-white shadow-lg'
-                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                ? 'bg-white text-black'
+                : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
             }`}
           >
             <span>Shared Courses</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-              activeSection === 'course-posts' ? 'bg-white/20' : 'bg-gray-800'
+            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+              activeSection === 'course-posts' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
             }`}>
               {stats.posts}
             </span>
@@ -91,24 +91,24 @@ export default function DashboardSidebar({
         </div>
 
         {/* SIMULATIONS SECTION */}
-        <div className="mb-3">
-          <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-            <Beaker size={12} />
+        <div className="mb-4">
+          <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+            <Beaker size={11} />
             Simulations
           </div>
           
           {isOwnProfile && (
             <button
               onClick={() => onSectionChange('sim-labs')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                 activeSection === 'sim-labs'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-white text-black'
+                  : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
               }`}
             >
               <span>My Simulations</span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                activeSection === 'sim-labs' ? 'bg-white/20' : 'bg-gray-800'
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                activeSection === 'sim-labs' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
               }`}>
                 {stats.myLabs}
               </span>
@@ -117,15 +117,15 @@ export default function DashboardSidebar({
 
           <button
             onClick={() => onSectionChange('sim-shared')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
               activeSection === 'sim-shared'
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                ? 'bg-white text-black'
+                : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
             }`}
           >
             <span>Shared Simulations</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-              activeSection === 'sim-shared' ? 'bg-white/20' : 'bg-gray-800'
+            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+              activeSection === 'sim-shared' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
             }`}>
               {stats.sharedSimulations}
             </span>
@@ -134,23 +134,23 @@ export default function DashboardSidebar({
 
         {/* SAVED SECTION */}
         {isOwnProfile && (
-          <div className="mb-3">
-            <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-              <Bookmark size={12} />
+          <div className="mb-4">
+            <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+              <Bookmark size={11} />
               Saved
             </div>
             
             <button
               onClick={() => onSectionChange('saved-courses')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                 activeSection === 'saved-courses'
-                  ? 'bg-pink-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-white text-black'
+                  : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
               }`}
             >
               <span>Courses</span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                activeSection === 'saved-courses' ? 'bg-white/20' : 'bg-gray-800'
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                activeSection === 'saved-courses' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
               }`}>
                 {stats.savedCourses}
               </span>
@@ -158,15 +158,15 @@ export default function DashboardSidebar({
 
             <button
               onClick={() => onSectionChange('saved-labs')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                 activeSection === 'saved-labs'
-                  ? 'bg-pink-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-white text-black'
+                  : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
               }`}
             >
               <span>Simulations</span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                activeSection === 'saved-labs' ? 'bg-white/20' : 'bg-gray-800'
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                activeSection === 'saved-labs' ? 'bg-black/10' : 'bg-gray-800 text-gray-500'
               }`}>
                 {stats.savedLabs}
               </span>
@@ -176,18 +176,18 @@ export default function DashboardSidebar({
 
         {/* ACCOUNT SECTION */}
         {isOwnProfile && (
-          <div className="mb-3">
-            <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-              <Crown size={12} />
+          <div className="mb-4">
+            <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+              <Crown size={11} />
               Account
             </div>
             
             <button
               onClick={() => onSectionChange('subscription')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                 activeSection === 'subscription'
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-white text-black'
+                  : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
               }`}
             >
               <span>Subscription</span>
@@ -195,39 +195,37 @@ export default function DashboardSidebar({
 
             <button
               onClick={() => router.push('/edit-profile')}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-gray-400 hover:bg-gray-800 hover:text-white mt-1"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all text-gray-400 hover:bg-gray-800/50 hover:text-white mt-1"
             >
               <span>Edit Profile</span>
-              <Edit size={12} />
+              <Edit size={11} />
             </button>
           </div>
         )}
       </div>
 
-      {/* BOTTOM SECTION: Branding + Logout - ✅ UPDATED */}
+      {/* BOTTOM SECTION: Branding + Logout */}
       <div className="p-3 border-t border-gray-800">
-        <div className="flex items-center justify-between px-2 py-2">
+        <div className="flex items-center justify-between px-2 py-1.5">
           {/* Logo + Brand Name */}
           <div className="flex items-center gap-2">
             <Image 
               src="/logo.png" 
               alt="Garliq" 
-              width={32} 
-              height={32}
+              width={28} 
+              height={28}
             />
-            <span className="text-base font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Garliq
-            </span>
+            <span className="text-sm font-bold">Garliq</span>
           </div>
           
           {/* Logout Icon */}
           {isOwnProfile && (
             <button
               onClick={handleLogout}
-              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors group"
+              className="p-1 hover:bg-gray-800/50 rounded-lg transition-colors group"
               title="Logout"
             >
-              <LogOut size={16} className="text-gray-400 group-hover:text-red-400 transition-colors" />
+              <LogOut size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
             </button>
           )}
         </div>
