@@ -228,17 +228,17 @@ export default function Landing() {
               </span>
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              AI generates complete
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+              AI Agent generates your complete
               <br />
-              courses in{' '}
+              learning stack in{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                3 minutes
+                Just Minutes
               </span>
             </h1>
 
             <p className="text-xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
-              Describe any topic. Get a fully interactive course with embedded videos, graphs, simulations, 
+              Describe any topic. Get a fully interactive coursebook with embedded videos, graphs, simulations, 
               and an AI tutor that answers questions instantly. Built for modern learners who demand more.
             </p>
 
