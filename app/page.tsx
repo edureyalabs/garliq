@@ -238,7 +238,7 @@ export default function Landing() {
             </h1>
 
             <p className="text-xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
-              Describe any topic. Get a fully interactive coursebook with embedded videos, graphs, simulations, 
+              Describe any topic. Get a fully interactive Coursebook with embedded videos, graphs, simulations, 
               and an AI tutor that answers questions instantly. Built for modern learners who demand more.
             </p>
 
@@ -274,6 +274,16 @@ export default function Landing() {
                 $3/month after trial
               </div>
             </div>
+            <div className="mt-4 flex items-center justify-center gap-2 text-sm">
+  <span className="relative flex h-2 w-2">
+    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+  </span>
+  <span className="text-gray-400">Now in Public Beta</span>
+</div>
+
+
+
           </motion.div>
 
 
