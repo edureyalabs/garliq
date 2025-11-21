@@ -119,23 +119,23 @@ export default function CreateSimulationPage() {
 
         {/* Navigation */}
         <nav className="relative z-50 border-b border-gray-900">
-          <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-6 py-1 flex items-center justify-between">
             <button 
               onClick={() => router.back()} 
               className="flex items-center gap-2 hover:opacity-70 transition-opacity"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
               <Image 
                 src="/logo.png" 
                 alt="Garliq" 
-                width={28} 
-                height={28}
+                width={32} 
+                height={32}
               />
-              <span className="text-sm font-bold">Create Simulation</span>
+              <span className="text-base font-bold">Create Simulation</span>
             </button>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/30 backdrop-blur-sm border border-gray-800 rounded-lg">
-              <Zap className="w-3.5 h-3.5 text-yellow-400" />
+            <div className="flex items-center gap-2 px-3 py-1 bg-black/30 backdrop-blur-sm border border-gray-800 rounded-lg">
+              <Zap className="w-4 h-4 text-yellow-400" />
               <span className="text-xs font-bold">{tokenBalance.toLocaleString()}</span>
               <span className="text-xs text-gray-500">tokens</span>
             </div>
@@ -143,49 +143,43 @@ export default function CreateSimulationPage() {
         </nav>
 
         {/* Main Content */}
-        <div className="relative px-6 py-8">
+        <div className="relative px-6 py-2">
           <div className="max-w-7xl mx-auto">
             
-            {/* Hero Section - Compact */}
+            {/* Hero Section - Minimal */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center mb-8"
+              className="text-center mb-3"
             >
-              <div className="inline-block mb-3">
-                <span className="px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-xs font-semibold text-purple-400">
-                  Virtual Lab Generator
-                </span>
-              </div>
-              
-              <h1 className="text-3xl md:text-4xl font-bold mb-2 leading-tight">
+              <h1 className="text-xl md:text-4xl font-bold leading-tight">
                 Create interactive{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                  simulations
+                  Simulations
                 </span>
               </h1>
               
-              <p className="text-sm text-gray-400 max-w-2xl mx-auto">
+              <p className="text-xs text-gray-400 max-w-3xl mx-auto mt-1">
                 Build hands-on learning experiences to explore physics, biology, chemistry, and more
               </p>
             </motion.div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               
               {/* Left Column - Main Input */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-3">
                 
                 {/* Topic Category Selection */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5"
+                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-3"
                 >
-                  <label className="text-xs font-semibold text-gray-400 mb-3 block">
-                    Select Topic Category
+                  <label className="text-xs font-semibold text-gray-400 mb-2 block">
+                    Topic Category
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-wrap gap-2">
                     {TOPIC_CATEGORIES.map((category) => {
                       const Icon = category.icon;
                       const isSelected = selectedCategory === category.id;
@@ -195,18 +189,16 @@ export default function CreateSimulationPage() {
                           key={category.id}
                           onClick={() => setSelectedCategory(category.id)}
                           disabled={creating}
-                          className={`p-3 rounded-lg transition-all border ${
+                          className={`px-3 py-1.5 rounded-lg transition-all border flex items-center gap-1.5 ${
                             isSelected
                               ? 'bg-purple-500/10 border-purple-500/30'
                               : 'bg-black/40 border-gray-800 hover:border-gray-700'
                           }`}
                         >
-                          <div className="flex flex-col items-center gap-1.5">
-                            <Icon className={`w-5 h-5 ${isSelected ? 'text-purple-400' : 'text-gray-400'}`} />
-                            <span className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                              {category.name}
-                            </span>
-                          </div>
+                          <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-purple-400' : 'text-gray-400'}`} />
+                          <span className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                            {category.name}
+                          </span>
                         </button>
                       );
                     })}
@@ -218,18 +210,18 @@ export default function CreateSimulationPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5"
+                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-3"
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <Beaker className="w-4 h-4 text-purple-400" />
-                    <h3 className="text-sm font-bold">Simulation Description</h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Beaker className="w-3.5 h-3.5 text-purple-400" />
+                    <h3 className="text-xs font-bold">Simulation Description</h3>
                   </div>
                   
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="Describe the simulation you want to create. Be specific about what you want to visualize and which parameters should be adjustable. For example: 'Create a pendulum simulator with adjustable length, gravity, and initial angle...'"
-                    className="w-full h-48 bg-black/40 text-sm text-white px-3 py-3 rounded-lg border border-gray-800 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none placeholder:text-gray-600 transition-all"
+                    className="w-full h-32 bg-black/40 text-xs text-white px-3 py-2 rounded-lg border border-gray-800 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none placeholder:text-gray-600 transition-all"
                     disabled={creating}
                     maxLength={5000}
                     onKeyDown={(e) => {
@@ -257,20 +249,20 @@ export default function CreateSimulationPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5"
+                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-3"
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
-                    <h3 className="text-sm font-bold">Example Ideas</h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                    <h3 className="text-xs font-bold">Example Ideas</h3>
                   </div>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {EXAMPLE_PROMPTS.map((example, index) => (
                       <button
                         key={index}
                         onClick={() => setPrompt(example)}
                         disabled={creating}
-                        className="w-full text-left p-3 bg-black/40 hover:bg-black/60 border border-gray-800 hover:border-gray-700 rounded-lg text-xs text-gray-400 hover:text-gray-300 transition-all"
+                        className="w-full text-left p-2.5 bg-black/40 hover:bg-black/60 border border-gray-800 hover:border-gray-700 rounded-lg text-xs text-gray-400 hover:text-gray-300 transition-all"
                       >
                         "{example}"
                       </button>
@@ -286,59 +278,59 @@ export default function CreateSimulationPage() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-5 space-y-5 sticky top-20"
+                  className="bg-black/30 backdrop-blur-sm border border-gray-800 rounded-xl p-3 space-y-3 sticky top-20"
                 >
                   {/* Header */}
                   <div className="flex items-center gap-2">
-                    <Beaker className="w-4 h-4 text-purple-400" />
-                    <h3 className="text-sm font-bold">What You'll Get</h3>
+                    <Beaker className="w-3.5 h-3.5 text-purple-400" />
+                    <h3 className="text-xs font-bold">What You'll Get</h3>
                   </div>
 
                   {/* Features List */}
-                  <div className="space-y-3 text-xs text-gray-400">
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm">🎯</span>
+                  <div className="space-y-2 text-xs text-gray-400">
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs">🎯</span>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-300 mb-0.5">Interactive Controls</p>
-                        <p className="text-xs">Sliders and buttons to adjust parameters in real-time</p>
+                        <p className="font-semibold text-gray-300 mb-0.5 text-xs">Interactive Controls</p>
+                        <p className="text-xs leading-snug">Sliders and buttons to adjust parameters in real-time</p>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm">📊</span>
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs">📊</span>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-300 mb-0.5">Live Statistics</p>
-                        <p className="text-xs">Real-time metrics and data visualization</p>
+                        <p className="font-semibold text-gray-300 mb-0.5 text-xs">Live Statistics</p>
+                        <p className="text-xs leading-snug">Real-time metrics and data visualization</p>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm">🎨</span>
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs">🎨</span>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-300 mb-0.5">Beautiful Design</p>
-                        <p className="text-xs">Professional, clean interface with smooth animations</p>
+                        <p className="font-semibold text-gray-300 mb-0.5 text-xs">Beautiful Design</p>
+                        <p className="text-xs leading-snug">Professional, clean interface with smooth animations</p>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm">🤖</span>
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs">🤖</span>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-300 mb-0.5">AI Lab Assistant</p>
-                        <p className="text-xs">Get instant help understanding the simulation</p>
+                        <p className="font-semibold text-gray-300 mb-0.5 text-xs">AI Lab Assistant</p>
+                        <p className="text-xs leading-snug">Get instant help understanding the simulation</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Token Cost */}
-                  <div className="pt-3 border-t border-gray-800">
+                  <div className="pt-2 border-t border-gray-800">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-400">Minimum Required</span>
                       <div className="flex items-center gap-1.5">
@@ -355,7 +347,7 @@ export default function CreateSimulationPage() {
                     disabled={!prompt.trim() || creating}
                     whileHover={!creating && prompt.trim() ? { scale: 1.02 } : {}}
                     whileTap={!creating && prompt.trim() ? { scale: 0.98 } : {}}
-                    className="w-full py-3 bg-white text-black rounded-lg font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 bg-white text-black rounded-lg font-semibold text-xs flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {creating ? (
                       <>
