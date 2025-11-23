@@ -202,7 +202,7 @@ export default function Landing() {
           <div className="flex items-center gap-4">
             <Link href="/auth">
               <button className="px-5 py-2 bg-white text-black rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors">
-                Start Free Trial
+                LogIn/SignUp
               </button>
             </Link>
           </div>
@@ -560,7 +560,7 @@ export default function Landing() {
                 </Link>
 
                 <p className="text-center text-sm text-gray-500 mt-4">
-                  No credit card required • Cancel anytime
+                  Flexible Pricing • Learn Unlimited
                 </p>
               </div>
 
