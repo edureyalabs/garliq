@@ -17,12 +17,11 @@ import {
   Plus, 
   Crown, 
   Clock, 
-  Beaker, 
+  FlaskConical, 
   RotateCcw, 
   Loader2,
   TrendingUp,
-  LogOut,
-  FlaskConical
+  LogOut
 } from 'lucide-react';
 import Link from 'next/link';
 import TokenPurchaseModal from '@/components/TokenPurchaseModal';
@@ -119,7 +118,7 @@ interface SubscriptionStatus {
   days_remaining: number;
 }
 
-type ActiveSection = 'feed' | 'course-posts' | 'course-projects' | 'sim-shared' | 'sim-labs' | 'saved-courses' | 'saved-labs' | 'subscription';
+type ActiveSection = 'feed' | 'sim-trending' | 'course-posts' | 'course-projects' | 'sim-shared' | 'sim-labs' | 'saved-courses' | 'saved-labs' | 'subscription';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -139,6 +138,7 @@ export default function ProfilePage() {
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [sharedSimulations, setSharedSimulations] = useState<SimulationPost[]>([]);
+  const [trendingSimulations, setTrendingSimulations] = useState<SimulationPost[]>([]);
   const [savedSimulations, setSavedSimulations] = useState<SimulationPost[]>([]);
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
 
@@ -226,6 +226,7 @@ export default function ProfilePage() {
     setSavedPosts([]);
     setSimulations([]);
     setSharedSimulations([]);
+    setTrendingSimulations([]);
     setSavedSimulations([]);
     setFeedPosts([]);
     setPage(0);
@@ -238,6 +239,9 @@ export default function ProfilePage() {
     switch(activeSection) {
       case 'feed':
         fetchFeedPosts(0);
+        break;
+      case 'sim-trending':
+        fetchTrendingSimulations(0);
         break;
       case 'course-posts':
         fetchUserPosts(0);
@@ -263,7 +267,6 @@ export default function ProfilePage() {
         break;
     }
   };
-
   // User Authentication Check
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -383,7 +386,8 @@ export default function ProfilePage() {
 
     if (data) setProfile(data);
   };
-  // Feed Posts Fetch (Trending)
+
+  // Feed Posts Fetch (Trending Courses)
   const fetchFeedPosts = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
@@ -470,6 +474,77 @@ export default function ProfilePage() {
     setLoadingMore(false);
   };
 
+  // Trending Simulations Fetch (NEW - Universal Feed)
+  const fetchTrendingSimulations = async (pageNum: number) => {
+    const from = pageNum * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    const { data, error, count } = await supabase
+      .from('simulation_posts')
+      .select('*', { count: 'exact' })
+      .eq('status', 'APPROVED')
+      .order('likes_count', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('Fetch trending simulations error:', error);
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
+
+    if (data) {
+      const userIds = [...new Set(data.map(p => p.user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', userIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      let postsWithInteractions = data.map(post => ({
+        ...post,
+        likes_count: post.likes_count ?? 0,
+        comments_count: post.comments_count ?? 0,
+        profiles: profilesMap.get(post.user_id)
+      }));
+
+      if (session) {
+        postsWithInteractions = await Promise.all(
+          postsWithInteractions.map(async (post) => {
+            const [likeData, saveData] = await Promise.all([
+              supabase.from('simulation_likes').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
+              supabase.from('simulation_saves').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+            ]);
+
+            return { 
+              ...post, 
+              is_liked: !!likeData.data,
+              is_saved: !!saveData.data 
+            };
+          })
+        );
+      }
+
+      if (pageNum === 0) {
+        setTrendingSimulations(postsWithInteractions);
+      } else {
+        setTrendingSimulations(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPosts = postsWithInteractions.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPosts];
+        });
+      }
+
+      setHasMore(data.length === ITEMS_PER_PAGE && (count || 0) > to + 1);
+    }
+    
+    setLoading(false);
+    setLoadingMore(false);
+  };
+
   // User Posts Fetch
   const fetchUserPosts = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
@@ -544,7 +619,6 @@ export default function ProfilePage() {
     setLoading(false);
     setLoadingMore(false);
   };
-
   // User Projects Fetch
   const fetchUserProjects = async (pageNum: number) => {
     const from = pageNum * ITEMS_PER_PAGE;
@@ -865,6 +939,9 @@ export default function ProfilePage() {
         case 'feed':
           fetchFeedPosts(nextPage);
           break;
+        case 'sim-trending':
+          fetchTrendingSimulations(nextPage);
+          break;
         case 'course-posts':
           fetchUserPosts(nextPage);
           break;
@@ -969,6 +1046,7 @@ export default function ProfilePage() {
           } : post;
 
         setSharedSimulations(prevPosts => prevPosts.map(updatePost));
+        setTrendingSimulations(prevPosts => prevPosts.map(updatePost));
         setSavedSimulations(prevPosts => prevPosts.map(updatePost));
       }
     } catch (error: any) {
@@ -1015,6 +1093,7 @@ export default function ProfilePage() {
       post.id === postId ? { ...post, is_saved: !isSaved } : post;
 
     setSharedSimulations(prevPosts => prevPosts.map(updatePost));
+    setTrendingSimulations(prevPosts => prevPosts.map(updatePost));
     setSavedSimulations(prevPosts => prevPosts.map(updatePost));
 
     try {
@@ -1026,6 +1105,9 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Save simulation error:', error);
       setSharedSimulations(prevPosts => prevPosts.map(post => 
+        post.id === postId ? { ...post, is_saved: isSaved } : post
+      ));
+      setTrendingSimulations(prevPosts => prevPosts.map(post => 
         post.id === postId ? { ...post, is_saved: isSaved } : post
       ));
       setSavedSimulations(prevPosts => prevPosts.map(post => 
@@ -1283,6 +1365,7 @@ export default function ProfilePage() {
   const getCurrentDisplayItems = () => {
     switch(activeSection) {
       case 'feed': return feedPosts;
+      case 'sim-trending': return trendingSimulations;
       case 'course-posts': return posts;
       case 'course-projects': return projects;
       case 'sim-shared': return sharedSimulations;
@@ -1408,7 +1491,7 @@ export default function ProfilePage() {
                 whileTap={{ scale: 0.95 }}
                 className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg"
               >
-                <Beaker size={14} />
+                <FlaskConical size={14} />
                 Simulation
               </motion.button>
             </Link>
@@ -1422,23 +1505,34 @@ export default function ProfilePage() {
         <aside className="w-56 bg-black/40 backdrop-blur-sm border-r border-gray-800 overflow-y-auto flex-shrink-0 flex flex-col">
           <div className="flex-1 p-3 space-y-1">
             {/* FEED SECTION */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                <TrendingUp size={11} />
-                Feed
-              </div>
-              
-              <button
-                onClick={() => setActiveSection('feed')}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeSection === 'feed'
-                    ? 'bg-white text-black'
-                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
-                }`}
-              >
-                <span>Trending Courses</span>
-              </button>
-            </div>
+<div className="mb-4">
+  <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+    <TrendingUp size={11} />
+    Feed
+  </div>
+  
+  <button
+    onClick={() => setActiveSection('feed')}
+    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+      activeSection === 'feed'
+        ? 'bg-white text-black'
+        : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
+    }`}
+  >
+    <span>Trending Courses</span>
+  </button>
+
+  <button
+    onClick={() => setActiveSection('sim-trending')}
+    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all mt-2 ${
+      activeSection === 'sim-trending'
+        ? 'bg-white text-black'
+        : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
+    }`}
+  >
+    <span>Trending Simulations</span>
+  </button>
+</div>
 
             {/* COURSES SECTION */}
             <div className="mb-4">
@@ -1483,7 +1577,7 @@ export default function ProfilePage() {
             {/* SIMULATIONS SECTION */}
             <div className="mb-4">
               <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                <Beaker size={11} />
+                <FlaskConical size={11} />
                 Simulations
               </div>
               
@@ -1709,7 +1803,8 @@ export default function ProfilePage() {
                   />
                 </div>
                 <h2 className="text-2xl font-bold mb-3">
-                  {activeSection === 'feed' && 'No Trending Posts'}
+                  {activeSection === 'feed' && 'No Trending Courses'}
+                  {activeSection === 'sim-trending' && 'No Trending Simulations'}
                   {activeSection === 'course-posts' && 'No Posts Yet'}
                   {activeSection === 'course-projects' && 'No Projects Yet'}
                   {activeSection === 'sim-shared' && 'No Shared Simulations'}
@@ -1719,13 +1814,14 @@ export default function ProfilePage() {
                 </h2>
                 <p className="text-gray-400 mb-8 text-sm">
                   {activeSection === 'feed' && 'Check back later for trending content'}
+                  {activeSection === 'sim-trending' && 'Check back later for trending simulations'}
                   {activeSection === 'course-posts' && 'Share your first creation'}
                   {activeSection === 'course-projects' && 'Start building something'}
                   {activeSection === 'sim-shared' && 'Publish your first lab'}
                   {activeSection === 'sim-labs' && 'Create your first simulation'}
                   {(activeSection === 'saved-courses' || activeSection === 'saved-labs') && 'Start saving content you love'}
                 </p>
-                {isOwnProfile && !activeSection.startsWith('saved') && activeSection !== 'feed' && (
+                {isOwnProfile && !activeSection.startsWith('saved') && activeSection !== 'feed' && activeSection !== 'sim-trending' && (
                   <div className="flex items-center justify-center gap-3">
                     {activeSection.startsWith('course') && (
                       <Link href="/create">
@@ -1748,7 +1844,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* ========== REDESIGNED CONTENT GRID ========== */}
+            {/* CONTENT GRID - Will continue in next message due to length */}
             {activeSection !== 'subscription' && displayItems.length > 0 && (
               <>
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
@@ -1882,6 +1978,122 @@ export default function ProfilePage() {
                     </motion.div>
                   ))}
 
+                  {/* ========== TRENDING SIMULATIONS CARDS (NEW) ========== */}
+                  {activeSection === 'sim-trending' && trendingSimulations.map((sim, index) => (
+                    <motion.div
+                      key={`${sim.id}-${index}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index % 12, 11) * 0.03 }}
+                      className="group relative bg-black/40 backdrop-blur-sm border border-gray-800/50 rounded-xl overflow-hidden hover:border-cyan-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10"
+                    >
+                      {/* Preview */}
+                      <Link href={`/simulation/${sim.id}`}>
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer">
+                          <div className="absolute inset-0">
+                            {renderSimulationPreviewIframe(sim.html_code)}
+                          </div>
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                          
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-12 h-12 rounded-full bg-cyan-400/90 backdrop-blur-sm flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                              <FlaskConical size={18} className="text-black" />
+                            </div>
+                          </div>
+
+                          {/* Author Info Overlay - Top Left */}
+                          <div className="absolute top-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(`/profiles/${sim.user_id}`);
+                              }}
+                              className="flex items-center gap-2 bg-black/70 backdrop-blur-md rounded-full px-2.5 py-1.5 hover:bg-black/80 transition-colors cursor-pointer"
+                            >
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                                {sim.profiles?.avatar_url ? (
+                                  <img 
+                                    src={sim.profiles.avatar_url} 
+                                    alt={sim.profiles.display_name || 'User'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{sim.profiles?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                                )}
+                              </div>
+                              <span className="text-xs font-semibold text-white pr-1">{sim.profiles?.display_name || 'Anonymous'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+
+                      {/* Card Content */}
+                      <div className="p-3.5">
+                        <Link href={`/simulation/${sim.id}`}>
+                          <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 mb-2 hover:text-cyan-400 transition-colors cursor-pointer">
+                            {sim.caption}
+                          </h3>
+                        </Link>
+
+                        <div className="flex items-center justify-between pt-2.5 border-t border-gray-800/50">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLikeSimulation(sim.id, sim.is_liked || false);
+                              }}
+                              className="flex items-center gap-1.5 hover:scale-105 transition-transform group/like"
+                            >
+                              {sim.is_liked ? (
+                                <Image 
+                                  src="/logo.png" 
+                                  alt="Liked" 
+                                  width={16} 
+                                  height={16}
+                                />
+                              ) : (
+                                <Heart size={16} className="text-gray-500 group-hover/like:text-cyan-400 transition-colors" />
+                              )}
+                              <span className="text-[11px] font-semibold text-gray-400 group-hover/like:text-gray-300">{sim.likes_count || 0}</span>
+                            </button>
+
+                            <div className="flex items-center gap-1.5 text-gray-500">
+                              <Clock size={12} />
+                              <span className="text-[11px] font-medium">{getTimeAgo(sim.created_at)}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveSimulation(sim.id, sim.is_saved || false);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/save"
+                            >
+                              <Bookmark 
+                                size={14} 
+                                className={sim.is_saved ? 'fill-cyan-400 text-cyan-400' : 'text-gray-500 group-hover/save:text-cyan-400 transition-colors'} 
+                              />
+                            </button>
+
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareSimulation(sim);
+                              }}
+                              className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors group/share"
+                            >
+                              <Share2 size={14} className="text-gray-500 group-hover/share:text-cyan-400 transition-colors" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+
                   {/* ========== COURSE POSTS CARDS ========== */}
                   {activeSection === 'course-posts' && posts.map((post, index) => (
                     <motion.div
@@ -1990,7 +2202,6 @@ export default function ProfilePage() {
                       </div>
                     </motion.div>
                   ))}
-
                   {/* ========== COURSE PROJECTS CARDS ========== */}
                   {activeSection === 'course-projects' && projects.map((project, index) => (
                     <motion.div
@@ -2297,7 +2508,6 @@ export default function ProfilePage() {
                       </div>
                     </motion.div>
                   ))}
-
                   {/* ========== SAVED COURSES CARDS ========== */}
                   {activeSection === 'saved-courses' && savedPosts.map((post, index) => (
                     <motion.div
