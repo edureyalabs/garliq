@@ -264,17 +264,24 @@ export default function SimulationStudioPage() {
                 {simulation.generation_status === 'failed' && '❌ Failed'}
               </div>
 
-              {/* Share Button */}
+              {/* Share Button - Changes to "Shared" when published */}
               {simulation.generation_status === 'completed' && (
-                <motion.button
-                  onClick={() => setShowShareModal(true)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
-                >
-                  <Share2 size={14} />
-                  Share
-                </motion.button>
+                simulation.is_published ? (
+                  <div className="bg-blue-500/20 border border-blue-500/30 text-blue-400 px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                    <CheckCircle size={14} />
+                    Shared
+                  </div>
+                ) : (
+                  <motion.button
+                    onClick={() => setShowShareModal(true)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
+                  >
+                    <Share2 size={14} />
+                    Share
+                  </motion.button>
+                )
               )}
             </div>
           </div>
