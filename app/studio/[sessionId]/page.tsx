@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Send, Loader2, Share2, X, Eye, Zap, Save, 
   RefreshCw, CheckCircle, AlertCircle, RotateCcw, Sparkles, 
-  BookOpen, FileText, ChevronRight, ChevronLeft 
+  BookOpen, FileText, ChevronRight, ChevronLeft, AlertTriangle 
 } from 'lucide-react';
 import Image from 'next/image';
 import SubscriptionGuard from '@/components/SubscriptionGuard';
@@ -131,7 +131,7 @@ export default function StudioPage() {
     scrollToBottom();
   }, [messages]);
 
-  // 🔥 NEW: Poll progress bar during generation
+  // 🔥 Poll progress bar during generation
   useEffect(() => {
     if (session?.generation_status === 'generating' || session?.generation_status === 'pending') {
       const interval = setInterval(async () => {
@@ -300,13 +300,12 @@ export default function StudioPage() {
         (payload) => {
           const updatedProject = payload.new as Project;
           
-          // 🔥 FIX: Directly update progress state from database trigger
           const newProgress = {
             expected: updatedProject.expected_pages,
             completed: updatedProject.completed_pages,
             failed: updatedProject.failed_pages,
             pending: updatedProject.expected_pages - updatedProject.completed_pages - updatedProject.failed_pages,
-            generating: 0, // Will be calculated from pages
+            generating: 0,
             percentage: updatedProject.expected_pages > 0 
               ? Math.round((updatedProject.completed_pages / updatedProject.expected_pages) * 100)
               : 0
@@ -334,7 +333,6 @@ export default function StudioPage() {
       if (data) {
         setProject(data);
         
-        // 🔥 FIX: Initialize progress state from project data
         setGenerationProgress({
           expected: data.expected_pages || 0,
           completed: data.completed_pages || 0,
@@ -362,7 +360,6 @@ export default function StudioPage() {
       if (data) {
         setPages(data);
         
-        // Calculate generating count from actual page statuses
         const generatingCount = data.filter(p => p.generation_status === 'generating').length;
         setGenerationProgress(prev => ({ ...prev, generating: generatingCount }));
       }
@@ -661,6 +658,15 @@ export default function StudioPage() {
     }
   };
 
+  // 🔥 NEW: Determine if we should show "Retry All" button
+  const showFullRetryButton = session?.generation_status === 'failed' && generationProgress.completed === 0;
+
+  // 🔥 NEW: Determine if we should show partial completion message
+  const showPartialMessage = session?.generation_status === 'partial';
+
+  // 🔥 NEW: Can share if completed OR partial (with warning)
+  const canShare = session?.generation_status === 'completed';
+
   if (initialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -689,7 +695,7 @@ export default function StudioPage() {
   return (
     <SubscriptionGuard requireActive={true}>
       <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
-        {/* Top Bar - Cleaner & More Compact */}
+        {/* Top Bar */}
         <div className="bg-black/80 backdrop-blur-xl border-b border-gray-800 flex-shrink-0">
           <div className="px-4 py-2.5 flex items-center justify-between">
             <button 
@@ -730,7 +736,7 @@ export default function StudioPage() {
                 </span>
               </div>
 
-              {/* Token Balance (only if Claude) */}
+              {/* Token Balance */}
               {session.selected_model === 'claude-sonnet-4.5' && (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 rounded-full border border-gray-800">
                   <Zap size={14} className="text-yellow-400" />
@@ -769,9 +775,9 @@ export default function StudioPage() {
               ) : (
                 <motion.button
                   onClick={() => setShowPublishModal(true)}
-                  disabled={!project || session.generation_status !== 'completed' || loading}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  disabled={!canShare || !project || loading}
+                  whileHover={canShare ? { scale: 1.05 } : {}}
+                  whileTap={canShare ? { scale: 0.95 } : {}}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 disabled:opacity-30"
                 >
                   <Share2 size={14} />
@@ -981,7 +987,7 @@ export default function StudioPage() {
             </div>
           </div>
 
-          {/* Right - Chat (15%) */}
+          {/* Right - Chat (20%) */}
           <div className="w-[20%] border-l border-gray-800 flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
               {showInsufficientTokens && (
@@ -998,7 +1004,8 @@ export default function StudioPage() {
                 </motion.div>
               )}
 
-              {session.generation_status === 'failed' && session.generation_error && (
+              {/* 🔥 NEW: Total Failure UI (all pages failed) */}
+              {showFullRetryButton && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1023,7 +1030,7 @@ export default function StudioPage() {
                       className="w-full mt-2 bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                     >
                       <RotateCcw size={12} />
-                      Retry
+                      Retry All Pages
                     </motion.button>
                     
                     {session.retry_count > 0 && (
@@ -1032,18 +1039,54 @@ export default function StudioPage() {
                       </p>
                     )}
                   </div>
+                </motion.div>
+              )}
 
-                  <div className="bg-gradient-to-r from-yellow-900/30 via-orange-900/30 to-yellow-900/30 border border-yellow-700/40 rounded-xl p-3">
-                    <div className="flex items-start gap-2">
-                      <Sparkles size={12} className="text-yellow-400 mt-0.5" />
+              {/* 🔥 NEW: Partial Completion UI */}
+              {showPartialMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-2"
+                >
+                  <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+                    <div className="flex items-start gap-2 mb-2">
+                      <AlertTriangle size={16} className="text-orange-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-xs text-gray-300 leading-relaxed mb-1">
-                          <span className="font-semibold text-yellow-300">Beta Mode!</span> Some generations fail.
+                        <p className="text-orange-400 font-bold text-xs mb-1">⚠️ Generation Partially Complete</p>
+                        <p className="text-gray-300 text-xs leading-relaxed mb-2">
+                          {generationProgress.completed}/{generationProgress.expected} pages completed successfully.
                         </p>
-                        <p className="text-xs text-gray-400">
-                          Try retrying or <a href="mailto:team@parasync.in" className="text-purple-400 underline">contact us</a>
+                        <p className="text-gray-400 text-xs leading-relaxed">
+                          Please use the regenerate button (🔄) on individual failed pages to complete your course.
                         </p>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Helper message about sharing */}
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                    <p className="text-xs text-blue-300 leading-relaxed">
+                      💡 <span className="font-semibold">Tip:</span> Once all pages are regenerated successfully, you'll be able to share your course!
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* 🔥 NEW: Completed UI */}
+              {session.generation_status === 'completed' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl"
+                >
+                  <div className="flex items-start gap-2">
+                    <CheckCircle size={16} className="text-green-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-green-400 font-bold text-xs mb-1">✅ All Pages Generated!</p>
+                      <p className="text-gray-300 text-xs leading-relaxed">
+                        Your course is ready with all {generationProgress.expected} pages. You can now share it!
+                      </p>
                     </div>
                   </div>
                 </motion.div>
