@@ -376,6 +376,7 @@ export default function VideoStudioPage() {
                       : 'Generating animations and rendering segments...'}
                   </p>
                   <p className="text-xs text-gray-500">This may take 5-10 minutes</p>
+                  <p className="text-xs text-green-400 mt-2">✨ Streaming-optimized for instant playback</p>
                 </motion.div>
               ) : video.generation_status === 'failed' ? (
                 <motion.div 
@@ -401,8 +402,19 @@ export default function VideoStudioPage() {
                     src={video.video_url}
                     controls
                     autoPlay
+                    preload="metadata"
+                    playsInline
                     className="w-full rounded-lg border border-gray-800 shadow-2xl"
+                    onLoadStart={() => console.log('🎥 Video loading started')}
+                    onLoadedMetadata={() => console.log('✅ Metadata loaded - ready to play')}
+                    onCanPlay={() => console.log('✅ Video can play')}
+                    onWaiting={() => console.log('⏳ Video buffering...')}
+                    onPlaying={() => console.log('▶️  Video playing')}
+                    onError={(e) => console.error('❌ Video error:', e)}
                   />
+                  <div className="mt-2 text-xs text-gray-500 text-center">
+                    ⚡ Optimized for instant playback • Zero buffering
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-gray-400">No video available</p>

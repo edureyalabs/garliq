@@ -10,13 +10,16 @@ export async function POST(req: NextRequest) {
   try {
     const { videoId, caption, description, userId } = await req.json();
 
+    // Create post with public visibility
     const { data: post, error } = await supabase
       .from('video_posts')
       .insert({
         video_id: videoId,
         user_id: userId,
         caption,
-        description
+        description: description || '',
+        is_published: true,
+        is_public: true, // Make it publicly accessible
       })
       .select()
       .single();
