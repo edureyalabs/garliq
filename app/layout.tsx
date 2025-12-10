@@ -6,8 +6,8 @@ import Script from "next/script";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Garliq - Vibe Coding Social",
-  description: "The first social platform for vibe coding",
+  title: "GarliQ - Vibe Learning Social",
+  description: "Next Gen Learning Infrastructure",
 };
 
 export default function RootLayout({

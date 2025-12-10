@@ -189,8 +189,8 @@ export default function Landing() {
       <nav className="relative z-50 border-b border-gray-900">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Garliq" width={40} height={40} />
-            <span className="text-xl font-bold">Garliq</span>
+            <Image src="/logo.png" alt="GarliQ" width={40} height={40} />
+            <span className="text-xl font-bold">GarliQ</span>
           </Link>
           
           <div className="hidden md:flex items-center gap-8 text-sm">
@@ -645,9 +645,9 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
             <div className="flex items-center gap-3">
-              <Image src="/logo.png" alt="Garliq" width={40} height={40} />
+              <Image src="/logo.png" alt="GarliQ" width={40} height={40} />
               <div>
-                <p className="font-bold">Garliq</p>
+                <p className="font-bold">GarliQ</p>
                 <p className="text-sm text-gray-600">AI-powered learning infrastructure</p>
               </div>
             </div>
@@ -700,7 +700,7 @@ export default function Landing() {
           </div>
 
           <div className="mt-8 pt-8 border-t border-gray-900 text-center text-sm text-gray-600">
-            <p>© 2025 Garliq by Parasync Technologies. All rights reserved.</p>
+            <p>© 2025 GarliQ by Parasync Technologies. All rights reserved.</p>
           </div>
         </div>
       </footer>

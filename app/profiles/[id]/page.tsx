@@ -1123,7 +1123,7 @@ export default function ProfilePage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${post.caption} | Garliq`,
+          title: `${post.caption} | GarliQ`,
           url: shareUrl
         });
       } catch {}
@@ -1140,7 +1140,7 @@ export default function ProfilePage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${post.caption} | Garliq Lab`,
+          title: `${post.caption} | GarliQ Lab`,
           url: shareUrl
         });
       } catch {}
@@ -1693,11 +1693,11 @@ export default function ProfilePage() {
               <div className="flex items-center gap-2">
                 <Image 
                   src="/logo.png" 
-                  alt="Garliq" 
+                  alt="GarliQ" 
                   width={24} 
                   height={24}
                 />
-                <span className="text-sm font-bold">Garliq</span>
+                <span className="text-sm font-bold">GarliQ</span>
               </div>
               
               {isOwnProfile && (
@@ -1797,7 +1797,7 @@ export default function ProfilePage() {
                 <div className="mb-6 flex justify-center">
                   <Image 
                     src="/logo.png" 
-                    alt="Garliq" 
+                    alt="GarliQ" 
                     width={80} 
                     height={80}
                   />

@@ -49,7 +49,7 @@ function AuthContent() {
         >
           <Image 
             src="/logo.png" 
-            alt="Garliq" 
+            alt="GarliQ" 
             width={60} 
             height={60}
           />
@@ -91,7 +91,7 @@ function AuthContent() {
             >
               <Image 
                 src="/logo.png" 
-                alt="Garliq" 
+                alt="GarliQ" 
                 width={40} 
                 height={40}
                 className="drop-shadow-2xl"
@@ -104,7 +104,7 @@ function AuthContent() {
               transition={{ delay: 0.3, duration: 0.5 }}
             >
               <h1 className="text-2xl font-bold mb-1">
-                Welcome to Garliq
+                Welcome to GarliQ
               </h1>
               <p className="text-gray-400 text-xs">
                 Start your AI-powered learning journey
@@ -254,7 +254,7 @@ export default function AuthPage() {
         >
           <Image 
             src="/logo.png" 
-            alt="Garliq" 
+            alt="GarliQ" 
             width={60} 
             height={60}
           />
